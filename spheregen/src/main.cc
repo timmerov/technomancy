@@ -7,11 +7,6 @@ generate a sphere obj file.
 divide a cube into a specified array of squares.
 project each new vertex to the surface of the sphere.
 
-some segments will be longer than others as measured
-by the great circle.
-but not much.
-so oh well.
-
 i've chose to order the six faces thusly:
 y is up: +z, +x, -z
 z is up: +y, -x, -y
@@ -20,6 +15,29 @@ but this "baseball" configuration means the first three
 faces are contiguous in texture space.
 i'm imagining they are the top row of a 3x2 texture.
 the last three faces are similarly contiguous.
+
+we don't divide the cube edge evenly.
+the points get projected out to the surface of the sphere.
+faces near the middle of the edge will stretch more.
+noticably more.
+so divide the edge into segments of equal angle.
+
+we divide each cube face into a number of quads.
+we subdivide the quads into two triangles.
+we have a choice.
+the new edge can point towards the center of the cube face.
+or it can be perpendicular.
+the perpendicular case makes the sphere not round.
+so when writing faces we must be careful to choose correctly.
+the quad is a bit squished.
+the perpendicular axis is longer (and hence lower) than
+the parallel axis.
+
+to do...
+- write to file.
+- command line argument for number of segments.
+- texture coordinates.
+- normals?
 **/
 
 #include <aggiornamento/aggiornamento.h>
@@ -29,7 +47,7 @@ the last three faces are similarly contiguous.
 
 
 namespace {
-    const int kNumSegmentsInt = 8;
+    const int kNumSegmentsInt = 7;
     const double kNumSegments = kNumSegmentsInt;
     const int kVerticesPerFace = (kNumSegmentsInt+1)*(kNumSegmentsInt+1) - 4;
 
@@ -69,6 +87,8 @@ namespace {
         {3, 2, 7, 6}
     };
 
+    double g_weights[kNumSegmentsInt+1];
+
     void writeHeader() throw() {
         LOG("g sphere");
     }
@@ -87,6 +107,17 @@ namespace {
         }
     }
 
+    void initWeights() throw() {
+        auto pi = std::acos(-1);
+        g_weights[0] = 1.0f;
+        for (auto i = 1; i < kNumSegmentsInt; ++i) {
+            auto a = pi*double(i)/kNumSegments/2.0 - pi/4.0;
+            g_weights[i] = (1.0 - tan(a))/2.0;
+            //LOG("alpha=" << a << " weight[" << i << "]=" << g_weights[i]);
+        }
+        g_weights[kNumSegmentsInt] = 0.0f;
+    }
+
     void createVertices(
         int face
     ) throw() {
@@ -101,9 +132,9 @@ namespace {
         //LOG("tr={" << tr.x_ << "," << tr.y_ << "," << tr.z_ << "}");
         //LOG("bl={" << bl.x_ << "," << bl.y_ << "," << bl.z_ << "}");
         //LOG("br={" << br.x_ << "," << br.y_ << "," << br.z_ << "}");
-        for (auto y = 0; y <= kNumSegments; ++y) {
-            auto tf = double(kNumSegments-y) / kNumSegments;
-            auto bf = double(y) / kNumSegments;
+        for (auto y = 0; y <= kNumSegmentsInt; ++y) {
+            auto tf = g_weights[y];
+            auto bf = 1.0 - tf;
             Vector3 l;
             l.x_ = tl.x_*tf + bl.x_*bf;
             l.y_ = tl.y_*tf + bl.y_*bf;
@@ -112,9 +143,9 @@ namespace {
             r.x_ = tr.x_*tf + br.x_*bf;
             r.y_ = tr.y_*tf + br.y_*bf;
             r.z_ = tr.z_*tf + br.z_*bf;
-            for (auto x = 0; x <= kNumSegments; ++x) {
-                auto lf = double(kNumSegments-x) / kNumSegments;
-                auto rf = double(x) / kNumSegments;
+            for (auto x = 0; x <= kNumSegmentsInt; ++x) {
+                auto lf = g_weights[x];
+                auto rf = 1.0 - lf;
                 Vector3 v;
                 v.x_ = l.x_*lf + r.x_*rf;
                 v.y_ = l.y_*lf + r.y_*rf;
@@ -124,8 +155,8 @@ namespace {
                 v.x_ *= den;
                 v.y_ *= den;
                 v.z_ *= den;
-                if ((x != 0 && x != kNumSegments)
-                ||  (y != 0 && y != kNumSegments)) {
+                if ((x != 0 && x != kNumSegmentsInt)
+                ||  (y != 0 && y != kNumSegmentsInt)) {
                     LOG("v " << v.x_ << " " << v.y_ << " " << v.z_);
                     ++idx;
                 }
@@ -150,10 +181,10 @@ namespace {
         table[0][kNumSegmentsInt] = cf.tr_;
         table[kNumSegmentsInt][0] = cf.bl_;
         table[kNumSegmentsInt][kNumSegmentsInt] = cf.br_;
-        for (auto y = 0; y <= kNumSegments; ++y) {
-            for (auto x = 0; x <= kNumSegments; ++x) {
-                if ((x != 0 && x != kNumSegments)
-                ||  (y != 0 && y != kNumSegments)) {
+        for (auto y = 0; y <= kNumSegmentsInt; ++y) {
+            for (auto x = 0; x <= kNumSegmentsInt; ++x) {
+                if ((x != 0 && x != kNumSegmentsInt)
+                ||  (y != 0 && y != kNumSegmentsInt)) {
                     table[y][x] = idx;
                     ++idx;
                 }
@@ -166,10 +197,18 @@ namespace {
         }
 
         // write faces from the table
-        for (auto y = 0; y < kNumSegments; ++y) {
-            for (auto x = 0; x < kNumSegments; ++x) {
-                LOG("f " << table[y][x] << " " << table[y+1][x] << " " << table[y][x+1]);
-                LOG("f " << table[y][x+1] << " " << table[y+1][x] << " " << table[y+1][x+1]);
+        // subdivide faces so the crease goes towards the center of the cube face.
+        // otherwise they sphere is less round.
+        for (auto y = 0; y < kNumSegmentsInt; ++y) {
+            for (auto x = 0; x < kNumSegmentsInt; ++x) {
+                auto quad = (y - kNumSegmentsInt/2)*(x - kNumSegmentsInt/2);
+                if (quad <= 0) {
+                    LOG("f " << table[y][x] << " " << table[y+1][x] << " " << table[y][x+1]);
+                    LOG("f " << table[y][x+1] << " " << table[y+1][x] << " " << table[y+1][x+1]);
+                } else {
+                    LOG("f " << table[y][x] << " " << table[y+1][x] << " " << table[y+1][x+1]);
+                    LOG("f " << table[y][x+1] << " " << table[y][x] << " " << table[y+1][x+1]);
+                }
             }
         }
     }
@@ -191,6 +230,7 @@ int main(
 
     writeHeader();
     writeCubeCorners();
+    initWeights();
     createAllVertices();
     createAllFaces();
 
