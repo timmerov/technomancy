@@ -40,6 +40,7 @@ to do...
 **/
 
 #include <aggiornamento/aggiornamento.h>
+#include <aggiornamento/cmd_line.h>
 #include <aggiornamento/log.h>
 
 #include <cmath>
@@ -47,11 +48,9 @@ to do...
 
 
 namespace {
-    const char kFilename[] = "sphere.obj";
+    const char kDefaultFilename[] = "sphere.obj";
 
-    const int kNumSegmentsInt = 3;
-    const double kNumSegments = kNumSegmentsInt;
-    const int kVerticesPerFace = (kNumSegmentsInt+1)*(kNumSegmentsInt+1) - 4;
+    const int kDefaultNumSegments = 3;
 
     class Vector3 {
     public:
@@ -95,13 +94,82 @@ namespace {
 
         ~SphereGen() throw() {
             file_.close();
+            delete[] weights_;
         }
 
+        int num_segments_ = kDefaultNumSegments;
+        int vertices_per_face_ = 0;
+        const char *filename_ = kDefaultFilename;
         std::fstream file_;
-        double weights_[kNumSegmentsInt+1];
+        double *weights_ = nullptr;
+
+        void run(
+            int argc,
+            char *argv[]
+        ) throw() {
+            bool result = parseOptions(argc, argv);
+            if (result == false) {
+                return;
+            }
+
+            vertices_per_face_ = (num_segments_ + 1)*(num_segments_ + 1) - 4;
+            weights_ = new double[num_segments_+1];
+
+            openFile();
+            writeHeader();
+            writeCubeCorners();
+            initWeights();
+            createAllVertices();
+            createAllFaces();
+        }
+
+        bool parseOptions(
+            int argc,
+            char *argv[]
+        ) throw() {
+            bool result = true;
+
+            agm::CmdLineOptions::LongFormat cmd_line_options[] = {
+                {"help",         '?'},
+                {"num-segments", 'n'},
+                {"output-file",  'o'},
+                {nullptr, 0}
+            };
+            agm::CmdLineOptions clo(argc, argv, "?n:o:", cmd_line_options);
+            while (clo.get()) {
+                switch (clo.option_) {
+                case '?':
+                    showHelp();
+                    break;
+
+                case 'n':
+                    num_segments_ = std::atoi(clo.value_);
+                    break;
+
+                case 'o':
+                    filename_ = clo.value_;
+                    break;
+                }
+            }
+            if (clo.error_) {
+                result = false;
+            }
+
+            LOG("num_segments=" << num_segments_);
+            LOG("output filename=\"" << filename_ << "\"");
+
+            return result;
+        }
+
+        void showHelp() throw() {
+            LOG("Usage: spheregen [options]");
+            LOG("  --help         -?  show this message");
+            LOG("  --num-segments -n  subdivisions per face");
+            LOG("  --output-file  -o  output file");
+        }
 
         void openFile() throw() {
-            file_.open(kFilename, std::fstream::out);
+            file_.open(filename_, std::fstream::out);
         }
 
         void writeHeader() throw() {
@@ -129,18 +197,25 @@ namespace {
         void initWeights() throw() {
             auto pi = std::acos(-1);
             weights_[0] = 1.0f;
-            for (auto i = 1; i < kNumSegmentsInt; ++i) {
-                auto a = pi*double(i)/kNumSegments/2.0 - pi/4.0;
+            for (auto i = 1; i < num_segments_; ++i) {
+                auto a = pi*double(i)/double(num_segments_)/2.0 - pi/4.0;
                 weights_[i] = (1.0 - tan(a))/2.0;
                 //LOG("alpha=" << a << " weight[" << i << "]=" << weights_[i]);
             }
-            weights_[kNumSegmentsInt] = 0.0f;
+            weights_[num_segments_] = 0.0f;
+        }
+
+        void createAllVertices() throw() {
+            for (auto face = 0; face < 6; ++face) {
+                createVertices(face);
+            }
+            file_ << std::endl;
         }
 
         void createVertices(
             int face
         ) throw() {
-            int idx = 8 + kVerticesPerFace*face;
+            int idx = 8 + vertices_per_face_*face;
             auto cf = g_cube_faces[face];
             auto tl = g_cube_vertices[cf.tl_];
             auto tr = g_cube_vertices[cf.tr_];
@@ -151,7 +226,7 @@ namespace {
             //LOG("tr={" << tr.x_ << "," << tr.y_ << "," << tr.z_ << "}");
             //LOG("bl={" << bl.x_ << "," << bl.y_ << "," << bl.z_ << "}");
             //LOG("br={" << br.x_ << "," << br.y_ << "," << br.z_ << "}");
-            for (auto y = 0; y <= kNumSegmentsInt; ++y) {
+            for (auto y = 0; y <= num_segments_; ++y) {
                 auto tf = weights_[y];
                 auto bf = 1.0 - tf;
                 Vector3 l;
@@ -162,7 +237,7 @@ namespace {
                 r.x_ = tr.x_*tf + br.x_*bf;
                 r.y_ = tr.y_*tf + br.y_*bf;
                 r.z_ = tr.z_*tf + br.z_*bf;
-                for (auto x = 0; x <= kNumSegmentsInt; ++x) {
+                for (auto x = 0; x <= num_segments_; ++x) {
                     auto lf = weights_[x];
                     auto rf = 1.0 - lf;
                     Vector3 v;
@@ -174,8 +249,8 @@ namespace {
                     v.x_ *= den;
                     v.y_ *= den;
                     v.z_ *= den;
-                    if ((x != 0 && x != kNumSegmentsInt)
-                    ||  (y != 0 && y != kNumSegmentsInt)) {
+                    if ((x != 0 && x != num_segments_)
+                    ||  (y != 0 && y != num_segments_)) {
                         file_ << "v " << v.x_ << " " << v.y_ << " " << v.z_ << std::endl;
                         ++idx;
                     }
@@ -183,9 +258,9 @@ namespace {
             }
         }
 
-        void createAllVertices() throw() {
+        void createAllFaces() throw() {
             for (auto face = 0; face < 6; ++face) {
-                createVertices(face);
+                createFaces(face);
             }
             file_ << std::endl;
         }
@@ -193,18 +268,18 @@ namespace {
         void createFaces(
             int face
         ) throw() {
-            // firt build a table.
-            int idx = 8 + kVerticesPerFace*face;
-            int table[kNumSegmentsInt+1][kNumSegmentsInt+1];
+            // first build a table.
+            int idx = 8 + vertices_per_face_*face;
+            int table[num_segments_+1][num_segments_+1];
             auto cf = g_cube_faces[face];
             table[0][0] = cf.tl_;
-            table[0][kNumSegmentsInt] = cf.tr_;
-            table[kNumSegmentsInt][0] = cf.bl_;
-            table[kNumSegmentsInt][kNumSegmentsInt] = cf.br_;
-            for (auto y = 0; y <= kNumSegmentsInt; ++y) {
-                for (auto x = 0; x <= kNumSegmentsInt; ++x) {
-                    if ((x != 0 && x != kNumSegmentsInt)
-                    ||  (y != 0 && y != kNumSegmentsInt)) {
+            table[0][num_segments_] = cf.tr_;
+            table[num_segments_][0] = cf.bl_;
+            table[num_segments_][num_segments_] = cf.br_;
+            for (auto y = 0; y <= num_segments_; ++y) {
+                for (auto x = 0; x <= num_segments_; ++x) {
+                    if ((x != 0 && x != num_segments_)
+                    ||  (y != 0 && y != num_segments_)) {
                         table[y][x] = idx;
                         ++idx;
                     }
@@ -219,9 +294,9 @@ namespace {
             // write faces from the table
             // subdivide faces so the crease goes towards the center of the cube face.
             // otherwise they sphere is less round.
-            for (auto y = 0; y < kNumSegmentsInt; ++y) {
-                for (auto x = 0; x < kNumSegmentsInt; ++x) {
-                    auto quad = (2*y - kNumSegmentsInt + 1)*(2*x - kNumSegmentsInt + 1);
+            for (auto y = 0; y < num_segments_; ++y) {
+                for (auto x = 0; x < num_segments_; ++x) {
+                    auto quad = (2*y - num_segments_ + 1)*(2*x - num_segments_ + 1);
                     //LOG("quad=" << quad);
                     if (quad < 0) {
                         file_ << "f " << table[y][x] << " " << table[y+1][x] << " " << table[y][x+1] << std::endl;
@@ -233,31 +308,16 @@ namespace {
                 }
             }
         }
-
-        void createAllFaces() throw() {
-            for (auto face = 0; face < 6; ++face) {
-                createFaces(face);
-            }
-            file_ << std::endl;
-        }
     };
 }
 
 int main(
     int argc, char *argv[]
 ) throw() {
-    (void) argc;
-    (void) argv;
-
     agm::log::init(AGM_TARGET_NAME ".log");
 
     SphereGen sphere;
-    sphere.openFile();
-    sphere.writeHeader();
-    sphere.writeCubeCorners();
-    sphere.initWeights();
-    sphere.createAllVertices();
-    sphere.createAllFaces();
+    sphere.run(argc, argv);
 
     return 0;
 }
