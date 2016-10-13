@@ -34,7 +34,6 @@ the perpendicular axis is longer (and hence lower) than
 the parallel axis.
 
 to do...
-- command line argument for number of segments.
 - texture coordinates.
 - normals?
 **/
