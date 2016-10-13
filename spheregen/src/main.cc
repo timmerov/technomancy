@@ -36,6 +36,7 @@ the parallel axis.
 to do...
 - texture coordinates.
 - normals?
+- re-use edge vertexes.
 **/
 
 #include <aggiornamento/aggiornamento.h>
