@@ -59,6 +59,18 @@ namespace {
         double z_;
     };
 
+    class Sphere {
+    public:
+        Sphere() = default;
+        ~Sphere() {
+            delete[] vertex_;
+            delete[] face_;
+        }
+
+        Vector3 *vertex_ = nullptr;
+        int *face_ = nullptr;
+    };
+
     class CubeFaces {
     public:
         int tl_;
@@ -102,8 +114,9 @@ namespace {
         const char *filename_ = kDefaultFilename;
         std::fstream file_;
         double *weights_ = nullptr;
+        Sphere sphere_;
 
-        void run(
+        void generate(
             int argc,
             char *argv[]
         ) throw() {
@@ -113,7 +126,12 @@ namespace {
             }
 
             vertices_per_face_ = (num_segments_ + 1)*(num_segments_ + 1) - 4;
-            weights_ = new double[num_segments_+1];
+            weights_ = new(std::nothrow) double[num_segments_+1];
+
+            auto num_vertices = 8 + 6*vertices_per_face_;
+            auto num_faces = 3 * num_segments_ * num_segments_;
+            sphere_.vertex_ = new(std::nothrow) Vector3[num_vertices];
+            sphere_.face_ = new(std::nothrow) int[3*num_faces];
 
             openFile();
             writeHeader();
@@ -190,6 +208,7 @@ namespace {
                 v.y_ *= den;
                 v.z_ *= den;
                 file_ << "v " << v.x_ << " " << v.y_ << " " << v.z_ << std::endl;
+                sphere_.vertex_[idx] = v;
                 ++idx;
             }
         }
@@ -252,6 +271,7 @@ namespace {
                     if ((x != 0 && x != num_segments_)
                     ||  (y != 0 && y != num_segments_)) {
                         file_ << "v " << v.x_ << " " << v.y_ << " " << v.z_ << std::endl;
+                        sphere_.vertex_[idx] = v;
                         ++idx;
                     }
                 }
@@ -294,17 +314,29 @@ namespace {
             // write faces from the table
             // subdivide faces so the crease goes towards the center of the cube face.
             // otherwise they sphere is less round.
+            idx = 0;
             for (auto y = 0; y < num_segments_; ++y) {
                 for (auto x = 0; x < num_segments_; ++x) {
                     auto quad = (2*y - num_segments_ + 1)*(2*x - num_segments_ + 1);
                     //LOG("quad=" << quad);
                     if (quad < 0) {
-                        file_ << "f " << table[y][x] << " " << table[y+1][x] << " " << table[y][x+1] << std::endl;
-                        file_ << "f " << table[y][x+1] << " " << table[y+1][x] << " " << table[y+1][x+1] << std::endl;
+                        sphere_.face_[idx+0] = table[y][x];
+                        sphere_.face_[idx+1] = table[y+1][x];
+                        sphere_.face_[idx+2] = table[y][x+1];
+                        sphere_.face_[idx+3] = table[y][x+1];
+                        sphere_.face_[idx+4] = table[y+1][x];
+                        sphere_.face_[idx+5] = table[y+1][x+1];
                     } else {
-                        file_ << "f " << table[y][x] << " " << table[y+1][x] << " " << table[y+1][x+1] << std::endl;
-                        file_ << "f " << table[y][x+1] << " " << table[y][x] << " " << table[y+1][x+1] << std::endl;
+                        sphere_.face_[idx+0] = table[y][x];
+                        sphere_.face_[idx+1] = table[y+1][x];
+                        sphere_.face_[idx+2] = table[y+1][x+1];
+                        sphere_.face_[idx+3] = table[y][x+1];
+                        sphere_.face_[idx+4] = table[y][x];
+                        sphere_.face_[idx+5] = table[y+1][x+1];
                     }
+                    file_ << "f " << sphere_.face_[idx+0] << " " << sphere_.face_[idx+1] << " " << sphere_.face_[idx+2] << std::endl;
+                    file_ << "f " << sphere_.face_[idx+3] << " " << sphere_.face_[idx+4] << " " << sphere_.face_[idx+6] << std::endl;
+                    idx += 6;
                 }
             }
         }
@@ -317,7 +349,7 @@ int main(
     agm::log::init(AGM_TARGET_NAME ".log");
 
     SphereGen sphere;
-    sphere.run(argc, argv);
+    sphere.generate(argc, argv);
 
     return 0;
 }
