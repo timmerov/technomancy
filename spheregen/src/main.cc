@@ -107,8 +107,16 @@ namespace {
         SphereGen() = default;
 
         ~SphereGen() throw() {
+            destruct();
+        }
+
+        void destruct() throw() {
             file_.close();
+            delete[] table_;
             delete[] weights_;
+
+            weights_ = nullptr;
+            table_ = nullptr;
         }
 
         int num_segments_ = kDefaultNumSegments;
@@ -116,11 +124,15 @@ namespace {
         const char *filename_ = kDefaultFilename;
         std::fstream file_;
         double *weights_ = nullptr;
+        int *table_ = nullptr;
         Sphere sphere_;
 
         void generate() throw() {
+            destruct();
+
             vertexes_per_face_ = (num_segments_ + 1)*(num_segments_ + 1) - 4;
             weights_ = new(std::nothrow) double[num_segments_+1];
+            table_ = new(std::nothrow) int[(num_segments_+1)*(num_segments_+1)];
 
             sphere_.num_vertexes_ = 8 + 6*vertexes_per_face_;
             sphere_.num_faces_ = 6 * 2 * num_segments_ * num_segments_;
@@ -269,24 +281,24 @@ namespace {
         ) throw() {
             // first build a table.
             int idx = 8 + vertexes_per_face_*face;
-            int table[num_segments_+1][num_segments_+1];
             auto cf = g_cube_faces[face];
-            table[0][0] = cf.tl_;
-            table[0][num_segments_] = cf.tr_;
-            table[num_segments_][0] = cf.bl_;
-            table[num_segments_][num_segments_] = cf.br_;
+            auto stride = num_segments_ + 1;
+            table_[0*stride + 0] = cf.tl_;
+            table_[0*stride + num_segments_] = cf.tr_;
+            table_[num_segments_*stride + 0] = cf.bl_;
+            table_[num_segments_*stride + num_segments_] = cf.br_;
             for (auto y = 0; y <= num_segments_; ++y) {
                 for (auto x = 0; x <= num_segments_; ++x) {
                     if ((x != 0 && x != num_segments_)
                     ||  (y != 0 && y != num_segments_)) {
-                        table[y][x] = idx;
+                        table_[y*stride + x] = idx;
                         ++idx;
                     }
                     //LOG("x=" << x << " y=" << y << " idx=" << table[y][x]);
 
                     // obj file indexes are 1 based.
                     // cause it's 1984.
-                    ++table[y][x];
+                    ++table_[y*stride + x];
                 }
             }
 
@@ -299,20 +311,21 @@ namespace {
                 for (auto x = 0; x < num_segments_; ++x) {
                     auto quad = (2*y - num_segments_ + 1)*(2*x - num_segments_ + 1);
                     //LOG("quad=" << quad);
+                    auto tbl = &table_[y*stride + x];
                     if (quad < 0) {
-                        sphere_.face_[idx+0] = table[y][x];
-                        sphere_.face_[idx+1] = table[y+1][x];
-                        sphere_.face_[idx+2] = table[y][x+1];
-                        sphere_.face_[idx+3] = table[y][x+1];
-                        sphere_.face_[idx+4] = table[y+1][x];
-                        sphere_.face_[idx+5] = table[y+1][x+1];
+                        sphere_.face_[idx+0] = tbl[0];
+                        sphere_.face_[idx+1] = tbl[stride];
+                        sphere_.face_[idx+2] = tbl[1];
+                        sphere_.face_[idx+3] = tbl[1];
+                        sphere_.face_[idx+4] = tbl[stride];
+                        sphere_.face_[idx+5] = tbl[stride + 1];
                     } else {
-                        sphere_.face_[idx+0] = table[y][x];
-                        sphere_.face_[idx+1] = table[y+1][x];
-                        sphere_.face_[idx+2] = table[y+1][x+1];
-                        sphere_.face_[idx+3] = table[y][x+1];
-                        sphere_.face_[idx+4] = table[y][x];
-                        sphere_.face_[idx+5] = table[y+1][x+1];
+                        sphere_.face_[idx+0] = tbl[0];
+                        sphere_.face_[idx+1] = tbl[stride];
+                        sphere_.face_[idx+2] = tbl[stride + 1];
+                        sphere_.face_[idx+3] = tbl[1];
+                        sphere_.face_[idx+4] = tbl[0];
+                        sphere_.face_[idx+5] = tbl[stride + 1];
                     }
                     //LOG("idx=" << idx << " face={" << sphere_.face_[idx+0]
                     //    << "," << sphere_.face_[idx+1]
