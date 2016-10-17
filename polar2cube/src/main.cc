@@ -346,8 +346,12 @@ int main(
     if (good) {
         good = cvt.inpng_.read(cvt.input_filename_);
 
+        // out width is 3/4 in width.
+        // out width must be a multiple of 3.
+        // out height is in height.
+        // out height must be a multiple of 2.
         int wd = (cvt.inpng_.wd_ + 3) / 4 * 3;
-        int ht = cvt.inpng_.ht_;
+        int ht = (cvt.inpng_.ht_ + 1) / 2 * 2;
         cvt.outpng_.init(wd, ht);
         cvt.copy();
         cvt.outpng_.write(cvt.output_filename_);
