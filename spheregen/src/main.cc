@@ -81,7 +81,7 @@ namespace {
         int br_;
     };
 
-    Vector3 g_cube_vertices[8] = {
+    Vector3 g_cube_vertexes[8] = {
         {+1.0, +1.0, +1.0},
         {-1.0, +1.0, +1.0},
         {+1.0, -1.0, +1.0},
@@ -196,7 +196,7 @@ namespace {
         void initCubeCorners() throw() {
             int idx = 0;
             for (auto i = 0; i < 8; ++i) {
-                auto v = g_cube_vertices[i];
+                auto v = g_cube_vertexes[i];
                 auto r2 = v.x_*v.x_ + v.y_*v.y_ + v.z_*v.z_;
                 auto den = 1.0 / std::sqrt(r2);
                 v.x_ *= den;
@@ -229,10 +229,10 @@ namespace {
         ) throw() {
             int idx = 8 + vertexes_per_face_*face;
             auto cf = g_cube_faces[face];
-            auto tl = g_cube_vertices[cf.tl_];
-            auto tr = g_cube_vertices[cf.tr_];
-            auto bl = g_cube_vertices[cf.bl_];
-            auto br = g_cube_vertices[cf.br_];
+            auto tl = g_cube_vertexes[cf.tl_];
+            auto tr = g_cube_vertexes[cf.tr_];
+            auto bl = g_cube_vertexes[cf.bl_];
+            auto br = g_cube_vertexes[cf.br_];
             //LOG("face={" << cf.tl_ << "," << cf.tr_ << "," << cf.bl_ << "," << cf.br_ << "}");
             //LOG("tl={" << tl.x_ << "," << tl.y_ << "," << tl.z_ << "}");
             //LOG("tr={" << tr.x_ << "," << tr.y_ << "," << tr.z_ << "}");
