@@ -41,7 +41,7 @@ namespace {
             const char *filename
         ) throw() {
             bool result = true;
-            std::fstream infile;
+            std::fstream f;
             png_byte sig[kPngSigSize];
             png_structp png = nullptr;
             png_infop info = nullptr;
@@ -57,14 +57,14 @@ namespace {
             stride_ = 0;
 
             /*if (result)*/ {
-                infile.open(filename, std::fstream::in);
-                if (infile.is_open() == false) {
+                f.open(filename, std::fstream::in);
+                if (f.is_open() == false) {
                     LOG("Failed to open file \"" << filename << "\"");
                     result = false;
                 }
             } if (result) {
-                infile.read((char *) sig, sizeof(sig));
-                if (infile.good() == false) {
+                f.read((char *) sig, sizeof(sig));
+                if (f.good() == false) {
                     LOG("Failed to read file signature.");
                     result = false;
                 }
@@ -94,7 +94,7 @@ namespace {
                 }
             } if (result) {
                 // read from the file.
-                png_set_read_fn(png, (png_voidp) &infile, readData);
+                png_set_read_fn(png, (png_voidp) &f, readData);
 
                 png_set_sig_bytes(png, sizeof(sig));
                 png_read_info(png, info);
@@ -183,9 +183,68 @@ namespace {
         bool write(
             const char *filename
         ) throw() {
-            (void) filename;
+            bool result = true;
+            std::fstream f;
+            //png_byte sig[kPngSigSize];
+            png_structp png = nullptr;
+            png_infop info = nullptr;
+
             LOG("resolution=" << wd_ << "x" << ht_);
-            return true;
+            LOG("stride=" << stride_);
+
+            /*if (result)*/ {
+                f.open(filename, std::fstream::out);
+                if (f.is_open() == false) {
+                    LOG("Failed to open file \"" << filename << "\"");
+                    result = false;
+                }
+            } if (result) {
+                png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+                if (png == nullptr) {
+                    LOG("Failed to create PNG write struct.");
+                    result = false;
+                }
+            } if (result) {
+                info = png_create_info_struct(png);
+                if (info == nullptr) {
+                    LOG("Failed to create PNG info struct.");
+                    result = false;
+                }
+            } if (result) {
+                if (setjmp(png_jmpbuf(png))) {
+                    LOG("Failed writing PNG file.");
+                    result = false;
+                }
+            } if (result) {
+                png_set_write_fn(png, (png_voidp) &f, writeData, nullptr);
+
+                png_set_IHDR(png, info, wd_, ht_, 8,
+                    PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+                    PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+                png_write_info(png, info);
+
+                auto row = data_;
+                for (int i = 0; i < ht_; ++i, row += stride_) {
+                    png_write_row(png, row);
+                }
+                png_write_end(png, nullptr);
+            }
+
+            // clean up
+            if (png) {
+                png_destroy_write_struct(&png, &info);
+            }
+
+            return result;
+        }
+
+        static void writeData(
+            png_structp png,
+            png_bytep data,
+            png_size_t len
+        ) throw() {
+            auto f = (std::fstream *) png_get_io_ptr(png);
+            f->write((char *) data, len);
         }
     };
 
