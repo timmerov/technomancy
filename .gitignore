@@ -3,3 +3,4 @@ build-unix64-release
 build-win64
 *.log
 *.obj
+*.png

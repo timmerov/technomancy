@@ -18,4 +18,5 @@ cmake_minimum_required(VERSION ${THIS_CMAKE_VERSION})
 # add the targets
 add_subdirectory(agm)
 add_subdirectory(helloworld)
+add_subdirectory(polar2cube)
 add_subdirectory(spheregen)

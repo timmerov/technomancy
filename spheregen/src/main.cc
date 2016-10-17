@@ -127,27 +127,6 @@ namespace {
         int *table_ = nullptr;
         Sphere sphere_;
 
-        void generate() throw() {
-            destruct();
-
-            vertexes_per_face_ = (num_segments_ + 1)*(num_segments_ + 1) - 4;
-            weights_ = new(std::nothrow) double[num_segments_+1];
-            table_ = new(std::nothrow) int[(num_segments_+1)*(num_segments_+1)];
-
-            sphere_.num_vertexes_ = 8 + 6*vertexes_per_face_;
-            sphere_.num_faces_ = 6 * 2 * num_segments_ * num_segments_;
-            sphere_.vertex_ = new(std::nothrow) Vector3[sphere_.num_vertexes_];
-            sphere_.face_ = new(std::nothrow) int[3*sphere_.num_faces_];
-
-            //LOG("num_vertexes=" << sphere_.num_vertexes_);
-            //LOG("num_faces=" << sphere_.num_faces_);
-
-            initCubeCorners();
-            initWeights();
-            createAllVertices();
-            createAllFaces();
-        }
-
         bool parseOptions(
             int argc,
             char *argv[]
@@ -191,6 +170,27 @@ namespace {
             LOG("  --help         -?  show this message");
             LOG("  --num-segments -n  subdivisions per face");
             LOG("  --output-file  -o  output file");
+        }
+
+        void generate() throw() {
+            destruct();
+
+            vertexes_per_face_ = (num_segments_ + 1)*(num_segments_ + 1) - 4;
+            weights_ = new(std::nothrow) double[num_segments_+1];
+            table_ = new(std::nothrow) int[(num_segments_+1)*(num_segments_+1)];
+
+            sphere_.num_vertexes_ = 8 + 6*vertexes_per_face_;
+            sphere_.num_faces_ = 6 * 2 * num_segments_ * num_segments_;
+            sphere_.vertex_ = new(std::nothrow) Vector3[sphere_.num_vertexes_];
+            sphere_.face_ = new(std::nothrow) int[3*sphere_.num_faces_];
+
+            //LOG("num_vertexes=" << sphere_.num_vertexes_);
+            //LOG("num_faces=" << sphere_.num_faces_);
+
+            initCubeCorners();
+            initWeights();
+            createAllVertices();
+            createAllFaces();
         }
 
         void initCubeCorners() throw() {
@@ -380,7 +380,7 @@ int main(
     agm::log::init(AGM_TARGET_NAME ".log");
 
     SphereGen sphere;
-    bool good = sphere.parseOptions(argc, argv);
+    auto good = sphere.parseOptions(argc, argv);
     if (good) {
         sphere.generate();
         sphere.write();
