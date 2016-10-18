@@ -40,8 +40,9 @@ the faces in the original texture look like this:
     |               bottom               |
     +------------------------------------+
 
-to do:
-- anti-aliasing
+the image is anti-aliased by 4x in each direction.
+which makes it look somewhat blurry.
+gimp filter enhance sharpen somewhere around 50 looks good.
 **/
 
 #include "png-local.h"
