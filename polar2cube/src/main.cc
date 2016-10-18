@@ -27,6 +27,9 @@ the faces will be arranged in the cube texture like this:
 
 the pixels in the left-front-back strip will be contiguous.
 the pixels in the top-back-bottom strip will be contiguous.
+
+to do:
+- anti-aliasing
 **/
 
 #include "png-local.h"
@@ -34,6 +37,8 @@ the pixels in the top-back-bottom strip will be contiguous.
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/cmd_line.h>
 #include <aggiornamento/log.h>
+
+#include <cmath>
 
 
 namespace {
@@ -52,13 +57,13 @@ namespace {
 
     class CubeFaces {
     public:
-        int vtx_tl_;
-        int vtx_tr_;
-        int vtx_bl_;
-        int vtx_br_;
+        int tl_;
+        int tr_;
+        int bl_;
+        int br_;
     };
 
-/*    Vector3 g_cube_vertexes[8] = {
+    Vector3 g_cube_vertexes[8] = {
         {+1.0, +1.0, +1.0},
         {-1.0, +1.0, +1.0},
         {+1.0, -1.0, +1.0},
@@ -67,7 +72,7 @@ namespace {
         {-1.0, +1.0, -1.0},
         {+1.0, -1.0, -1.0},
         {-1.0, -1.0, -1.0}
-    };*/
+    };
 
     // rectangles
     CubeFaces g_cube_faces[6] = {
@@ -75,19 +80,31 @@ namespace {
         {0, 4, 2, 6},
         {4, 5, 6, 7},
         {0, 1, 4, 5},
-        {5, 1, 7, 3},
+        {1, 3, 5, 7},
         {3, 2, 7, 6}
     };
 
     class Convert {
     public:
         Convert() = default;
-        ~Convert() = default;
+        Convert(const Convert &) = delete;
+        ~Convert() throw() {
+            destruct();
+        }
+
+        void destruct() throw() {
+            delete[] xweights_;
+            delete[] yweights_;
+            xweights_ = nullptr;
+            yweights_ = nullptr;
+        }
 
         const char *input_filename_ = nullptr;
         const char *output_filename_ = nullptr;
         Png inpng_;
         Png outpng_;
+        double *xweights_ = nullptr;
+        double *yweights_ = nullptr;
 
         bool parseOptions(
             int argc,
@@ -152,34 +169,87 @@ namespace {
         }
 
         void copyAllFaces() throw() {
+            destruct();
+            auto wd = outpng_.wd_ / 3;
+            auto ht = outpng_.ht_ / 2;
+            xweights_ = initWeights(wd);
+            yweights_ = initWeights(ht);
+
             for (int i = 0; i < 6; ++i) {
                 copyFace(i);
             }
         }
 
+        double *initWeights(
+            int size
+        ) throw() {
+            auto pi = std::acos(-1);
+            auto weights = new(std::nothrow) double[size];
+            for (auto i = 0; i < size; ++i) {
+                auto a = pi*double(2*i+1)/double(size)/4.0 - pi/4.0;
+                weights[i] = (1.0 - tan(a))/2.0;
+                //LOG("alpha=" << a << " weight[" << i << "]=" << weights[i]);
+            }
+            return weights;
+        }
+
         void copyFace(
             int face
         ) throw() {
-            auto f = &g_cube_faces[face];
-            (void) f;
+            auto pi = std::acos(-1);
+            auto cf = g_cube_faces[face];
+            auto tl = g_cube_vertexes[cf.tl_];
+            auto tr = g_cube_vertexes[cf.tr_];
+            auto bl = g_cube_vertexes[cf.bl_];
+            auto br = g_cube_vertexes[cf.br_];
 
             auto wd = outpng_.wd_ / 3;
             auto ht = outpng_.ht_ / 2;
             auto x = (face % 3) * wd;
             auto y = (face / 3) * ht;
-
-            auto r = ((face&1)>>0)*255;
-            auto g = ((face&2)>>1)*255;
-            auto b = ((face&4)>>2)*255;
-
             auto dst_row = outpng_.data_ + y*outpng_.stride_ + 3*x;
-            for (int i = 0; i < ht; ++i) {
+
+            for (int y = 0; y < ht; ++y) {
                 auto dst = dst_row;
                 dst_row += outpng_.stride_;
-                for (int k = 0; k < wd; ++k) {
-                    dst[0] = r;
-                    dst[1] = g;
-                    dst[2] = b;
+
+                auto tf = yweights_[y];
+                auto bf = 1.0 - tf;
+                Vector3 l;
+                l.x_ = tl.x_*tf + bl.x_*bf;
+                l.y_ = tl.y_*tf + bl.y_*bf;
+                l.z_ = tl.z_*tf + bl.z_*bf;
+                Vector3 r;
+                r.x_ = tr.x_*tf + br.x_*bf;
+                r.y_ = tr.y_*tf + br.y_*bf;
+                r.z_ = tr.z_*tf + br.z_*bf;
+                for (int x = 0; x < wd; ++x) {
+                    auto lf = xweights_[x];
+                    auto rf = 1.0 - lf;
+                    Vector3 v;
+                    v.x_ = l.x_*lf + r.x_*rf;
+                    v.y_ = l.y_*lf + r.y_*rf;
+                    v.z_ = l.z_*lf + r.z_*rf;
+                    auto r2 = v.x_*v.x_ + v.y_*v.y_ + v.z_*v.z_;
+                    auto den = 1.0 / std::sqrt(r2);
+                    v.x_ *= den;
+                    v.y_ *= den;
+                    v.z_ *= den;
+                    auto a = atan2(v.x_, v.z_);  // -pi (left) to +pi (right)
+                    auto b = asin(v.y_);         // -pi/2 (bottom) to +pi/2 (top)
+                    /*if (face == 0) {
+                        if (x == 0 || y == 0) {
+                            LOG("x,y=" << x << "," << y << " a,b=" << a << "," << b);
+                        }
+                    }*/
+                    a = (a/pi + 1.0)/2.0;
+                    b = 0.5 - b/pi;
+                    int tx = (int) std::round(a*inpng_.wd_);
+                    int ty = (int) std::round(b*inpng_.ht_);
+                    auto src = inpng_.data_ + ty*inpng_.stride_ + 3*tx;
+                    dst[0] = src[0];
+                    dst[1] = src[1];
+                    dst[2] = src[2];
                     dst += 3;
                 }
             }

@@ -165,9 +165,9 @@ bool Png::read(
     LOG("bits/channel=" << depth);
     LOG("stride=" << stride_);
 
-    if (rows && data_) {
+    /*if (rows && data_) {
         agm::log::bytes(rows[ht_/2], std::min(stride_,256));
-    }
+    }*/
 
     // clean up
     delete[] rows;
