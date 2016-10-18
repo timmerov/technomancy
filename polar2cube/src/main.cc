@@ -195,6 +195,9 @@ namespace {
         double *initWeights(
             int size
         ) throw() {
+            // for anti-alias over-sample
+            size *= 4;
+
             auto pi = std::acos(-1);
             auto weights = new(std::nothrow) double[size];
             for (auto i = 0; i < size; ++i) {
@@ -217,14 +220,21 @@ namespace {
 
             auto wd = outpng_.wd_ / 3;
             auto ht = outpng_.ht_ / 2;
-            auto x = (face % 3) * wd;
-            auto y = (face / 3) * ht;
-            auto dst_row = outpng_.data_ + y*outpng_.stride_ + 3*x;
+            auto fx = (face % 3) * wd;
+            auto fy = (face / 3) * ht;
+            auto dst_row = outpng_.data_ + fy*outpng_.stride_ + 3*fx;
 
-            for (int y = 0; y < ht; ++y) {
-                auto dst = dst_row;
-                dst_row += outpng_.stride_;
+            auto aawd = 4 * wd;
+            auto aaht = 4 * ht;
+            auto temp_row = new(std::nothrow) int[3*wd];
+            memset(temp_row, 0, sizeof(int)*3*wd);
 
+            for (int y = 0; y < aaht; ++y) {
+                int rc = 0;
+                int gc = 0;
+                int bc = 0;
+
+                auto tempr = temp_row;
                 auto tf = yweights_[y];
                 auto bf = 1.0 - tf;
                 Vector3 l;
@@ -235,7 +245,7 @@ namespace {
                 r.x_ = tr.x_*tf + br.x_*bf;
                 r.y_ = tr.y_*tf + br.y_*bf;
                 r.z_ = tr.z_*tf + br.z_*bf;
-                for (int x = 0; x < wd; ++x) {
+                for (int x = 0; x < aawd; ++x) {
                     auto lf = xweights_[x];
                     auto rf = 1.0 - lf;
                     Vector3 v;
@@ -259,12 +269,39 @@ namespace {
                     int tx = (int) std::round(a*inpng_.wd_);
                     int ty = (int) std::round(b*inpng_.ht_);
                     auto src = inpng_.data_ + ty*inpng_.stride_ + 3*tx;
-                    dst[0] = src[0];
-                    dst[1] = src[1];
-                    dst[2] = src[2];
-                    dst += 3;
+                    rc += (int)(unsigned int) src[0];
+                    gc += (int)(unsigned int) src[1];
+                    bc += (int)(unsigned int) src[2];
+
+                    if ((x & 3) == 3) {
+                        tempr[0] += rc;
+                        tempr[1] += gc;
+                        tempr[2] += bc;
+                        tempr += 3;
+                        rc = 0;
+                        gc = 0;
+                        bc = 0;
+                    }
+                }
+
+                if ((y & 3) == 3) {
+                    auto dst = dst_row;
+                    tempr = temp_row;
+                    for (auto k = 0; k < wd; ++k) {
+                        dst[0] = (png_byte)((tempr[0] + 8) >> 4);
+                        dst[1] = (png_byte)((tempr[1] + 8) >> 4);
+                        dst[2] = (png_byte)((tempr[2] + 8) >> 4);
+                        tempr[0] = 0;
+                        tempr[1] = 0;
+                        tempr[2] = 0;
+                        dst += 3;
+                        tempr += 3;
+                    }
+                    dst_row += outpng_.stride_;
                 }
             }
+
+            delete[] temp_row;
         }
     };
 }
