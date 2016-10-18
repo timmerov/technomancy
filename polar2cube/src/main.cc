@@ -28,6 +28,18 @@ the faces will be arranged in the cube texture like this:
 the pixels in the left-front-back strip will be contiguous.
 the pixels in the top-back-bottom strip will be contiguous.
 
+the faces in the original texture look like this:
+
+    +------------------------------------+
+    |                top                 |
+    +----+--------+--------+--------+----+
+    |    |        |        |        |    |
+    |ck  | left   | front  | right  |  ba|
+    |    |        |        |        |    |
+    +----+--------+--------+--------+----+
+    |               bottom               |
+    +------------------------------------+
+
 to do:
 - anti-aliasing
 **/
@@ -235,7 +247,7 @@ namespace {
                     v.x_ *= den;
                     v.y_ *= den;
                     v.z_ *= den;
-                    auto a = atan2(v.x_, v.z_);  // -pi (left) to +pi (right)
+                    auto a = atan2(-v.z_, v.x_);  // -pi (left) to +pi (right)
                     auto b = asin(v.y_);         // -pi/2 (bottom) to +pi/2 (top)
                     /*if (face == 0) {
                         if (x == 0 || y == 0) {
