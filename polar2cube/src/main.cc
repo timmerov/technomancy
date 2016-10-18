@@ -37,6 +37,48 @@ the pixels in the top-back-bottom strip will be contiguous.
 
 
 namespace {
+    class Vector3 {
+    public:
+        double x_;
+        double y_;
+        double z_;
+    };
+
+    class Coords {
+    public:
+        int x_;
+        int y_;
+    };
+
+    class CubeFaces {
+    public:
+        int vtx_tl_;
+        int vtx_tr_;
+        int vtx_bl_;
+        int vtx_br_;
+    };
+
+/*    Vector3 g_cube_vertexes[8] = {
+        {+1.0, +1.0, +1.0},
+        {-1.0, +1.0, +1.0},
+        {+1.0, -1.0, +1.0},
+        {-1.0, -1.0, +1.0},
+        {+1.0, +1.0, -1.0},
+        {-1.0, +1.0, -1.0},
+        {+1.0, -1.0, -1.0},
+        {-1.0, -1.0, -1.0}
+    };*/
+
+    // rectangles
+    CubeFaces g_cube_faces[6] = {
+        {1, 0, 3, 2},
+        {0, 4, 2, 6},
+        {4, 5, 6, 7},
+        {0, 1, 4, 5},
+        {5, 1, 7, 3},
+        {3, 2, 7, 6}
+    };
+
     class Convert {
     public:
         Convert() = default;
@@ -109,17 +151,37 @@ namespace {
             LOG("  --output-file -o  output file");
         }
 
-        void copy() throw() {
-            int ht = outpng_.ht_;
-            int src_stride = inpng_.stride_;
-            int dst_stride = outpng_.stride_;
-            int bytes = outpng_.wd_ * 3;
-            auto src = inpng_.data_;
-            auto dst = outpng_.data_;
+        void copyAllFaces() throw() {
+            for (int i = 0; i < 6; ++i) {
+                copyFace(i);
+            }
+        }
+
+        void copyFace(
+            int face
+        ) throw() {
+            auto f = &g_cube_faces[face];
+            (void) f;
+
+            auto wd = outpng_.wd_ / 3;
+            auto ht = outpng_.ht_ / 2;
+            auto x = (face % 3) * wd;
+            auto y = (face / 3) * ht;
+
+            auto r = ((face&1)>>0)*255;
+            auto g = ((face&2)>>1)*255;
+            auto b = ((face&4)>>2)*255;
+
+            auto dst_row = outpng_.data_ + y*outpng_.stride_ + 3*x;
             for (int i = 0; i < ht; ++i) {
-                memcpy(dst, src, bytes);
-                src += src_stride;
-                dst += dst_stride;
+                auto dst = dst_row;
+                dst_row += outpng_.stride_;
+                for (int k = 0; k < wd; ++k) {
+                    dst[0] = r;
+                    dst[1] = g;
+                    dst[2] = b;
+                    dst += 3;
+                }
             }
         }
     };
@@ -142,7 +204,7 @@ int main(
         int wd = (cvt.inpng_.wd_ + 3) / 4 * 3;
         int ht = (cvt.inpng_.ht_ + 1) / 2 * 2;
         cvt.outpng_.init(wd, ht);
-        cvt.copy();
+        cvt.copyAllFaces();
         cvt.outpng_.write(cvt.output_filename_);
     }
 
