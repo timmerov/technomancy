@@ -59,6 +59,19 @@ namespace {
         double z_;
     };
 
+    class VertexTexture {
+    public:
+        int vtx_;
+        int tex_;
+    };
+
+    class Face {
+    public:
+        VertexTexture a_;
+        VertexTexture b_;
+        VertexTexture c_;
+    };
+
     class Sphere {
     public:
         Sphere() = default;
@@ -70,7 +83,7 @@ namespace {
         int num_vertexes_ = 0;
         int num_faces_ = 0;
         Vector3 *vertex_ = nullptr;
-        int *face_ = nullptr;
+        Face *face_ = nullptr;
     };
 
     class CubeFaces {
@@ -120,11 +133,12 @@ namespace {
         }
 
         int num_segments_ = kDefaultNumSegments;
+        int textures_per_face_ = 0;
         int vertexes_per_face_ = 0;
         const char *filename_ = kDefaultFilename;
         std::fstream file_;
         double *weights_ = nullptr;
-        int *table_ = nullptr;
+        VertexTexture *table_ = nullptr;
         Sphere sphere_;
 
         bool parseOptions(
@@ -175,14 +189,15 @@ namespace {
         void generate() throw() {
             destruct();
 
-            vertexes_per_face_ = (num_segments_ + 1)*(num_segments_ + 1) - 4;
+            textures_per_face_ = (num_segments_ + 1) * (num_segments_ + 1);
+            vertexes_per_face_ = textures_per_face_ - 4;
             weights_ = new(std::nothrow) double[num_segments_+1];
-            table_ = new(std::nothrow) int[(num_segments_+1)*(num_segments_+1)];
+            table_ = new(std::nothrow) VertexTexture[textures_per_face_];
 
             sphere_.num_vertexes_ = 8 + 6*vertexes_per_face_;
             sphere_.num_faces_ = 6 * 2 * num_segments_ * num_segments_;
             sphere_.vertex_ = new(std::nothrow) Vector3[sphere_.num_vertexes_];
-            sphere_.face_ = new(std::nothrow) int[3*sphere_.num_faces_];
+            sphere_.face_ = new(std::nothrow) Face[sphere_.num_faces_];
 
             //LOG("num_vertexes=" << sphere_.num_vertexes_);
             //LOG("num_faces=" << sphere_.num_faces_);
@@ -195,7 +210,7 @@ namespace {
 
         void initCubeCorners() throw() {
             int idx = 0;
-            for (auto i = 0; i < 8; ++i) {
+            for (int i = 0; i < 8; ++i) {
                 auto v = g_cube_vertexes[i];
                 auto r2 = v.x_*v.x_ + v.y_*v.y_ + v.z_*v.z_;
                 auto den = 1.0 / std::sqrt(r2);
@@ -210,7 +225,7 @@ namespace {
         void initWeights() throw() {
             auto pi = std::acos(-1);
             weights_[0] = 1.0f;
-            for (auto i = 1; i < num_segments_; ++i) {
+            for (int i = 1; i < num_segments_; ++i) {
                 auto a = pi*double(i)/double(num_segments_)/2.0 - pi/4.0;
                 weights_[i] = (1.0 - tan(a))/2.0;
                 //LOG("alpha=" << a << " weight[" << i << "]=" << weights_[i]);
@@ -219,7 +234,7 @@ namespace {
         }
 
         void createAllVertices() throw() {
-            for (auto face = 0; face < 6; ++face) {
+            for (int face = 0; face < 6; ++face) {
                 createVertices(face);
             }
         }
@@ -238,7 +253,7 @@ namespace {
             //LOG("tr={" << tr.x_ << "," << tr.y_ << "," << tr.z_ << "}");
             //LOG("bl={" << bl.x_ << "," << bl.y_ << "," << bl.z_ << "}");
             //LOG("br={" << br.x_ << "," << br.y_ << "," << br.z_ << "}");
-            for (auto y = 0; y <= num_segments_; ++y) {
+            for (int y = 0; y <= num_segments_; ++y) {
                 auto tf = weights_[y];
                 auto bf = 1.0 - tf;
                 Vector3 l;
@@ -249,7 +264,7 @@ namespace {
                 r.x_ = tr.x_*tf + br.x_*bf;
                 r.y_ = tr.y_*tf + br.y_*bf;
                 r.z_ = tr.z_*tf + br.z_*bf;
-                for (auto x = 0; x <= num_segments_; ++x) {
+                for (int x = 0; x <= num_segments_; ++x) {
                     auto lf = weights_[x];
                     auto rf = 1.0 - lf;
                     Vector3 v;
@@ -271,7 +286,7 @@ namespace {
         }
 
         void createAllFaces() throw() {
-            for (auto face = 0; face < 6; ++face) {
+            for (int face = 0; face < 6; ++face) {
                 createFaces(face);
             }
         }
@@ -280,70 +295,89 @@ namespace {
             int face
         ) throw() {
             // first build a table.
-            int idx = 8 + vertexes_per_face_*face;
+            int tex_idx = textures_per_face_ * face;
+            int vtx_idx = 8 + vertexes_per_face_*face;
             auto cf = g_cube_faces[face];
             auto stride = num_segments_ + 1;
-            table_[0*stride + 0] = cf.tl_;
-            table_[0*stride + num_segments_] = cf.tr_;
-            table_[num_segments_*stride + 0] = cf.bl_;
-            table_[num_segments_*stride + num_segments_] = cf.br_;
-            for (auto y = 0; y <= num_segments_; ++y) {
-                for (auto x = 0; x <= num_segments_; ++x) {
+            table_[0*stride + 0].vtx_ = cf.tl_;
+            table_[0*stride + num_segments_].vtx_ = cf.tr_;
+            table_[num_segments_*stride + 0].vtx_ = cf.bl_;
+            table_[num_segments_*stride + num_segments_].vtx_ = cf.br_;
+            auto tbl = table_;
+            for (int y = 0; y <= num_segments_; ++y) {
+                for (int x = 0; x <= num_segments_; ++x) {
                     if ((x != 0 && x != num_segments_)
                     ||  (y != 0 && y != num_segments_)) {
-                        table_[y*stride + x] = idx;
-                        ++idx;
+                        tbl->vtx_ = vtx_idx;
+                        ++vtx_idx;
                     }
-                    //LOG("x=" << x << " y=" << y << " idx=" << table[y][x]);
 
                     // obj file indexes are 1 based.
                     // cause it's 1984.
-                    ++table_[y*stride + x];
+                    tbl->vtx_ += 1;
+
+                    tbl->tex_ = tex_idx;
+                    ++tex_idx;
+
+                    /*if (face == 0) {
+                        LOG("x=" << x << " y=" << y << " vtx=" << tbl->vtx_ << " tex=" << tbl->tex_);
+                    }*/
+
+                    ++tbl;
                 }
             }
 
             // write faces from the table
             // subdivide faces so the crease goes towards the center of the cube face.
             // otherwise they sphere is less round.
-            idx = 3 * 2 * num_segments_ * num_segments_ * face;
+            auto obj_faces_per_cube_face = 2 * num_segments_ * num_segments_;
+            auto idx = obj_faces_per_cube_face * face;
+            auto sf = &sphere_.face_[idx];
+            tbl = table_;
             //LOG("face=" << face << " idx=" << idx);
-            for (auto y = 0; y < num_segments_; ++y) {
-                for (auto x = 0; x < num_segments_; ++x) {
+            for (int y = 0; y < num_segments_; ++y) {
+                for (int x = 0; x < num_segments_; ++x) {
                     auto quad = (2*y - num_segments_ + 1)*(2*x - num_segments_ + 1);
                     //LOG("quad=" << quad);
-                    auto tbl = &table_[y*stride + x];
                     if (quad < 0) {
-                        sphere_.face_[idx+0] = tbl[0];
-                        sphere_.face_[idx+1] = tbl[stride];
-                        sphere_.face_[idx+2] = tbl[1];
-                        sphere_.face_[idx+3] = tbl[1];
-                        sphere_.face_[idx+4] = tbl[stride];
-                        sphere_.face_[idx+5] = tbl[stride + 1];
+                        sf[0].a_ = tbl[0];
+                        sf[0].b_ = tbl[stride];
+                        sf[0].c_ = tbl[1];
+                        sf[1].a_ = tbl[1];
+                        sf[1].b_ = tbl[stride];
+                        sf[1].c_ = tbl[stride + 1];
                     } else {
-                        sphere_.face_[idx+0] = tbl[0];
-                        sphere_.face_[idx+1] = tbl[stride];
-                        sphere_.face_[idx+2] = tbl[stride + 1];
-                        sphere_.face_[idx+3] = tbl[1];
-                        sphere_.face_[idx+4] = tbl[0];
-                        sphere_.face_[idx+5] = tbl[stride + 1];
+                        sf[0].a_ = tbl[0];
+                        sf[0].b_ = tbl[stride];
+                        sf[0].c_ = tbl[stride + 1];
+                        sf[1].a_ = tbl[1];
+                        sf[1].b_ = tbl[0];
+                        sf[1].c_ = tbl[stride + 1];
                     }
-                    //LOG("idx=" << idx << " face={" << sphere_.face_[idx+0]
-                    //    << "," << sphere_.face_[idx+1]
-                    //    << "," << sphere_.face_[idx+2]
-                    //    << "," << sphere_.face_[idx+3]
-                    //    << "," << sphere_.face_[idx+4]
-                    //    << "," << sphere_.face_[idx+5]
-                    //    << "}");
-                    idx += 6;
+
+                    /*if (face == 0) {
+                        LOG("x=" << x << " y=" << y << " face[0]={"
+                            << sf[0].a_.vtx_ << "/" << sf[0].a_.tex_ << " "
+                            << sf[0].b_.vtx_ << "/" << sf[0].b_.tex_ << " "
+                            << sf[0].c_.vtx_ << "/" << sf[0].c_.tex_ << "}");
+                        LOG("x=" << x << " y=" << y << " face[1]={"
+                            << sf[1].a_.vtx_ << "/" << sf[1].a_.tex_ << " "
+                            << sf[1].b_.vtx_ << "/" << sf[1].b_.tex_ << " "
+                            << sf[1].c_.vtx_ << "/" << sf[1].c_.tex_ << "}");
+                    }*/
+
+                    sf += 2;
+                    ++tbl;
                 }
+                ++tbl;
             }
-            //LOG("idx=" << idx);
         }
 
         void write() throw() {
             file_.open(filename_, std::fstream::out);
             writeHeader();
             writeVertexes();
+            writeAllTextures();
             writeFaces();
             file_.close();
         }
@@ -358,17 +392,43 @@ namespace {
 
         void writeVertexes() throw() {
             auto v = &sphere_.vertex_[0];
-            for (auto i = 0; i < sphere_.num_vertexes_; ++i, ++v) {
+            for (int i = 0; i < sphere_.num_vertexes_; ++i, ++v) {
                 file_ << "v " << v->x_ << " " << v->y_ << " " << v->z_ << std::endl;
             }
             file_ << std::endl;
         }
 
+        void writeAllTextures() throw() {
+            for (int face = 0; face < 6; ++face) {
+                writeTextures(face);
+            }
+            file_ << std::endl;
+        }
+
+        void writeTextures(
+            int face
+        ) throw() {
+            auto fx = double(face % 3) / 3.0;
+            auto fy = double(face / 3) / 2.0;
+
+            auto ins = 1.0 / double(num_segments_);
+            for (int y = 0; y <= num_segments_; ++y) {
+                auto v = fy + 1.0/2.0 * y * ins;
+                for (int x = 0; x <= num_segments_; ++x) {
+                    auto u = fx + 1.0/3.0 * x * ins;
+                    file_ << "vt " << u << " " << v << std::endl;
+                }
+            }
+        }
+
         void writeFaces() throw() {
-            auto f = &sphere_.face_[0];
-            for (auto i = 0; i < sphere_.num_faces_; ++i) {
-                file_ << "f " << f[0] << " " << f[1] << " " << f[2] << std::endl;
-                f += 3;
+            auto f = sphere_.face_;
+            for (int i = 0; i < sphere_.num_faces_; ++i) {
+                file_ << "f "
+                    << f->a_.vtx_ << "/" << f->a_.tex_ << " "
+                    << f->b_.vtx_ << "/" << f->b_.tex_ << " "
+                    << f->c_.vtx_ << "/" << f->c_.tex_ << std::endl;
+                ++f;
             }
         }
     };
