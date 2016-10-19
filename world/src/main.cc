@@ -48,9 +48,8 @@ namespace {
         Window window_ = 0;
         GLXContext context_ = 0;
         Atom delete_message_ = 0;
-        GLuint array_ = 0;
-        GLuint vertex_ = 0;
-        GLuint index_ = 0;
+        GLuint vertex_buffer_ = 0;
+        GLuint index_buffer_ = 0;
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
@@ -145,33 +144,42 @@ namespace {
             glDepthFunc(GL_LESS);
             glDisable(GL_CULL_FACE);
 
-            glGenVertexArrays(1, &array_);
-            glBindVertexArray(array_);
-            LOG("array=" << array_);
-
             GLfloat vertex_array[] = {
                 +0.0f, +0.5f, +0.0f,
                 -0.5f, -0.5f, +0.0f,
                 +0.5f, -0.5f, +0.0f };
-            glGenBuffers(1, &vertex_);
-            glBindBuffer(GL_ARRAY_BUFFER, vertex_);
+            glGenBuffers(1, &vertex_buffer_);
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
             glBufferData(GL_ARRAY_BUFFER, 3*3*sizeof(GLfloat), vertex_array, GL_STATIC_DRAW);
-            LOG("vertex=" << vertex_);
+            LOG("vertex=" << vertex_buffer_);
 
             GLushort index_array[] = {0, 1, 2};
-            glGenBuffers(1, &index_);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_);
+            glGenBuffers(1, &index_buffer_);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, 3*sizeof(GLushort), index_array, GL_STATIC_DRAW);
-            LOG("index=" << index_);
+            LOG("index=" << index_buffer_);
 
             vertex_shader_ = compile_shader(GL_VERTEX_SHADER, g_vertex_source);
+            LOG("vertex_shader=" << vertex_shader_);
             fragment_shader_ = compile_shader(GL_FRAGMENT_SHADER, g_fragment_source);
-            LOG("vertex_shader=" << vertex_shader_ << " fragment_shader=" << fragment_shader_);
+            LOG("fragment_shader=" << fragment_shader_);
 
             program_ = glCreateProgram();
+            LOG("program=" << program_);
             glAttachShader(program_, vertex_shader_);
             glAttachShader(program_, fragment_shader_);
             glLinkProgram(program_);
+
+            GLint result = GL_FALSE;
+            int len;
+            glGetProgramiv(program_, GL_LINK_STATUS, &result);
+            glGetProgramiv(program_, GL_INFO_LOG_LENGTH, &len);
+            if (len > 0) {
+                auto info = new(std::nothrow) char[len+1];
+                glGetProgramInfoLog(program_, len, nullptr, info);
+                LOG("error log: " << info);
+                delete[] info;
+            }
         }
 
         GLuint compile_shader(
@@ -183,13 +191,13 @@ namespace {
             glCompileShader(shader);
 
             GLint result = GL_FALSE;
-            glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
             int len;
+            glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
             glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &len);
             if (len > 0) {
                 auto info = new(std::nothrow) char[len+1];
-                glGetShaderInfoLog(shader, len, NULL, info);
-                LOG("shader=" << shader << " type=" << type << " result=" << result << " info=\"" << info << "\"");
+                glGetShaderInfoLog(shader, len, nullptr, info);
+                LOG("error log: " << info);
                 delete[] info;
             }
 
@@ -197,14 +205,32 @@ namespace {
         }
 
         void exit_gl() throw() {
-            glDetachShader(program_, fragment_shader_);
-            glDetachShader(program_, vertex_shader_);
-            glDeleteProgram(program_);
-            glDeleteShader(fragment_shader_);
-            glDeleteShader(vertex_shader_);
-            glDeleteBuffers(1, &index_);
-            glDeleteBuffers(1, &vertex_);
-            glDeleteVertexArrays(1, &array_);
+            if (program_) {
+                if (fragment_shader_) {
+                    glDetachShader(program_, fragment_shader_);
+                }
+                if (vertex_shader_) {
+                    glDetachShader(program_, vertex_shader_);
+                }
+                glDeleteProgram(program_);
+                program_ = 0;
+            }
+            if (fragment_shader_) {
+                glDeleteShader(fragment_shader_);
+                fragment_shader_ = 0;
+            }
+            if (vertex_shader_) {
+                glDeleteShader(vertex_shader_);
+                vertex_shader_ = 0;
+            }
+            if (index_buffer_) {
+                glDeleteBuffers(1, &index_buffer_);
+                index_buffer_ = 0;
+            }
+            if (vertex_buffer_) {
+                glDeleteBuffers(1, &vertex_buffer_);
+                vertex_buffer_ = 0;
+            }
         }
 
         void draw_gl() throw() {
@@ -213,20 +239,17 @@ namespace {
 
             glUseProgram(program_);
 
-            glBindVertexArray(array_);
-
             glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, vertex_);
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
 
             glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, nullptr);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glDisableVertexAttribArray(0);
-            glBindVertexArray(0);
             glUseProgram(0);
         }
 
