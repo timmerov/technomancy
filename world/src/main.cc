@@ -21,6 +21,22 @@ namespace {
 	const auto kWindowHeight = 640;
 	const auto kFrameTimeMS = 1000/60;
 
+    auto g_vertex_source =R"shader_code(
+        #version 310 es
+        layout (location = 0) in vec3 vertex_pos_in;
+        void main() {
+            gl_Position = vec4(vertex_pos_in, 1.0f);
+        }
+    )shader_code";
+
+    auto g_fragment_source = R"shader_code(
+        #version 310 es
+        out mediump vec4 frag_color;
+        void main() {
+            frag_color = vec4(0.8f, 0.0f, 0.0f, 1.0f);
+        }
+    )shader_code";
+
     class World {
     public:
         World() = default;
@@ -35,6 +51,9 @@ namespace {
         GLuint array_ = 0;
         GLuint vertex_ = 0;
         GLuint index_ = 0;
+        GLuint vertex_shader_ = 0;
+        GLuint fragment_shader_ = 0;
+        GLuint program_ = 0;
 
         void run() throw() {
             init_window();
@@ -144,9 +163,45 @@ namespace {
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, 3*sizeof(GLushort), index_array, GL_STATIC_DRAW);
             LOG("index=" << index_);
+
+            vertex_shader_ = compile_shader(GL_VERTEX_SHADER, g_vertex_source);
+            fragment_shader_ = compile_shader(GL_FRAGMENT_SHADER, g_fragment_source);
+            LOG("vertex_shader=" << vertex_shader_ << " fragment_shader=" << fragment_shader_);
+
+            program_ = glCreateProgram();
+            glAttachShader(program_, vertex_shader_);
+            glAttachShader(program_, fragment_shader_);
+            glLinkProgram(program_);
+        }
+
+        GLuint compile_shader(
+            GLenum type,
+            const char *source
+        ) throw() {
+            GLuint shader = glCreateShader(type);
+            glShaderSource(shader, 1, &source, nullptr);
+            glCompileShader(shader);
+
+            GLint result = GL_FALSE;
+            glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
+            int len;
+            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &len);
+            if (len > 0) {
+                auto info = new(std::nothrow) char[len+1];
+                glGetShaderInfoLog(shader, len, NULL, info);
+                LOG("shader=" << shader << " type=" << type << " result=" << result << " info=\"" << info << "\"");
+                delete[] info;
+            }
+
+            return shader;
         }
 
         void exit_gl() throw() {
+            glDetachShader(program_, fragment_shader_);
+            glDetachShader(program_, vertex_shader_);
+            glDeleteProgram(program_);
+            glDeleteShader(fragment_shader_);
+            glDeleteShader(vertex_shader_);
             glDeleteBuffers(1, &index_);
             glDeleteBuffers(1, &vertex_);
             glDeleteVertexArrays(1, &array_);
@@ -155,6 +210,8 @@ namespace {
         void draw_gl() throw() {
             glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glUseProgram(program_);
 
             glBindVertexArray(array_);
 
@@ -170,6 +227,7 @@ namespace {
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glDisableVertexAttribArray(0);
             glBindVertexArray(0);
+            glUseProgram(0);
         }
 
         void stop_loop() throw() {
