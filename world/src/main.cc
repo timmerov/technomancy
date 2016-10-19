@@ -11,6 +11,8 @@ spinning world example.
 
 #include <GL/glx.h>
 #include <X11/Xlib.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
 
 
 namespace {
@@ -30,10 +32,15 @@ namespace {
         Window window_ = 0;
         GLXContext context_ = 0;
         Atom delete_message_ = 0;
+        GLuint array_ = 0;
+        GLuint vertex_ = 0;
+        GLuint index_ = 0;
 
         void run() throw() {
             init_window();
+            init_gl();
             run_loop();
+            exit_gl();
             exit_window();
         }
 
@@ -108,12 +115,61 @@ namespace {
                     break;
                 }
             } else {
-                draw_window();
+                draw_gl();
                 glXSwapBuffers(display_, window_);
             }
         }
 
-        void draw_window() throw() {
+        void init_gl() throw() {
+            glViewport(0, 0, kWindowWidth, kWindowHeight);
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS);
+            glDisable(GL_CULL_FACE);
+
+            glGenVertexArrays(1, &array_);
+            glBindVertexArray(array_);
+            LOG("array=" << array_);
+
+            GLfloat vertex_array[] = {
+                +0.0f, +0.5f, +0.0f,
+                -0.5f, -0.5f, +0.0f,
+                +0.5f, -0.5f, +0.0f };
+            glGenBuffers(1, &vertex_);
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_);
+            glBufferData(GL_ARRAY_BUFFER, 3*3*sizeof(GLfloat), vertex_array, GL_STATIC_DRAW);
+            LOG("vertex=" << vertex_);
+
+            GLushort index_array[] = {0, 1, 2};
+            glGenBuffers(1, &index_);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, 3*sizeof(GLushort), index_array, GL_STATIC_DRAW);
+            LOG("index=" << index_);
+        }
+
+        void exit_gl() throw() {
+            glDeleteBuffers(1, &index_);
+            glDeleteBuffers(1, &vertex_);
+            glDeleteVertexArrays(1, &array_);
+        }
+
+        void draw_gl() throw() {
+            glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glBindVertexArray(array_);
+
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_);
+
+            glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, nullptr);
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glDisableVertexAttribArray(0);
+            glBindVertexArray(0);
         }
 
         void stop_loop() throw() {
