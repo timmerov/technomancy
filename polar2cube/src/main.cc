@@ -45,11 +45,10 @@ which makes it look somewhat blurry.
 gimp filter enhance sharpen somewhere around 50 looks good.
 **/
 
-#include "png-local.h"
-
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/cmd_line.h>
 #include <aggiornamento/log.h>
+#include <common/png.h>
 
 #include <cmath>
 

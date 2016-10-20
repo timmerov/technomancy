@@ -7,10 +7,9 @@ read and write png files.
 wrapper for libpng.
 **/
 
-#include "png-local.h"
-
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
+#include <common/png.h>
 
 #include <png.h>
 
