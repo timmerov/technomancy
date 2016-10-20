@@ -2,6 +2,8 @@
 Copyright (C) 2012-2016 tim cotter. All rights reserved.
 */
 
+#pragma once
+
 /**
 generate a sphere obj file.
 divide a cube into a specified array of squares.
