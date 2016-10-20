@@ -128,8 +128,15 @@ void sphere::Gen::generate(
     createAllVertices();
     createAllSides();
 
-    // copy our sphere to theirs.
-    *sphere = sphere_;
+    // overwrite their sphere with ours.
+    delete[] sphere->vertex_;
+    delete[] sphere->face_;
+    sphere->num_vertexes_ = sphere_.num_vertexes_;
+    sphere->num_faces_ = sphere_.num_faces_;
+    sphere->vertex_ = sphere_.vertex_;
+    sphere->face_ = sphere_.face_;
+    sphere_.num_vertexes_ = 0;
+    sphere_.num_faces_ = 0;
     sphere_.vertex_ = nullptr;
     sphere_.face_ = nullptr;
 }
