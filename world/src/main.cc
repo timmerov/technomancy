@@ -13,6 +13,8 @@ spinning world example.
 #include <X11/Xlib.h>
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 
 namespace {
@@ -24,8 +26,9 @@ namespace {
     auto g_vertex_source =R"shader_code(
         #version 310 es
         layout (location = 0) in vec3 vertex_pos_in;
+        uniform mat4 proj_view_mat;
         void main() {
-            gl_Position = vec4(vertex_pos_in, 1.0f);
+            gl_Position = proj_view_mat * vec4(vertex_pos_in, 1.0f);
         }
     )shader_code";
 
@@ -33,7 +36,7 @@ namespace {
         #version 310 es
         out mediump vec4 frag_color;
         void main() {
-            frag_color = vec4(0.8f, 0.0f, 0.0f, 1.0f);
+            frag_color = vec4(0.0f, 0.8f, 0.8f, 1.0f);
         }
     )shader_code";
 
@@ -53,6 +56,7 @@ namespace {
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
+        GLuint proj_view_mat_loc_ = 0;
 
         void run() throw() {
             init_window();
@@ -145,9 +149,9 @@ namespace {
             glDisable(GL_CULL_FACE);
 
             GLfloat vertex_array[] = {
-                +0.0f, +0.5f, +0.0f,
-                -0.5f, -0.5f, +0.0f,
-                +0.5f, -0.5f, +0.0f };
+                +0.0f, +1.0f, +0.0f,
+                -1.0f, -1.0f, +0.0f,
+                +1.0f, -1.0f, +0.0f };
             glGenBuffers(1, &vertex_buffer_);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
             glBufferData(GL_ARRAY_BUFFER, 3*3*sizeof(GLfloat), vertex_array, GL_STATIC_DRAW);
@@ -180,6 +184,10 @@ namespace {
                 LOG("error log: " << info);
                 delete[] info;
             }
+
+            glUseProgram(program_);
+            proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
+            LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
         }
 
         GLuint compile_shader(
@@ -237,7 +245,21 @@ namespace {
             glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+            glm::mat4 view_mat = std::move(glm::lookAt(
+                glm::vec3(0.0f, 1.0f, 3.0f),  // camera location
+                glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
+                glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
+            ));
+            glm::mat4 proj_mat = std::move(glm::perspective(
+                glm::radians(52.0f),  // fov
+                float(kWindowWidth)/float(kWindowHeight),   // aspect ratio
+                0.1f,  // near clipping plane
+                30.0f  // far  clipping plane
+            ));
+            glm::mat4 proj_view_mat = proj_mat * view_mat;
+
             glUseProgram(program_);
+            glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
 
             glEnableVertexAttribArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
