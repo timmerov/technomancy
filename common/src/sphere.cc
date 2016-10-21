@@ -119,6 +119,7 @@ void sphere::Gen::generate(
     sphere_.num_vertexes_ = 6 * vertexes_per_side_;
     sphere_.num_faces_ = 6 * faces_per_side;
     sphere_.vertex_ = new(std::nothrow) Vector3[sphere_.num_vertexes_];
+    sphere_.texture_ = new(std::nothrow) Vector2[sphere_.num_vertexes_];
     sphere_.face_ = new(std::nothrow) Face[sphere_.num_faces_];
 
     //LOG("num_vertexes=" << sphere_.num_vertexes_);
@@ -126,18 +127,22 @@ void sphere::Gen::generate(
 
     initWeights();
     createAllVertices();
+    createAllTextures();
     createAllSides();
 
     // overwrite their sphere with ours.
     delete[] sphere->vertex_;
+    delete[] sphere->texture_;
     delete[] sphere->face_;
     sphere->num_vertexes_ = sphere_.num_vertexes_;
     sphere->num_faces_ = sphere_.num_faces_;
     sphere->vertex_ = sphere_.vertex_;
+    sphere->texture_ = sphere_.texture_;
     sphere->face_ = sphere_.face_;
     sphere_.num_vertexes_ = 0;
     sphere_.num_faces_ = 0;
     sphere_.vertex_ = nullptr;
+    sphere_.texture_ = nullptr;
     sphere_.face_ = nullptr;
 }
 
@@ -275,5 +280,32 @@ void sphere::Gen::createSide(
             ++tbl;
         }
         ++tbl;
+    }
+}
+
+void sphere::Gen::createAllTextures() throw() {
+    for (int side = 0; side < 6; ++side) {
+        createTexture(side);
+    }
+}
+
+void sphere::Gen::createTexture(
+    int side
+) throw() {
+    auto fx = double(side % 3) / 3.0;
+    auto fy = double(side / 3) / 2.0;
+
+    int idx = vertexes_per_side_ * side;
+    auto tex = &sphere_.texture_[idx];
+
+    auto ins = 1.0 / double(num_segments_);
+    for (int y = 0; y <= num_segments_; ++y) {
+        auto v = fy + 1.0/2.0 * y * ins;
+        for (int x = 0; x <= num_segments_; ++x) {
+            auto u = fx + 1.0/3.0 * x * ins;
+            tex->x_ = u;
+            tex->y_ = v;
+            ++tex;
+        }
     }
 }

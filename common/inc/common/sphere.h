@@ -40,6 +40,12 @@ the parallel axis.
 
 
 namespace sphere {
+    class Vector2 {
+    public:
+        double x_;
+        double y_;
+    };
+
     class Vector3 {
     public:
         double x_;
@@ -60,12 +66,14 @@ namespace sphere {
         Sphere(const Sphere &) = delete;
         ~Sphere() {
             delete[] vertex_;
+            delete[] texture_;
             delete[] face_;
         }
 
         int num_vertexes_ = 0;
         int num_faces_ = 0;
         Vector3 *vertex_ = nullptr;
+        Vector2 *texture_ = nullptr;
         Face *face_ = nullptr;
     };
 
@@ -92,6 +100,8 @@ namespace sphere {
         void createVertices(int side) throw();
         void createAllSides() throw();
         void createSide(int side) throw();
+        void createAllTextures() throw();
+        void createTexture(int side) throw();
 
     private:
         int num_segments_;

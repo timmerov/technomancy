@@ -123,7 +123,7 @@ namespace {
             file_.open(filename_, std::fstream::out);
             writeHeader();
             writeVertexes();
-            writeAllTextures();
+            writeTextures();
             writeFaces();
             file_.close();
         }
@@ -144,27 +144,12 @@ namespace {
             file_ << std::endl;
         }
 
-        void writeAllTextures() throw() {
-            for (int side = 0; side < 6; ++side) {
-                writeTextures(side);
+        void writeTextures() throw() {
+            auto vt = &sphere_.texture_[0];
+            for (int i = 0; i < sphere_.num_vertexes_; ++i, ++vt) {
+                file_ << "vt " << vt->x_ << " " << vt->y_ << std::endl;
             }
             file_ << std::endl;
-        }
-
-        void writeTextures(
-            int side
-        ) throw() {
-            auto fx = double(side % 3) / 3.0;
-            auto fy = double(side / 3) / 2.0;
-
-            auto ins = 1.0 / double(num_segments_);
-            for (int y = 0; y <= num_segments_; ++y) {
-                auto v = fy + 1.0/2.0 * y * ins;
-                for (int x = 0; x <= num_segments_; ++x) {
-                    auto u = fx + 1.0/3.0 * x * ins;
-                    file_ << "vt " << u << " " << v << std::endl;
-                }
-            }
         }
 
         void writeFaces() throw() {
