@@ -221,9 +221,7 @@ void sphere::Gen::createSide(
     auto tbl = table_;
     for (int y = 0; y <= num_segments_; ++y) {
         for (int x = 0; x <= num_segments_; ++x) {
-            // obj file indexes are 1 based.
-            // cause it's 1984.
-            *tbl = idx + 1;
+            *tbl = idx ;
 
             /*if (side == 0) {
                 LOG("x=" << x << " y=" << y << " vtx=" << tbl->vtx_ << " tex=" << tbl->tex_);

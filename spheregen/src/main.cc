@@ -170,10 +170,15 @@ namespace {
         void writeFaces() throw() {
             auto f = sphere_.face_;
             for (int i = 0; i < sphere_.num_faces_; ++i) {
+                // obj file indexes are 1 based.
+                // cause it's 1984.
+                auto a = f->a_ + 1;
+                auto b = f->b_ + 1;
+                auto c = f->c_ + 1;
                 file_ << "f "
-                    << f->a_ << "/" << f->a_ << " "
-                    << f->b_ << "/" << f->b_ << " "
-                    << f->c_ << "/" << f->c_ << std::endl;
+                    << a << "/" << a << " "
+                    << b << "/" << b << " "
+                    << c << "/" << c << std::endl;
                 ++f;
             }
         }
