@@ -51,8 +51,6 @@ namespace {
         GLuint program_ = 0;
         GLuint proj_view_mat_loc_ = 0;
         int num_indexes_ = 0;
-        GLfloat *vertex_array_ = nullptr;
-        GLushort *index_array_ = nullptr;
 
         virtual void init(
             int width,
@@ -69,19 +67,19 @@ namespace {
             LOG("num_vertexes=" << sphere.num_vertexes_ << " num_faces=" << sphere.num_faces_);
 
             int num_floats = 3 * sphere.num_vertexes_;
-            vertex_array_ = new(std::nothrow) GLfloat[num_floats];
+            auto vertex_array = new(std::nothrow) GLfloat[num_floats];
             for (int i = 0; i < sphere.num_vertexes_; ++i) {
-                vertex_array_[3*i+0] = (GLfloat) sphere.vertex_[i].x_;
-                vertex_array_[3*i+1] = (GLfloat) sphere.vertex_[i].y_;
-                vertex_array_[3*i+2] = (GLfloat) sphere.vertex_[i].z_;
+                vertex_array[3*i+0] = (GLfloat) sphere.vertex_[i].x_;
+                vertex_array[3*i+1] = (GLfloat) sphere.vertex_[i].y_;
+                vertex_array[3*i+2] = (GLfloat) sphere.vertex_[i].z_;
                 //LOG("vertex[" << i << "]={" << vertex_array_[3*i+0] << ", " << vertex_array_[3*i+1] << ", " << vertex_array_[3*i+2] << "}");
             }
             num_indexes_ = 3 * sphere.num_faces_;
-            index_array_ = new(std::nothrow) GLushort[num_indexes_];
+            auto index_array = new(std::nothrow) GLushort[num_indexes_];
             for (int i = 0; i < sphere.num_faces_; ++i) {
-                index_array_[3*i+0] = (GLushort) sphere.face_[i].a_;
-                index_array_[3*i+1] = (GLushort) sphere.face_[i].b_;
-                index_array_[3*i+2] = (GLushort) sphere.face_[i].c_;
+                index_array[3*i+0] = (GLushort) sphere.face_[i].a_;
+                index_array[3*i+1] = (GLushort) sphere.face_[i].b_;
+                index_array[3*i+2] = (GLushort) sphere.face_[i].c_;
                 //LOG("face[" << i << "]={" << index_array_[3*i+0] << ", " << index_array_[3*i+1] << ", " << index_array_[3*i+2] << "}");
             }
             num_triangles_ = sphere.num_faces_;
@@ -93,12 +91,12 @@ namespace {
 
             glGenBuffers(1, &vertex_buffer_);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_floats, vertex_array_, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_floats, vertex_array, GL_STATIC_DRAW);
             LOG("vertex=" << vertex_buffer_);
 
             glGenBuffers(1, &index_buffer_);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_indexes_, index_array_, GL_STATIC_DRAW);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_indexes_, index_array, GL_STATIC_DRAW);
             LOG("index=" << index_buffer_);
 
             vertex_shader_ = compile_shader(GL_VERTEX_SHADER, g_vertex_source);
@@ -126,6 +124,9 @@ namespace {
             glUseProgram(program_);
             proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
             LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
+
+            delete[] index_array;
+            delete[] vertex_array;
         }
 
         virtual void exit() throw() {
@@ -155,9 +156,6 @@ namespace {
                 glDeleteBuffers(1, &vertex_buffer_);
                 vertex_buffer_ = 0;
             }
-
-            delete[] index_array_;
-            delete[] vertex_array_;
         }
 
         virtual void draw() throw() {
