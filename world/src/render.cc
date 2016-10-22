@@ -31,20 +31,26 @@ namespace {
         layout (location = 0) in vec3 vertex_pos_in;
         layout (location = 1) in vec2 texture_pos_in;
         out mediump vec2 texture_pos;
-        uniform mat4 transform_mat;
+        out mediump float bright;
+        uniform mat4 model_mat;
+        uniform mat4 proj_view_mat;
         void main() {
-            gl_Position = transform_mat * vec4(vertex_pos_in, 1.0f);
+            vec3 sun_dir = normalize(vec3(3.0f, 2.0f, 1.0f));
+            vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
+            gl_Position = proj_view_mat * world_pos;
             texture_pos = texture_pos_in;
+            bright = clamp(dot(world_pos.xyz, sun_dir), 0.0f, 1.0f);
         }
     )shader_code";
 
     auto g_fragment_source = R"shader_code(
         #version 310 es
         in mediump vec2 texture_pos;
+        in mediump float bright;
         out mediump vec4 color_out;
         uniform sampler2D texture_sampler;
         void main() {
-            color_out = texture(texture_sampler, texture_pos);
+            color_out = bright * texture(texture_sampler, texture_pos);
         }
     )shader_code";
 
@@ -64,7 +70,8 @@ namespace {
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
-        GLuint transform_mat_loc_ = 0;
+        GLuint model_mat_loc_ = 0;
+        GLuint proj_view_mat_loc_ = 0;
         GLuint texture_loc_ = 0;
         int num_indexes_ = 0;
         float angle_ = 0.0f;
@@ -165,8 +172,10 @@ namespace {
             }
 
             glUseProgram(program_);
-            transform_mat_loc_ = glGetUniformLocation(program_, "transform_mat");
-            LOG("transform_mat_loc=" << transform_mat_loc_);
+            model_mat_loc_ = glGetUniformLocation(program_, "model_mat");
+            LOG("model_mat_loc=" << model_mat_loc_);
+            proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
+            LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
             texture_loc_ = glGetUniformLocation(program_, "texture_sampler");
             LOG("texture_loc=" << texture_loc_);
 
@@ -217,7 +226,7 @@ namespace {
         }
 
         virtual void draw() throw() {
-            glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             auto pi = acos(-1.0f);
@@ -227,6 +236,7 @@ namespace {
                 angle_,
                 glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
             ));
+
             glm::mat4 view_mat = std::move(glm::lookAt(
                 glm::vec3(0.0f, 1.5f, 2.0f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
@@ -238,10 +248,11 @@ namespace {
                 0.1f,  // near clipping plane
                 30.0f  // far  clipping plane
             ));
-            glm::mat4 proj_view_mat = proj_mat * view_mat * model_mat;
+            glm::mat4 proj_view_mat = proj_mat * view_mat;
 
             glUseProgram(program_);
-            glUniformMatrix4fv(transform_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
+            glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
+            glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
 
             glBindVertexArray(vertex_array_);
 
