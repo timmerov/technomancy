@@ -4,6 +4,9 @@ Copyright (C) 2012-2016 tim cotter. All rights reserved.
 
 /**
 spinning world example.
+
+much help from here.
+https://github.com/opengl-tutorials/ogl
 **/
 
 #include <aggiornamento/aggiornamento.h>
