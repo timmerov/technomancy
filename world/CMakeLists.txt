@@ -37,6 +37,7 @@ set(LIBS
     agm
     common
     GL
+    png
     X11
 )
 target_link_libraries(${THIS_TARGET_NAME} ${LIBS})

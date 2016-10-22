@@ -8,6 +8,7 @@ spinning world example.
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
+#include <common/png.h>
 #include <common/sphere.h>
 
 #include <GLES3/gl3.h>
@@ -19,6 +20,9 @@ spinning world example.
 
 
 namespace {
+    const int kNumSegments = 12;
+    const char kTextureFilename[] = "cube-sharp50.png";
+
     auto g_vertex_source =R"shader_code(
         #version 310 es
         layout (location = 0) in vec3 vertex_pos_in;
@@ -34,9 +38,10 @@ namespace {
     auto g_fragment_source = R"shader_code(
         #version 310 es
         in mediump vec2 texture_pos;
-        out mediump vec4 frag_color;
+        out mediump vec4 color_out;
+        uniform sampler2D texture_sampler;
         void main() {
-            frag_color = vec4(texture_pos.x, texture_pos.y, 0.0f, 1.0f);
+            color_out = texture(texture_sampler, texture_pos);
         }
     )shader_code";
 
@@ -48,14 +53,16 @@ namespace {
         int width_ = 0;
         int height_ = 0;
         int num_triangles_ = 0;
-        GLuint vertex_id_ = 0;
+        GLuint vertex_array_ = 0;
         GLuint vertex_buffer_ = 0;
-        GLuint texture_buffer_ = 0;
+        GLuint coords_buffer_ = 0;
         GLuint index_buffer_ = 0;
+        GLuint texture_ = 0;
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
         GLuint proj_view_mat_loc_ = 0;
+        GLuint texture_loc_ = 0;
         int num_indexes_ = 0;
 
         virtual void init(
@@ -68,7 +75,7 @@ namespace {
             sphere::Sphere sphere;
             {
                 sphere::Gen gen;
-                gen.generate(3, &sphere);
+                gen.generate(kNumSegments, &sphere);
             }
             LOG("num_vertexes=" << sphere.num_vertexes_ << " num_faces=" << sphere.num_faces_);
 
@@ -80,11 +87,11 @@ namespace {
                 vertex_array[3*i+2] = (GLfloat) sphere.vertex_[i].z_;
                 //LOG("vertex[" << i << "]={" << vertex_array_[3*i+0] << ", " << vertex_array_[3*i+1] << ", " << vertex_array_[3*i+2] << "}");
             }
-            int num_texture_floats = 2 * sphere.num_vertexes_;
-            auto texture_array = new(std::nothrow) GLfloat[num_texture_floats];
+            int num_coords_floats = 2 * sphere.num_vertexes_;
+            auto coords_array = new(std::nothrow) GLfloat[num_coords_floats];
             for (int i = 0; i < sphere.num_vertexes_; ++i) {
-                texture_array[2*i+0] = (GLfloat) sphere.texture_[i].x_;
-                texture_array[2*i+1] = (GLfloat) sphere.texture_[i].y_;
+                coords_array[2*i+0] = (GLfloat) sphere.texture_[i].x_;
+                coords_array[2*i+1] = (GLfloat) sphere.texture_[i].y_;
             }
             num_indexes_ = 3 * sphere.num_faces_;
             auto index_array = new(std::nothrow) GLushort[num_indexes_];
@@ -101,17 +108,17 @@ namespace {
             glDepthFunc(GL_LESS);
             glDisable(GL_CULL_FACE);
 
-            glGenVertexArrays(1, &vertex_id_);
-            glBindVertexArray(vertex_id_);
+            glGenVertexArrays(1, &vertex_array_);
+            glBindVertexArray(vertex_array_);
 
             glGenBuffers(1, &vertex_buffer_);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
             glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_vertex_floats, vertex_array, GL_STATIC_DRAW);
             LOG("vertex=" << vertex_buffer_);
 
-            glGenBuffers(1, &texture_buffer_);
-            glBindBuffer(GL_ARRAY_BUFFER, texture_buffer_);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_texture_floats, texture_array, GL_STATIC_DRAW);
+            glGenBuffers(1, &coords_buffer_);
+            glBindBuffer(GL_ARRAY_BUFFER, coords_buffer_);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_coords_floats, coords_array, GL_STATIC_DRAW);
             LOG("vertex=" << vertex_buffer_);
 
             glGenBuffers(1, &index_buffer_);
@@ -123,6 +130,18 @@ namespace {
             LOG("vertex_shader=" << vertex_shader_);
             fragment_shader_ = compile_shader(GL_FRAGMENT_SHADER, g_fragment_source);
             LOG("fragment_shader=" << fragment_shader_);
+
+            Png png;
+            png.read(kTextureFilename);
+            glGenTextures(1, &texture_);
+            glBindTexture(GL_TEXTURE_2D, texture_);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, png.wd_, png.ht_, 0, GL_RGB, GL_UNSIGNED_BYTE, png.data_);
+
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glGenerateMipmap(GL_TEXTURE_2D);
 
             program_ = glCreateProgram();
             LOG("program=" << program_);
@@ -144,9 +163,11 @@ namespace {
             glUseProgram(program_);
             proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
             LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
+            texture_loc_ = glGetUniformLocation(program_, "texture_sampler");
+            LOG("texture_loc=" << texture_loc_);
 
             delete[] index_array;
-            delete[] texture_array;
+            delete[] coords_array;
             delete[] vertex_array;
         }
 
@@ -169,21 +190,25 @@ namespace {
                 glDeleteShader(vertex_shader_);
                 vertex_shader_ = 0;
             }
+            if (texture_) {
+                glDeleteTextures(1, &texture_);
+                texture_ = 0;
+            }
             if (index_buffer_) {
                 glDeleteBuffers(1, &index_buffer_);
                 index_buffer_ = 0;
             }
-            if (texture_buffer_) {
-                glDeleteBuffers(1, &texture_buffer_);
-                texture_buffer_ = 0;
+            if (coords_buffer_) {
+                glDeleteBuffers(1, &coords_buffer_);
+                coords_buffer_ = 0;
             }
             if (vertex_buffer_) {
                 glDeleteBuffers(1, &vertex_buffer_);
                 vertex_buffer_ = 0;
             }
-            if (vertex_id_) {
-                glDeleteVertexArrays(1, &vertex_id_);
-                vertex_id_ = 0;
+            if (vertex_array_) {
+                glDeleteVertexArrays(1, &vertex_array_);
+                vertex_array_ = 0;
             }
         }
 
@@ -207,14 +232,14 @@ namespace {
             glUseProgram(program_);
             glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
 
-            glBindVertexArray(vertex_id_);
+            glBindVertexArray(vertex_array_);
 
             glEnableVertexAttribArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
             glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, texture_buffer_);
+            glBindBuffer(GL_ARRAY_BUFFER, coords_buffer_);
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);

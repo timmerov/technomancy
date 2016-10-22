@@ -145,7 +145,6 @@ bool Png::read(
         png_read_update_info(png, info);
 
         stride_ = wd_ * depth * channels / 8;
-        stride_ = (stride_ + 31) / 32 * 32;
         size = stride_ * ht_;
 
         rows = new(std::nothrow) png_byte*[ht_];
