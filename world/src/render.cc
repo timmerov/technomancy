@@ -31,9 +31,9 @@ namespace {
         layout (location = 0) in vec3 vertex_pos_in;
         layout (location = 1) in vec2 texture_pos_in;
         out mediump vec2 texture_pos;
-        uniform mat4 proj_view_mat;
+        uniform mat4 transform_mat;
         void main() {
-            gl_Position = proj_view_mat * vec4(vertex_pos_in, 1.0f);
+            gl_Position = transform_mat * vec4(vertex_pos_in, 1.0f);
             texture_pos = texture_pos_in;
         }
     )shader_code";
@@ -64,9 +64,10 @@ namespace {
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
-        GLuint proj_view_mat_loc_ = 0;
+        GLuint transform_mat_loc_ = 0;
         GLuint texture_loc_ = 0;
         int num_indexes_ = 0;
+        float angle_ = 0.0f;
 
         virtual void init(
             int width,
@@ -164,8 +165,8 @@ namespace {
             }
 
             glUseProgram(program_);
-            proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
-            LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
+            transform_mat_loc_ = glGetUniformLocation(program_, "transform_mat");
+            LOG("transform_mat_loc=" << transform_mat_loc_);
             texture_loc_ = glGetUniformLocation(program_, "texture_sampler");
             LOG("texture_loc=" << texture_loc_);
 
@@ -219,8 +220,15 @@ namespace {
             glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+            auto pi = acos(-1.0f);
+            angle_ += 2.0*pi/60.0f/10.0f;  // 1 rotation per 10 seconds.
+            glm::mat4 model_mat = std::move(glm::rotate(
+                glm::mat4(),
+                angle_,
+                glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
+            ));
             glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(0.0f, 1.0f, 3.0f),  // camera location
+                glm::vec3(0.0f, 1.5f, 2.0f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
             ));
@@ -230,10 +238,10 @@ namespace {
                 0.1f,  // near clipping plane
                 30.0f  // far  clipping plane
             ));
-            glm::mat4 proj_view_mat = proj_mat * view_mat;
+            glm::mat4 proj_view_mat = proj_mat * view_mat * model_mat;
 
             glUseProgram(program_);
-            glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
+            glUniformMatrix4fv(transform_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
 
             glBindVertexArray(vertex_array_);
 

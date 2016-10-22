@@ -36,7 +36,7 @@ namespace {
 
         void run_loop() throw() {
             while (g_stop_flag == false) {
-                agm::sleep::milliseconds(kFrameTimeMS);
+                //agm::sleep::milliseconds(kFrameTimeMS);
                 window_->run();
             }
         }
