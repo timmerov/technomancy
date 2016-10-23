@@ -43,6 +43,10 @@ the faces in the original texture look like this:
 the image is anti-aliased by 4x in each direction.
 which makes it look somewhat blurry.
 gimp filter enhance sharpen somewhere around 50 looks good.
+
+*** caution ***
+be sure to sharpen the top strip and bottom strips separately.
+otherwise they'll bleed (anti-bleed?) into each other.
 **/
 
 #include <aggiornamento/aggiornamento.h>

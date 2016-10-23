@@ -7,6 +7,17 @@ spinning world example.
 
 much help from here.
 https://github.com/opengl-tutorials/ogl
+
+*** caution ***
+we're going to use tri-linear interpolation.
+which means we're going to generate mip-maps.
+which means the top strip is going to bleed into
+the bottom strip.
+resulting in a visible seam.
+there's not much we can do about it.
+other than create separate textures for the top
+and bottom strips.
+and render them separately.
 **/
 
 #include <aggiornamento/aggiornamento.h>
