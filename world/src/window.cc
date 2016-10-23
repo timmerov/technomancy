@@ -86,11 +86,9 @@ namespace {
                 XNextEvent(display_, &event);
                 switch (event.type) {
                 case Expose:
-                    LOG("Event:Expose");
                     XWindowAttributes window_attributes;
                     XGetWindowAttributes(display_, window_, &window_attributes);
-                    //render(window_attributes.display_rect.width, window_attributes.display_rect.height);
-                    glXSwapBuffers(display_, window_);
+                    render_->resize(window_attributes.width, window_attributes.height);
                     break;
 
                 case ClientMessage:
@@ -101,13 +99,14 @@ namespace {
                     }
                     break;
 
-                case KeyPress:
-                    auto key = XLookupKeysym(&event.xkey, 0);
-                    if (key == XK_Escape) {
-                        main_stop();
-                    }
-                    LOG("Event:KeyPress key=" << key);
+                case KeyPress: {
+                        auto key = XLookupKeysym(&event.xkey, 0);
+                        if (key == XK_Escape) {
+                            main_stop();
+                        }
+                        LOG("Event:KeyPress key=" << key);
                     break;
+                    }
                 }
             } else {
                 render_->draw();

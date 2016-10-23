@@ -20,4 +20,5 @@ public:
     virtual void init(int width, int height) throw() = 0;
     virtual void exit() throw() = 0;
     virtual void draw() throw() = 0;
+    virtual void resize(int width, int height) throw() = 0;
 };

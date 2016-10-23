@@ -95,12 +95,16 @@ namespace {
             width_ = width;
             height_ = height;
 
+            int num_segments = calc_segments(width, height);
             sphere::Sphere sphere;
             {
                 sphere::Gen gen;
-                gen.generate(kNumSegments, &sphere);
+                gen.generate(num_segments, &sphere);
             }
-            LOG("num_vertexes=" << sphere.num_vertexes_ << " num_faces=" << sphere.num_faces_);
+            LOG("num_segments= " << num_segments << " num_vertexes=" << sphere.num_vertexes_ << " num_faces=" << sphere.num_faces_);
+            if (sphere.num_vertexes_ > 65535) {
+                LOG("*** ERROR *** required index range exceeds unsigned short.");
+            }
 
             /*
             we only need half of the vertexes and coords.
@@ -130,10 +134,9 @@ namespace {
                 //LOG("face[" << i << "]={" << index_array_[3*i+0] << ", " << index_array_[3*i+1] << ", " << index_array_[3*i+2] << "}");
             }
 
-            glViewport(0, 0, width, height);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
-            glDisable(GL_CULL_FACE);
+            glEnable(GL_CULL_FACE);
 
             glGenVertexArrays(1, &vertex_array_);
             glBindVertexArray(vertex_array_);
@@ -294,6 +297,8 @@ namespace {
             ));
             glm::mat4 proj_view_mat = proj_mat * view_mat;
 
+            glViewport(0, 0, width_, height_);
+
             glUseProgram(program_);
             glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
             glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
@@ -322,6 +327,23 @@ namespace {
             glUseProgram(0);
         }
 
+        virtual void resize(
+            int width,
+            int height
+        ) throw() {
+            int cur_segments = calc_segments(width_, height_);
+            int new_segments = calc_segments(width, height);
+
+            width_ = width;
+            height_ = height;
+
+            if (cur_segments != new_segments) {
+
+                exit();
+                init(width, height);
+            }
+        }
+
         GLuint compile_shader(
             GLenum type,
             const char *source
@@ -342,6 +364,16 @@ namespace {
             }
 
             return shader;
+        }
+
+        int calc_segments(
+            int width,
+            int height
+        ) throw() {
+            // oddly, does not depend on width.
+            (void) width;
+            auto segs = kNumSegments * height / 640;
+            return segs;
         }
     };
 }
