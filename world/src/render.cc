@@ -72,12 +72,12 @@ namespace {
 
         int width_ = 0;
         int height_ = 0;
-        int num_triangles_ = 0;
         GLuint vertex_array_ = 0;
         GLuint vertex_buffer_ = 0;
         GLuint coords_buffer_ = 0;
         GLuint index_buffer_ = 0;
-        GLuint texture_ = 0;
+        GLuint texture_front_ = 0;
+        GLuint texture_back_ = 0;
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
@@ -86,6 +86,7 @@ namespace {
         GLuint texture_loc_ = 0;
         int num_indexes_ = 0;
         float angle_ = 0.0f;
+        glm::mat4 rotxz_;
 
         virtual void init(
             int width,
@@ -101,29 +102,33 @@ namespace {
             }
             LOG("num_vertexes=" << sphere.num_vertexes_ << " num_faces=" << sphere.num_faces_);
 
-            int num_vertex_floats = 3 * sphere.num_vertexes_;
+            /*
+            we only need half of the vertexes and coords.
+            we're going to draw the sphere in two strips.
+            the first half of the vertexes will be rotated to draw the second half.
+            */
+            int num_vertex_floats = 3 * sphere.num_vertexes_ / 2;
             auto vertex_array = new(std::nothrow) GLfloat[num_vertex_floats];
-            for (int i = 0; i < sphere.num_vertexes_; ++i) {
+            for (int i = 0; i < sphere.num_vertexes_ / 2; ++i) {
                 vertex_array[3*i+0] = (GLfloat) sphere.vertex_[i].x_;
                 vertex_array[3*i+1] = (GLfloat) sphere.vertex_[i].y_;
                 vertex_array[3*i+2] = (GLfloat) sphere.vertex_[i].z_;
                 //LOG("vertex[" << i << "]={" << vertex_array_[3*i+0] << ", " << vertex_array_[3*i+1] << ", " << vertex_array_[3*i+2] << "}");
             }
-            int num_coords_floats = 2 * sphere.num_vertexes_;
+            int num_coords_floats = 2 * sphere.num_vertexes_ / 2;
             auto coords_array = new(std::nothrow) GLfloat[num_coords_floats];
-            for (int i = 0; i < sphere.num_vertexes_; ++i) {
+            for (int i = 0; i < sphere.num_vertexes_ / 2; ++i) {
                 coords_array[2*i+0] = (GLfloat) sphere.texture_[i].x_;
-                coords_array[2*i+1] = (GLfloat) sphere.texture_[i].y_;
+                coords_array[2*i+1] = 2.0f * (GLfloat) sphere.texture_[i].y_;
             }
-            num_indexes_ = 3 * sphere.num_faces_;
+            num_indexes_ = 3 * sphere.num_faces_ / 2;
             auto index_array = new(std::nothrow) GLushort[num_indexes_];
-            for (int i = 0; i < sphere.num_faces_; ++i) {
+            for (int i = 0; i < sphere.num_faces_ / 2; ++i) {
                 index_array[3*i+0] = (GLushort) sphere.face_[i].a_;
                 index_array[3*i+1] = (GLushort) sphere.face_[i].b_;
                 index_array[3*i+2] = (GLushort) sphere.face_[i].c_;
                 //LOG("face[" << i << "]={" << index_array_[3*i+0] << ", " << index_array_[3*i+1] << ", " << index_array_[3*i+2] << "}");
             }
-            num_triangles_ = sphere.num_faces_;
 
             glViewport(0, 0, width, height);
             glEnable(GL_DEPTH_TEST);
@@ -155,10 +160,21 @@ namespace {
 
             Png png;
             png.read(kTextureFilename);
-            glGenTextures(1, &texture_);
-            glBindTexture(GL_TEXTURE_2D, texture_);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, png.wd_, png.ht_, 0, GL_RGB, GL_UNSIGNED_BYTE, png.data_);
+            auto ht2 = png.ht_ / 2;
+            auto data = png.data_;
+            glGenTextures(1, &texture_front_);
+            glBindTexture(GL_TEXTURE_2D, texture_front_);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, png.wd_, ht2, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glGenerateMipmap(GL_TEXTURE_2D);
 
+            data += png.stride_ * ht2;
+            glGenTextures(1, &texture_back_);
+            glBindTexture(GL_TEXTURE_2D, texture_back_);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, png.wd_, ht2, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -190,6 +206,16 @@ namespace {
             texture_loc_ = glGetUniformLocation(program_, "texture_sampler");
             LOG("texture_loc=" << texture_loc_);
 
+            rotxz_[0][0] = -1.0f;
+            rotxz_[0][1] = +0.0f;
+            rotxz_[0][2] = +0.0f;
+            rotxz_[1][0] = +0.0f;
+            rotxz_[1][1] = +0.0f;
+            rotxz_[1][2] = +1.0f;
+            rotxz_[2][0] = +0.0f;
+            rotxz_[2][1] = +1.0f;
+            rotxz_[2][2] = +0.0f;
+
             delete[] index_array;
             delete[] coords_array;
             delete[] vertex_array;
@@ -214,9 +240,13 @@ namespace {
                 glDeleteShader(vertex_shader_);
                 vertex_shader_ = 0;
             }
-            if (texture_) {
-                glDeleteTextures(1, &texture_);
-                texture_ = 0;
+            if (texture_back_) {
+                glDeleteTextures(1, &texture_back_);
+                texture_back_ = 0;
+            }
+            if (texture_front_) {
+                glDeleteTextures(1, &texture_front_);
+                texture_front_ = 0;
             }
             if (index_buffer_) {
                 glDeleteBuffers(1, &index_buffer_);
@@ -240,7 +270,7 @@ namespace {
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            auto pi = acos(-1.0f);
+            float pi = (float) acos(-1.0f);
             angle_ += 2.0f*pi/60.0f/24.0f;  // 24 hours in 24 seconds.
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
@@ -267,21 +297,23 @@ namespace {
             glUseProgram(program_);
             glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
             glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
-
             glBindVertexArray(vertex_array_);
-
             glEnableVertexAttribArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-
             glEnableVertexAttribArray(1);
             glBindBuffer(GL_ARRAY_BUFFER, coords_buffer_);
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
-
+            glBindTexture(GL_TEXTURE_2D, texture_front_);
             glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
 
+            model_mat = model_mat * rotxz_;
+            glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
+            glBindTexture(GL_TEXTURE_2D, texture_back_);
+            glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
+
+            glBindTexture(GL_TEXTURE_2D, 0);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glDisableVertexAttribArray(1);
