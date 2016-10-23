@@ -230,7 +230,10 @@ namespace {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             auto pi = acos(-1.0f);
-            angle_ += 2.0*pi/60.0f/24.0f;  // 24 hours in 24 seconds.
+            angle_ += 2.0f*pi/60.0f/24.0f;  // 24 hours in 24 seconds.
+            if (angle_ >= 2.0f*pi) {
+                angle_ -= 2.0f*pi;
+            }
             glm::mat4 model_mat = std::move(glm::rotate(
                 glm::mat4(),
                 angle_,
