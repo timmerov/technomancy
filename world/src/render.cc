@@ -32,6 +32,9 @@ and render them separately.
 
 #include "render.h"
 
+#include <sstream>
+#include <iomanip>
+
 
 namespace {
     const int kNumSegments = 12;
@@ -87,6 +90,7 @@ namespace {
         int num_indexes_ = 0;
         float angle_ = 0.0f;
         glm::mat4 rotxz_;
+        int frame_count_ = 0;
 
         virtual void init(
             int width,
@@ -325,6 +329,8 @@ namespace {
             glDisableVertexAttribArray(0);
             glBindVertexArray(0);
             glUseProgram(0);
+
+            //captureFrame();
         }
 
         virtual void resize(
@@ -374,6 +380,35 @@ namespace {
             (void) width;
             auto segs = kNumSegments * height / 640;
             return segs;
+        }
+
+        void captureFrame() throw() {
+            if (frame_count_ >= 24*60) {
+                return;
+            }
+
+            Png png_flipped;
+            png_flipped.init(width_, height_);
+            glReadPixels(0, 0, width_, height_, GL_RGB, GL_UNSIGNED_BYTE, png_flipped.data_);
+            //png_flipped.write("flipped.png");
+
+            Png png;
+            png.init(width_, height_);
+            auto src = png_flipped.data_ + (height_ - 1)*png_flipped.stride_;
+            auto dst = png.data_;
+            for (int i = 0; i < height_; ++i) {
+                memcpy(dst, src, png.stride_);
+                src -= png_flipped.stride_;
+                dst += png.stride_;
+            }
+
+            std::stringstream ss;
+            ss << "output/world" << std::setfill('0') << std::setw(5) << frame_count_
+                << std::setfill(' ') << std::setw(0) << ".png";
+            LOG("ss=" << ss.str().c_str());
+            png.write(ss.str().c_str());
+
+            ++frame_count_;
         }
     };
 }
