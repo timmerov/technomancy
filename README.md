@@ -30,17 +30,17 @@ the resulting image is oversampled 16x. and can be a bit blurry. applying a shar
 $ gimp cube.png
 
 select the top half of the image.
-filter -> enhance -> sharpen
-sharpness 50
-okay
+filter -> enhance -> sharpen.
+sharpness 50.
+okay.
 
 select the bottom half of the image.
-filter -> enhance -> sharpen
-sharpness 50
-okay
+filter -> enhance -> sharpen.
+sharpness 50.
+okay.
 
-file -> export as
-cube-sharp50.png
+file -> export as...
+cube-sharp50.png.
 
 ## spinning world
 
