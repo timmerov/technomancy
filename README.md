@@ -1,5 +1,8 @@
 # technomancy
-experiments: opengl es spinning world.
+
+## experiments
+
+### spinning world - opengl es.
 
 to build:
 
@@ -23,3 +26,9 @@ cube-sharp50.png
 $ ./build-unix64-debug/world/world_d
 
 build for windows is not supported.
+
+### spheregen
+
+generate a sphere-ized cube obj file with texture coordinates.
+
+$ ./build-unix64-debug/spheregen/spheregen_d -n 10 -o sphere10.obj
