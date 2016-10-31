@@ -75,6 +75,15 @@ namespace {
         }
     )shader_code";
 
+    class SphereTexture {
+    public:
+        SphereTexture() = default;
+        ~SphereTexture() = default;
+
+        GLuint front_ = 0;
+        GLuint back_ = 0;
+    };
+
     class RenderImpl : public Render {
     public:
         RenderImpl() = default;
@@ -86,10 +95,8 @@ namespace {
         GLuint vertex_buffer_ = 0;
         GLuint coords_buffer_ = 0;
         GLuint index_buffer_ = 0;
-        GLuint day_texture_front_ = 0;
-        GLuint day_texture_back_ = 0;
-        GLuint night_texture_front_ = 0;
-        GLuint night_texture_back_ = 0;
+        SphereTexture day_;
+        SphereTexture night_;
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
@@ -109,7 +116,7 @@ namespace {
             width_ = width;
             height_ = height;
 
-            int num_segments = calc_segments(width, height);
+            int num_segments = calcSegments(width, height);
             sphere::Sphere sphere;
             {
                 sphere::Gen gen;
@@ -170,80 +177,16 @@ namespace {
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_indexes_, index_array, GL_STATIC_DRAW);
             LOG("index=" << index_buffer_);
 
-            vertex_shader_ = compile_shader(GL_VERTEX_SHADER, g_vertex_source);
+            vertex_shader_ = compileShader(GL_VERTEX_SHADER, g_vertex_source);
             LOG("vertex_shader=" << vertex_shader_);
-            fragment_shader_ = compile_shader(GL_FRAGMENT_SHADER, g_fragment_source);
+            fragment_shader_ = compileShader(GL_FRAGMENT_SHADER, g_fragment_source);
             LOG("fragment_shader=" << fragment_shader_);
 
-            Png png;
-            png.read(kDayTextureFilename);
-            auto ht2 = png.ht_ / 2;
-            auto data = png.data_;
-            glGenTextures(1, &day_texture_front_);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, day_texture_front_);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, png.wd_, ht2, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glGenerateMipmap(GL_TEXTURE_2D);
-            glActiveTexture(GL_TEXTURE0);
-
-            data += png.stride_ * ht2;
-            glGenTextures(1, &day_texture_back_);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, day_texture_back_);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, png.wd_, ht2, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glGenerateMipmap(GL_TEXTURE_2D);
-            glActiveTexture(GL_TEXTURE0);
-
-            png.read(kNightTextureFilename);
-            ht2 = png.ht_ / 2;
-            data = png.data_;
-            glActiveTexture(GL_TEXTURE1);
-            glGenTextures(1, &night_texture_front_);
-            glBindTexture(GL_TEXTURE_2D, night_texture_front_);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, png.wd_, ht2, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glGenerateMipmap(GL_TEXTURE_2D);
-            glActiveTexture(GL_TEXTURE0);
-
-            data += png.stride_ * ht2;
-            glActiveTexture(GL_TEXTURE1);
-            glGenTextures(1, &night_texture_back_);
-            glBindTexture(GL_TEXTURE_2D, night_texture_back_);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, png.wd_, ht2, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glGenerateMipmap(GL_TEXTURE_2D);
-            glActiveTexture(GL_TEXTURE0);
-
-            program_ = glCreateProgram();
+            program_ = linkProgram(vertex_shader_, fragment_shader_);
             LOG("program=" << program_);
-            glAttachShader(program_, vertex_shader_);
-            glAttachShader(program_, fragment_shader_);
-            glLinkProgram(program_);
 
-            GLint result = GL_FALSE;
-            int len;
-            glGetProgramiv(program_, GL_LINK_STATUS, &result);
-            glGetProgramiv(program_, GL_INFO_LOG_LENGTH, &len);
-            if (len > 0) {
-                auto info = new(std::nothrow) char[len+1];
-                glGetProgramInfoLog(program_, len, nullptr, info);
-                LOG("error log: " << info);
-                delete[] info;
-            }
+            loadPng(kDayTextureFilename, &day_);
+            loadPng(kNightTextureFilename, &night_);
 
             glUseProgram(program_);
             model_mat_loc_ = glGetUniformLocation(program_, "model_mat");
@@ -258,6 +201,7 @@ namespace {
             glUseProgram(program_);
             glUniform1i(day_texture_loc_, 0);
             glUniform1i(night_texture_loc_, 1);
+            glUseProgram(0);
 
             rotxz_[0][0] = -1.0f;
             rotxz_[0][1] = +0.0f;
@@ -293,21 +237,21 @@ namespace {
                 glDeleteShader(vertex_shader_);
                 vertex_shader_ = 0;
             }
-            if (night_texture_back_) {
-                glDeleteTextures(1, &night_texture_back_);
-                night_texture_back_ = 0;
+            if (night_.back_) {
+                glDeleteTextures(1, &night_.back_);
+                night_.back_ = 0;
             }
-            if (night_texture_front_) {
-                glDeleteTextures(1, &night_texture_front_);
-                night_texture_front_ = 0;
+            if (night_.front_) {
+                glDeleteTextures(1, &night_.front_);
+                night_.front_ = 0;
             }
-            if (day_texture_back_) {
-                glDeleteTextures(1, &day_texture_back_);
-                day_texture_back_ = 0;
+            if (day_.back_) {
+                glDeleteTextures(1, &day_.back_);
+                day_.back_ = 0;
             }
-            if (day_texture_front_) {
-                glDeleteTextures(1, &day_texture_front_);
-                day_texture_front_ = 0;
+            if (day_.front_) {
+                glDeleteTextures(1, &day_.front_);
+                day_.front_ = 0;
             }
             if (index_buffer_) {
                 glDeleteBuffers(1, &index_buffer_);
@@ -369,18 +313,18 @@ namespace {
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, day_texture_front_);
+            glBindTexture(GL_TEXTURE_2D, day_.front_);
             glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, night_texture_front_);
+            glBindTexture(GL_TEXTURE_2D, night_.front_);
             glActiveTexture(GL_TEXTURE0);
             glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
 
             model_mat = model_mat * rotxz_;
             glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, day_texture_back_);
+            glBindTexture(GL_TEXTURE_2D, day_.back_);
             glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, night_texture_back_);
+            glBindTexture(GL_TEXTURE_2D, night_.back_);
             glActiveTexture(GL_TEXTURE0);
             glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
 
@@ -403,8 +347,8 @@ namespace {
             int width,
             int height
         ) throw() {
-            int cur_segments = calc_segments(width_, height_);
-            int new_segments = calc_segments(width, height);
+            int cur_segments = calcSegments(width_, height_);
+            int new_segments = calcSegments(width, height);
 
             width_ = width;
             height_ = height;
@@ -416,7 +360,7 @@ namespace {
             }
         }
 
-        GLuint compile_shader(
+        GLuint compileShader(
             GLenum type,
             const char *source
         ) throw() {
@@ -438,7 +382,67 @@ namespace {
             return shader;
         }
 
-        int calc_segments(
+        GLuint linkProgram(
+            GLuint vertex_shader,
+            GLuint fragment_shader
+        ) throw() {
+            GLuint program = glCreateProgram();
+            glAttachShader(program, vertex_shader);
+            glAttachShader(program, fragment_shader);
+            glLinkProgram(program);
+
+            GLint result = GL_FALSE;
+            int len;
+            glGetProgramiv(program, GL_LINK_STATUS, &result);
+            glGetProgramiv(program, GL_INFO_LOG_LENGTH, &len);
+            if (len > 0) {
+                auto info = new(std::nothrow) char[len+1];
+                glGetProgramInfoLog(program, len, nullptr, info);
+                LOG("error log: " << info);
+                delete[] info;
+            }
+
+            return program;
+        }
+
+        void loadPng(
+            const char *filename,
+            SphereTexture *texture
+        ) throw() {
+            Png png;
+            png.read(filename);
+            auto ht2 = png.ht_ / 2;
+            auto data = png.data_;
+            texture->front_ = loadTexture(png.wd_, ht2, data);
+            data += png.stride_ * ht2;
+            texture->back_ = loadTexture(png.wd_, ht2, data);
+        }
+
+        GLuint loadTexture(
+            int width,
+            int height,
+            GLubyte *data
+        ) throw() {
+            GLuint texture = 0;
+            glGenTextures(1, &texture);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+                glGenerateMipmap(GL_TEXTURE_2D);
+            }
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glActiveTexture(GL_TEXTURE0);
+
+            return texture;
+        }
+
+        int calcSegments(
             int width,
             int height
         ) throw() {
