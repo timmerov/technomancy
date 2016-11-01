@@ -35,7 +35,7 @@ namespace {
         uniform mat4 model_mat;
         uniform mat4 proj_view_mat;
         void main() {
-            vec3 sun_dir = normalize(vec3(3.0f, 2.0f, 1.0f));
+            vec3 sun_dir = normalize(vec3(3.0f, 2.0f, 2.0f));
             vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
             gl_Position = proj_view_mat * world_pos;
             texture_pos = texture_pos_in;
@@ -175,6 +175,8 @@ namespace {
             glUniform1i(texture_loc_, 0);
             glUseProgram(0);
 
+            glViewport(0, 0, width_, height_);
+
             rotxz_[0][0] = -1.0f;
             rotxz_[0][1] = +0.0f;
             rotxz_[0][2] = +0.0f;
@@ -240,26 +242,42 @@ namespace {
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
             }
+            for (int x = 0; x < 7; ++x) {
+                drawWorld(x);
+            }
+
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glDisableVertexAttribArray(1);
+            glDisableVertexAttribArray(0);
+            glUseProgram(0);
+
+            //captureFrame();
+        }
+
+        void drawWorld(
+            int offset
+        ) throw() {
             glm::mat4 model_mat = std::move(glm::rotate(
                 glm::mat4(),
                 angle_,
                 glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
             ));
 
+            int x = 3.0f*(float(offset) - 3.0f);
             glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(0.0f, 1.5f, 2.0f),  // camera location
-                glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
+                glm::vec3(x, 20.0f, 40.0f),  // camera location
+                glm::vec3(x, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
             ));
             glm::mat4 proj_mat = std::move(glm::perspective(
-                glm::radians(52.0f),  // fov
+                glm::radians(15.0f),  // fov
                 float(width_)/float(height_),   // aspect ratio
-                0.1f,  // near clipping plane
-                30.0f  // far  clipping plane
+                1.0f,  // near clipping plane
+                100.0f  // far  clipping plane
             ));
             glm::mat4 proj_view_mat = proj_mat * view_mat;
-
-            glViewport(0, 0, width_, height_);
 
             glUseProgram(program_);
             glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
@@ -279,14 +297,6 @@ namespace {
             glBindTexture(GL_TEXTURE_2D, texture_.back_);
             glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
 
-            glBindTexture(GL_TEXTURE_2D, 0);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glDisableVertexAttribArray(1);
-            glDisableVertexAttribArray(0);
-            glUseProgram(0);
-
-            //captureFrame();
         }
 
         virtual void resize(
