@@ -24,7 +24,8 @@ stereogram example.
 
 namespace {
     const int kNumSegments = 12;
-    const char kWorldTextureFilename[] = "nightcube-sharp50.png";
+    //const char kWorldTextureFilename[] = "nightcube-sharp50.png";
+    const char kWorldTextureFilename[] = "cube-sharp50.png";
     const char kStarTextureFilename[] = "stars.png";
 
     auto g_vertex_source =R"shader_code(
@@ -165,8 +166,8 @@ namespace {
             glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*4*3, star_vertexes, GL_STATIC_DRAW);
             LOG("star_vertex=" << star_vertex_buffer_);
 
-            const GLfloat xcoord = 5.0f*0.9;
-            const GLfloat ycoord = 4.0f/3.0f*0.9;
+            const GLfloat xcoord = 5.0f;
+            const GLfloat ycoord = 4.0f/3.0f;
             GLfloat star_coords[] = {
                 -xcoord, -ycoord,
                 +xcoord, -ycoord,
@@ -329,7 +330,7 @@ namespace {
                 glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
             ));
 
-            int x = 3.0f*(float(offset) - 3.0f);
+            float x = 3.0f*(float(offset) - 3.0f);
             glm::mat4 view_mat = std::move(glm::lookAt(
                 glm::vec3(x, 0.0f, 40.0f),  // camera location
                 glm::vec3(x, 0.0f, 0.0f),  // looking at
