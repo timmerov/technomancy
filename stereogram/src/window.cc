@@ -18,7 +18,7 @@ spinning world example.
 namespace {
 	const auto kWindowTitle = AGM_TARGET_NAME;
 	const auto kWindowWidth = 1024;
-	const auto kWindowHeight = kWindowWidth*9/16;
+	const auto kWindowHeight = 340;
 
     class WindowImpl : public StereoWindow, public SimpleWindow {
     public:
