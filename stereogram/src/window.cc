@@ -11,6 +11,7 @@ spinning world example.
 #include <common/simple_window.h>
 
 #include "main.h"
+#include "render.h"
 #include "window.h"
 
 
@@ -24,12 +25,18 @@ namespace {
         WindowImpl() = default;
         virtual ~WindowImpl() = default;
 
+        Render *render_ = nullptr;
+
         virtual void init() throw() {
+            render_ = Render::create();
             simple_window_init(kWindowTitle, kWindowWidth, kWindowHeight);
+            render_->init(kWindowWidth, kWindowHeight);
         }
 
         virtual void exit() throw() {
             simple_window_exit();
+            render_->exit();
+            delete render_;
         }
 
         virtual void run() throw() {
@@ -44,11 +51,11 @@ namespace {
             int width,
             int height
         ) throw() {
-            (void) width;
-            (void) height;
+            render_->resize(width, height);
         }
 
         virtual void simple_window_draw() throw() {
+            render_->draw();
         }
     };
 }

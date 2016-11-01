@@ -3,21 +3,7 @@ Copyright (C) 2012-2016 tim cotter. All rights reserved.
 */
 
 /**
-spinning world example.
-
-much help from here.
-https://github.com/opengl-tutorials/ogl
-
-*** caution ***
-we're going to use tri-linear interpolation.
-which means we're going to generate mip-maps.
-which means the top strip is going to bleed into
-the bottom strip.
-resulting in a visible seam.
-there's not much we can do about it.
-other than create separate textures for the top
-and bottom strips.
-and render them separately.
+stereogram example.
 **/
 
 #include <aggiornamento/aggiornamento.h>
@@ -38,40 +24,34 @@ and render them separately.
 
 namespace {
     const int kNumSegments = 12;
-    const char kDayTextureFilename[] = "cube-sharp50.png";
-    const char kNightTextureFilename[] = "nightcube-sharp50.png";
+    const char kTextureFilename[] = "cube-sharp50.png";
 
     auto g_vertex_source =R"shader_code(
         #version 310 es
         layout (location = 0) in vec3 vertex_pos_in;
         layout (location = 1) in vec2 texture_pos_in;
         out mediump vec2 texture_pos;
-        out mediump float day_bright;
-        out mediump float night_bright;
+        out mediump float bright;
         uniform mat4 model_mat;
         uniform mat4 proj_view_mat;
         void main() {
-            vec3 sun_dir = normalize(vec3(3.0f, 1.0f, 0.5f));
+            vec3 sun_dir = normalize(vec3(3.0f, 2.0f, 1.0f));
             vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
             gl_Position = proj_view_mat * world_pos;
             texture_pos = texture_pos_in;
-            mediump float bright = dot(world_pos.xyz, sun_dir);
-            day_bright = clamp(bright + 0.06f, 0.0f, 1.0f);
-            night_bright = 0.6f * clamp(- bright + 0.06f, 0.0f, 1.0f);
+            bright = dot(world_pos.xyz, sun_dir);
+            bright = clamp(bright, 0.0f, 1.0f);
         }
     )shader_code";
 
     auto g_fragment_source = R"shader_code(
         #version 310 es
         in mediump vec2 texture_pos;
-        in mediump float day_bright;
-        in mediump float night_bright;
+        in mediump float bright;
         out mediump vec4 color_out;
-        uniform sampler2D day_texture_sampler;
-        uniform sampler2D night_texture_sampler;
+        uniform sampler2D texture_sampler;
         void main() {
-            color_out = day_bright * texture(day_texture_sampler, texture_pos)
-                + night_bright * texture(night_texture_sampler, texture_pos);
+            color_out = bright * texture(texture_sampler, texture_pos);
         }
     )shader_code";
 
@@ -94,15 +74,13 @@ namespace {
         GLuint vertex_buffer_ = 0;
         GLuint coords_buffer_ = 0;
         GLuint index_buffer_ = 0;
-        SphereTexture day_;
-        SphereTexture night_;
+        SphereTexture texture_;
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
         GLuint model_mat_loc_ = 0;
         GLuint proj_view_mat_loc_ = 0;
-        GLuint day_texture_loc_ = 0;
-        GLuint night_texture_loc_ = 0;
+        GLuint texture_loc_ = 0;
         int num_indexes_ = 0;
         float angle_ = 0.0f;
         glm::mat4 rotxz_;
@@ -112,6 +90,8 @@ namespace {
             int width,
             int height
         ) throw() {
+            LOG("width=" << width << " height" << height);
+
             width_ = width;
             height_ = height;
 
@@ -181,22 +161,18 @@ namespace {
             program_ = linkProgram(vertex_shader_, fragment_shader_);
             LOG("program=" << program_);
 
-            loadPng(kDayTextureFilename, &day_);
-            loadPng(kNightTextureFilename, &night_);
+            loadPng(kTextureFilename, &texture_);
 
             glUseProgram(program_);
             model_mat_loc_ = glGetUniformLocation(program_, "model_mat");
             LOG("model_mat_loc=" << model_mat_loc_);
             proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
             LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
-            day_texture_loc_ = glGetUniformLocation(program_, "day_texture_sampler");
-            LOG("day_texture_loc=" << day_texture_loc_);
-            night_texture_loc_ = glGetUniformLocation(program_, "night_texture_sampler");
-            LOG("night_texture_loc=" << night_texture_loc_);
+            texture_loc_ = glGetUniformLocation(program_, "texture_sampler");
+            LOG("texture_loc=" << texture_loc_);
 
             glUseProgram(program_);
-            glUniform1i(day_texture_loc_, 0);
-            glUniform1i(night_texture_loc_, 1);
+            glUniform1i(texture_loc_, 0);
             glUseProgram(0);
 
             rotxz_[0][0] = -1.0f;
@@ -233,21 +209,13 @@ namespace {
                 glDeleteShader(vertex_shader_);
                 vertex_shader_ = 0;
             }
-            if (night_.back_) {
-                glDeleteTextures(1, &night_.back_);
-                night_.back_ = 0;
+            if (texture_.back_) {
+                glDeleteTextures(1, &texture_.back_);
+                texture_.back_ = 0;
             }
-            if (night_.front_) {
-                glDeleteTextures(1, &night_.front_);
-                night_.front_ = 0;
-            }
-            if (day_.back_) {
-                glDeleteTextures(1, &day_.back_);
-                day_.back_ = 0;
-            }
-            if (day_.front_) {
-                glDeleteTextures(1, &day_.front_);
-                day_.front_ = 0;
+            if (texture_.front_) {
+                glDeleteTextures(1, &texture_.front_);
+                texture_.front_ = 0;
             }
             if (index_buffer_) {
                 glDeleteBuffers(1, &index_buffer_);
@@ -303,27 +271,15 @@ namespace {
             glBindBuffer(GL_ARRAY_BUFFER, coords_buffer_);
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, day_.front_);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, night_.front_);
-            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_.front_);
             glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
 
             model_mat = model_mat * rotxz_;
             glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, day_.back_);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, night_.back_);
-            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_.back_);
             glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
 
-            glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, 0);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            glActiveTexture(GL_TEXTURE0);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glDisableVertexAttribArray(1);
@@ -344,7 +300,6 @@ namespace {
             height_ = height;
 
             if (cur_segments != new_segments) {
-
                 exit();
                 init(width, height);
             }
