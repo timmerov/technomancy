@@ -24,10 +24,10 @@ namespace {
         ~World() = default;
 
         bool stop_flag_ = false;
-        SimpleWindow *window_ = nullptr;
+        WorldWindow *window_ = nullptr;
 
         void run() throw() {
-            window_ = SimpleWindow::create();
+            window_ = WorldWindow::create();
             window_->init();
             run_loop();
             window_->exit();

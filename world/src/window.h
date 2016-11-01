@@ -8,13 +8,13 @@ Copyright (C) 2012-2016 tim cotter. All rights reserved.
 spinning world example.
 **/
 
-class SimpleWindow {
+class WorldWindow {
 protected:
-    SimpleWindow() throw();
+    WorldWindow() throw();
 public:
-    SimpleWindow(const SimpleWindow &) = delete;
-    static SimpleWindow *create() throw();
-    virtual ~SimpleWindow() throw();
+    WorldWindow(const WorldWindow &) = delete;
+    static WorldWindow *create() throw();
+    virtual ~WorldWindow() throw();
 
     virtual void init() throw() = 0;
     virtual void exit() throw() = 0;
