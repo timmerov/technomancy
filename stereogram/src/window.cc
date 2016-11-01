@@ -11,32 +11,25 @@ spinning world example.
 #include <common/simple_window.h>
 
 #include "main.h"
-#include "render.h"
 #include "window.h"
 
 
 namespace {
 	const auto kWindowTitle = AGM_TARGET_NAME;
-	const auto kWindowWidth = 640;
-	const auto kWindowHeight = 640;
+	const auto kWindowWidth = 1024;
+	const auto kWindowHeight = kWindowWidth*9/16;
 
-    class WindowImpl : public WorldWindow, public SimpleWindow {
+    class WindowImpl : public StereoWindow, public SimpleWindow {
     public:
         WindowImpl() = default;
         virtual ~WindowImpl() = default;
 
-        Render *render_ = nullptr;
-
         virtual void init() throw() {
-            render_ = Render::create();
             simple_window_init(kWindowTitle, kWindowWidth, kWindowHeight);
-            render_->init(kWindowWidth, kWindowHeight);
         }
 
         virtual void exit() throw() {
             simple_window_exit();
-            render_->exit();
-            delete render_;
         }
 
         virtual void run() throw() {
@@ -51,22 +44,22 @@ namespace {
             int width,
             int height
         ) throw() {
-            render_->resize(width, height);
+            (void) width;
+            (void) height;
         }
 
         virtual void simple_window_draw() throw() {
-            render_->draw();
         }
     };
 }
 
-WorldWindow::WorldWindow() throw() {
+StereoWindow::StereoWindow() throw() {
 }
 
-WorldWindow::~WorldWindow() throw() {
+StereoWindow::~StereoWindow() throw() {
 }
 
-WorldWindow *WorldWindow::create() throw() {
+StereoWindow *StereoWindow::create() throw() {
     auto impl = new(std::nothrow) WindowImpl;
     return impl;
 }
