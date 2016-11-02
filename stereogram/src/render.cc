@@ -305,7 +305,7 @@ namespace {
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
             }
-            for (int x = 0; x < 7; ++x) {
+            for (int x = 0; x < 2; ++x) {
                 drawWorld(x);
             }
 
@@ -330,14 +330,14 @@ namespace {
                 glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
             ));
 
-            float x = 3.0f*(float(offset) - 3.0f);
+            float x = 3.0f*(float(offset) - 0.5f);
             glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(x, 0.0f, 40.0f),  // camera location
+                glm::vec3(x, 0.0f, 30.0f),  // camera location
                 glm::vec3(x, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
             ));
             glm::mat4 proj_mat = std::move(glm::perspective(
-                glm::radians(10.0f),  // fov
+                glm::radians(6.0f),  // fov
                 float(width_)/float(height_),   // aspect ratio
                 1.0f,  // near clipping plane
                 100.0f  // far  clipping plane
@@ -382,12 +382,12 @@ namespace {
             model_mat[3][2] = 0.0f;
             model_mat[3][3] = 1.0f;
             glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(0.0f, 0.0f, 40.0f),  // camera location
+                glm::vec3(0.0f, 0.0f, 30.0f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
             ));
             glm::mat4 proj_mat = std::move(glm::perspective(
-                glm::radians(10.0f),  // fov
+                glm::radians(6.0f),  // fov
                 float(width_)/float(height_),   // aspect ratio
                 1.0f,  // near clipping plane
                 100.0f  // far  clipping plane
