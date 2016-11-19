@@ -31,6 +31,8 @@ don't know if it's top to bottom or bottom to top.
 
 #include <fstream>
 
+#include <arpa/inet.h>
+
 
 namespace {
     const char kBigLabelsFilename[] = "/cb/home/timmer/github/simulate/data/mnist/trainx.raw";
@@ -88,10 +90,10 @@ int main(
     fyin.read((char *) in_labels, num_in_labels);
 
     ImageHeader out_image_hdr;
-    out_image_hdr.magic_ = 0x00000803;
-    out_image_hdr.count_ = 10;
-    out_image_hdr.height_ = 28;
-    out_image_hdr.width_ = 28;
+    out_image_hdr.magic_ = ntohl(0x00000803);
+    out_image_hdr.count_ = ntohl(10);
+    out_image_hdr.height_ = ntohl(28);
+    out_image_hdr.width_ = ntohl(28);
     fxout.write((const char *) &out_image_hdr, sizeof(out_image_hdr));
 
     for (int i = 0; i < 10; ++i) {
@@ -110,8 +112,8 @@ int main(
     }
 
     LabelHeader out_label_hdr;
-    out_label_hdr.magic_ = 0x00000801;
-    out_label_hdr.count_ = 10;
+    out_label_hdr.magic_ = ntohl(0x00000801);
+    out_label_hdr.count_ = ntohl(10);
     agm::uint8 out_labels[10];
     for (int i = 0; i < 10; ++i) {
         out_labels[i] = i;
