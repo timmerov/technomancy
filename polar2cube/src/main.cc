@@ -178,9 +178,9 @@ namespace {
         }
 
         void showHelp() throw() {
-            LOG("Usage: spheregen [options]");
+            LOG("Usage: polar2cube [options]");
             LOG("  --help        -?  show this message");
-            LOG("  --input-file  -n  input file");
+            LOG("  --input-file  -i  input file");
             LOG("  --output-file -o  output file");
         }
 

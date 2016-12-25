@@ -3,7 +3,21 @@ Copyright (C) 2012-2016 tim cotter. All rights reserved.
 */
 
 /**
-stereogram example.
+spinning jupiter example.
+
+much help from here.
+https://github.com/opengl-tutorials/ogl
+
+*** caution ***
+we're going to use tri-linear interpolation.
+which means we're going to generate mip-maps.
+which means the top strip is going to bleed into
+the bottom strip.
+resulting in a visible seam.
+there's not much we can do about it.
+other than create separate textures for the top
+and bottom strips.
+and render them separately.
 **/
 
 #include <aggiornamento/aggiornamento.h>
@@ -24,33 +38,34 @@ stereogram example.
 
 namespace {
     const int kNumSegments = 12;
-    //const char kWorldTextureFilename[] = "nightcube-sharp50.png";
-    //const char kWorldTextureFilename[] = "cube-sharp50.png";
-    const char kWorldTextureFilename[] = "jupiter-cube-sharp50.png";
-    const char kStarTextureFilename[] = "stars.png";
+    const char kTextureFilename[] = "jupiter-cube-sharp50.png";
 
     auto g_vertex_source =R"shader_code(
         #version 310 es
-        layout (location = 0) in mediump vec3 vertex_pos_in;
-        layout (location = 1) in mediump vec2 texture_pos_in;
+        layout (location = 0) in vec3 vertex_pos_in;
+        layout (location = 1) in vec2 texture_pos_in;
         out mediump vec2 texture_pos;
+        out mediump float bright;
         uniform mat4 model_mat;
         uniform mat4 proj_view_mat;
         void main() {
+            vec3 sun_dir = normalize(vec3(3.0f, 1.0f, 3.0f));
             vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
             gl_Position = proj_view_mat * world_pos;
             texture_pos = texture_pos_in;
+            bright = dot(world_pos.xyz, sun_dir);
+            bright = clamp(bright, 0.0f, 1.0f);
         }
     )shader_code";
 
     auto g_fragment_source = R"shader_code(
         #version 310 es
         in mediump vec2 texture_pos;
+        in mediump float bright;
         out mediump vec4 color_out;
         uniform sampler2D texture_sampler;
         void main() {
-            color_out = texture(texture_sampler, texture_pos);
-            //color_out = vec4(texture_pos.x, texture_pos.y, 0.0f, 0.0f);
+            color_out = bright * texture(texture_sampler, texture_pos);
         }
     )shader_code";
 
@@ -70,14 +85,10 @@ namespace {
 
         int width_ = 0;
         int height_ = 0;
-        GLuint world_vertex_buffer_ = 0;
-        GLuint world_coords_buffer_ = 0;
-        GLuint world_index_buffer_ = 0;
-        SphereTexture world_texture_;
-        GLuint star_vertex_buffer_ = 0;
-        GLuint star_coords_buffer_ = 0;
-        GLuint star_index_buffer_ = 0;
-        GLuint star_texture_ = 0;
+        GLuint vertex_buffer_ = 0;
+        GLuint coords_buffer_ = 0;
+        GLuint index_buffer_ = 0;
+        SphereTexture tex_;
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
@@ -93,8 +104,6 @@ namespace {
             int width,
             int height
         ) throw() {
-            LOG("width=" << width << " height" << height);
-
             width_ = width;
             height_ = height;
 
@@ -139,52 +148,22 @@ namespace {
 
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
-            glDisable(GL_CULL_FACE);
+            glEnable(GL_CULL_FACE);
 
-            glGenBuffers(1, &world_vertex_buffer_);
-            glBindBuffer(GL_ARRAY_BUFFER, world_vertex_buffer_);
+            glGenBuffers(1, &vertex_buffer_);
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
             glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_vertex_floats, vertex_array, GL_STATIC_DRAW);
-            LOG("world_vertex=" << world_vertex_buffer_);
+            LOG("vertex=" << vertex_buffer_);
 
-            glGenBuffers(1, &world_coords_buffer_);
-            glBindBuffer(GL_ARRAY_BUFFER, world_coords_buffer_);
+            glGenBuffers(1, &coords_buffer_);
+            glBindBuffer(GL_ARRAY_BUFFER, coords_buffer_);
             glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_coords_floats, coords_array, GL_STATIC_DRAW);
-            LOG("world_coords=" << world_coords_buffer_);
+            LOG("coords=" << coords_buffer_);
 
-            glGenBuffers(1, &world_index_buffer_);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, world_index_buffer_);
+            glGenBuffers(1, &index_buffer_);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_indexes_, index_array, GL_STATIC_DRAW);
-            LOG("world_index=" << world_index_buffer_);
-
-            GLfloat star_vertexes[] = {
-                -15.0f, -4.0f, -2.0f,
-                +15.0f, -4.0f, -2.0f,
-                -15.0f, +4.0f, -2.0f,
-                +15.0f, +4.0f, -2.0f
-            };
-            glGenBuffers(1, &star_vertex_buffer_);
-            glBindBuffer(GL_ARRAY_BUFFER, star_vertex_buffer_);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*4*3, star_vertexes, GL_STATIC_DRAW);
-            LOG("star_vertex=" << star_vertex_buffer_);
-
-            const GLfloat xcoord = 5.0f;
-            const GLfloat ycoord = 4.0f/3.0f;
-            GLfloat star_coords[] = {
-                -xcoord, -ycoord,
-                +xcoord, -ycoord,
-                -xcoord, +ycoord,
-                +xcoord, +ycoord
-            };
-            glGenBuffers(1, &star_coords_buffer_);
-            glBindBuffer(GL_ARRAY_BUFFER, star_coords_buffer_);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*4*2, star_coords, GL_STATIC_DRAW);
-            LOG("star_coords=" << star_coords_buffer_);
-
-            GLushort star_indexes[] = {0, 1, 2, 1, 3, 2};
-            glGenBuffers(1, &star_index_buffer_);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, star_index_buffer_);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*6, star_indexes, GL_STATIC_DRAW);
-            LOG("star_index=" << star_index_buffer_);
+            LOG("index=" << index_buffer_);
 
             vertex_shader_ = compileShader(GL_VERTEX_SHADER, g_vertex_source);
             LOG("vertex_shader=" << vertex_shader_);
@@ -194,22 +173,7 @@ namespace {
             program_ = linkProgram(vertex_shader_, fragment_shader_);
             LOG("program=" << program_);
 
-            loadPng(kWorldTextureFilename, &world_texture_);
-
-            Png png;
-            png.read(kStarTextureFilename);
-            glGenTextures(1, &star_texture_);
-            glBindTexture(GL_TEXTURE_2D, star_texture_);
-            {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, png.wd_, png.ht_, 0, GL_RGB, GL_UNSIGNED_BYTE, png.data_);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                glGenerateMipmap(GL_TEXTURE_2D);
-            }
-            glBindTexture(GL_TEXTURE_2D, 0);
-            LOG("star_texture=" << star_texture_);
+            loadPng(kTextureFilename, &tex_);
 
             glUseProgram(program_);
             model_mat_loc_ = glGetUniformLocation(program_, "model_mat");
@@ -222,8 +186,6 @@ namespace {
             glUseProgram(program_);
             glUniform1i(texture_loc_, 0);
             glUseProgram(0);
-
-            glViewport(0, 0, width_, height_);
 
             rotxz_[0][0] = -1.0f;
             rotxz_[0][1] = +0.0f;
@@ -259,60 +221,81 @@ namespace {
                 glDeleteShader(vertex_shader_);
                 vertex_shader_ = 0;
             }
-            if (star_texture_) {
-                glDeleteTextures(1, &star_texture_);
-                star_texture_ = 0;
+            if (tex_.back_) {
+                glDeleteTextures(1, &tex_.back_);
+                tex_.back_ = 0;
             }
-            if (world_texture_.back_) {
-                glDeleteTextures(1, &world_texture_.back_);
-                world_texture_.back_ = 0;
+            if (tex_.front_) {
+                glDeleteTextures(1, &tex_.front_);
+                tex_.front_ = 0;
             }
-            if (world_texture_.front_) {
-                glDeleteTextures(1, &world_texture_.front_);
-                world_texture_.front_ = 0;
+            if (index_buffer_) {
+                glDeleteBuffers(1, &index_buffer_);
+                index_buffer_ = 0;
             }
-            if (world_index_buffer_) {
-                glDeleteBuffers(1, &world_index_buffer_);
-                world_index_buffer_ = 0;
+            if (coords_buffer_) {
+                glDeleteBuffers(1, &coords_buffer_);
+                coords_buffer_ = 0;
             }
-            if (world_coords_buffer_) {
-                glDeleteBuffers(1, &world_coords_buffer_);
-                world_coords_buffer_ = 0;
-            }
-            if (world_vertex_buffer_) {
-                glDeleteBuffers(1, &world_vertex_buffer_);
-                world_vertex_buffer_ = 0;
-            }
-            if (star_index_buffer_) {
-                glDeleteBuffers(1, &star_index_buffer_);
-                star_index_buffer_ = 0;
-            }
-            if (star_coords_buffer_) {
-                glDeleteBuffers(1, &star_coords_buffer_);
-                star_coords_buffer_ = 0;
-            }
-            if (star_vertex_buffer_) {
-                glDeleteBuffers(1, &star_vertex_buffer_);
-                star_vertex_buffer_ = 0;
+            if (vertex_buffer_) {
+                glDeleteBuffers(1, &vertex_buffer_);
+                vertex_buffer_ = 0;
             }
         }
 
         virtual void draw() throw() {
-            glClearColor(0.2f, 0.0f, 0.0f, 1.0f);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             float pi = (float) acos(-1.0f);
-            angle_ += 2.0f*pi/60.0f/24.0f;  // 24 hours in 24 seconds.
+            angle_ += 2.0f*pi/60.0f/48.0f;  // 24 hours in 48 seconds.
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
             }
-            for (int x = 0; x < 2; ++x) {
-                drawWorld(x);
-            }
+            glm::mat4 model_mat = std::move(glm::rotate(
+                glm::mat4(),
+                angle_,
+                glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
+            ));
 
-            drawStars();
+            glm::mat4 view_mat = std::move(glm::lookAt(
+                glm::vec3(0.0f, 1.0f, 2.5f),  // camera location
+                glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
+                glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
+            ));
+            glm::mat4 proj_mat = std::move(glm::perspective(
+                glm::radians(52.0f),  // fov
+                float(width_)/float(height_),   // aspect ratio
+                0.1f,  // near clipping plane
+                30.0f  // far  clipping plane
+            ));
+            glm::mat4 proj_view_mat = proj_mat * view_mat;
 
+            glViewport(0, 0, width_, height_);
+
+            glUseProgram(program_);
+            glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
+            glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+            glEnableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, coords_buffer_);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, tex_.front_);
+            glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
+
+            model_mat = model_mat * rotxz_;
+            glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, tex_.back_);
+            glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
+
+            glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, 0);
+            glActiveTexture(GL_TEXTURE0);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glDisableVertexAttribArray(1);
@@ -320,93 +303,6 @@ namespace {
             glUseProgram(0);
 
             //captureFrame();
-        }
-
-        void drawWorld(
-            int offset
-        ) throw() {
-            glm::mat4 model_mat = std::move(glm::rotate(
-                glm::mat4(),
-                angle_,
-                glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
-            ));
-
-            float x = 3.0f*(float(offset) - 0.5f);
-            glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(x, 0.0f, 30.0f),  // camera location
-                glm::vec3(x, 0.0f, 0.0f),  // looking at
-                glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
-            ));
-            glm::mat4 proj_mat = std::move(glm::perspective(
-                glm::radians(6.0f),  // fov
-                float(width_)/float(height_),   // aspect ratio
-                1.0f,  // near clipping plane
-                100.0f  // far  clipping plane
-            ));
-            glm::mat4 proj_view_mat = proj_mat * view_mat;
-
-            glUseProgram(program_);
-            glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
-            glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, world_vertex_buffer_);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, world_coords_buffer_);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, world_index_buffer_);
-            glBindTexture(GL_TEXTURE_2D, world_texture_.front_);
-            glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
-
-            model_mat = model_mat * rotxz_;
-            glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
-            glBindTexture(GL_TEXTURE_2D, world_texture_.back_);
-            glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
-        }
-
-        void drawStars() throw() {
-            glm::mat4 model_mat;
-            model_mat[0][0] = 1.0f;
-            model_mat[0][1] = 0.0f;
-            model_mat[0][2] = 0.0f;
-            model_mat[0][3] = 0.0f;
-            model_mat[1][0] = 0.0f;
-            model_mat[1][1] = 1.0f;
-            model_mat[1][2] = 0.0f;
-            model_mat[1][3] = 0.0f;
-            model_mat[2][0] = 0.0f;
-            model_mat[2][1] = 0.0f;
-            model_mat[2][2] = 1.0f;
-            model_mat[2][3] = 0.0f;
-            model_mat[3][0] = 0.0f;
-            model_mat[3][1] = 0.0f;
-            model_mat[3][2] = 0.0f;
-            model_mat[3][3] = 1.0f;
-            glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(0.0f, 0.0f, 30.0f),  // camera location
-                glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
-                glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
-            ));
-            glm::mat4 proj_mat = std::move(glm::perspective(
-                glm::radians(6.0f),  // fov
-                float(width_)/float(height_),   // aspect ratio
-                1.0f,  // near clipping plane
-                100.0f  // far  clipping plane
-            ));
-            glm::mat4 proj_view_mat = proj_mat * view_mat;
-
-            glUseProgram(program_);
-            glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
-            glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, star_vertex_buffer_);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, star_coords_buffer_);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, star_index_buffer_);
-            glBindTexture(GL_TEXTURE_2D, star_texture_);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
         }
 
         virtual void resize(
@@ -420,6 +316,7 @@ namespace {
             height_ = height;
 
             if (cur_segments != new_segments) {
+
                 exit();
                 init(width, height);
             }
