@@ -415,7 +415,7 @@ namespace {
         }
 
         void captureFrame() throw() {
-            if (frame_count_ >= 24*60) {
+            if (frame_count_ >= 48*60) {
                 return;
             }
 

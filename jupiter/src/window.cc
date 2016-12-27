@@ -17,8 +17,8 @@ spinning jupiter example.
 
 namespace {
 	const auto kWindowTitle = AGM_TARGET_NAME;
-	const auto kWindowWidth = 640;
-	const auto kWindowHeight = 640;
+	const auto kWindowWidth = 1200/32*32;
+	const auto kWindowHeight = kWindowWidth;
 
     class WindowImpl : public JupiterWindow, public SimpleWindow {
     public:
