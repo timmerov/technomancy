@@ -13,6 +13,9 @@ stereogram example.
 
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
+
+/// sigh...
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
