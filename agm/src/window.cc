@@ -8,7 +8,7 @@ simple window implementation.
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
-#include <common/simple_window.h>
+#include <aggiornamento/window.h>
 
 #include <GL/glx.h>
 #include <X11/Xlib.h>

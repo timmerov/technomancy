@@ -8,7 +8,7 @@ spinning jupiter example.
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
-#include <common/simple_window.h>
+#include <aggiornamento/window.h>
 
 #include "main.h"
 #include "render.h"
