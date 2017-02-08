@@ -6,13 +6,13 @@ Copyright (C) 2012-2016 tim cotter. All rights reserved.
 spinning world example.
 **/
 
-#include <aggiornamento/aggiornamento.h>
-#include <aggiornamento/log.h>
-#include <aggiornamento/window.h>
-
-#include "main.h"
 #include "render.h"
 #include "window.h"
+
+#include <aggiornamento/aggiornamento.h>
+#include <aggiornamento/log.h>
+#include <aggiornamento/master.h>
+#include <aggiornamento/window.h>
 
 
 namespace {
@@ -44,7 +44,7 @@ namespace {
         }
 
         virtual void simple_window_stop() throw() {
-            main_stop();
+            agm::master::setDone();
         }
 
         virtual void simple_window_size(

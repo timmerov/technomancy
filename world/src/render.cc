@@ -20,8 +20,11 @@ and bottom strips.
 and render them separately.
 **/
 
+#include "render.h"
+
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
+#include <aggiornamento/opengl.h>
 #include <common/png.h>
 #include <common/sphere.h>
 
@@ -32,8 +35,6 @@ and render them separately.
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
-#include "render.h"
 
 #include <sstream>
 #include <iomanip>
@@ -176,12 +177,12 @@ namespace {
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_indexes_, index_array, GL_STATIC_DRAW);
             LOG("index=" << index_buffer_);
 
-            vertex_shader_ = compileShader(GL_VERTEX_SHADER, g_vertex_source);
+            vertex_shader_ = agm::gl::compileShader(GL_VERTEX_SHADER, g_vertex_source);
             LOG("vertex_shader=" << vertex_shader_);
-            fragment_shader_ = compileShader(GL_FRAGMENT_SHADER, g_fragment_source);
+            fragment_shader_ = agm::gl::compileShader(GL_FRAGMENT_SHADER, g_fragment_source);
             LOG("fragment_shader=" << fragment_shader_);
 
-            program_ = linkProgram(vertex_shader_, fragment_shader_);
+            program_ = agm::gl::linkProgram(vertex_shader_, fragment_shader_);
             LOG("program=" << program_);
 
             loadPng(kDayTextureFilename, &day_);
@@ -351,51 +352,6 @@ namespace {
                 exit();
                 init(width, height);
             }
-        }
-
-        GLuint compileShader(
-            GLenum type,
-            const char *source
-        ) throw() {
-            GLuint shader = glCreateShader(type);
-            glShaderSource(shader, 1, &source, nullptr);
-            glCompileShader(shader);
-
-            GLint result = GL_FALSE;
-            int len;
-            glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
-            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &len);
-            if (len > 0) {
-                auto info = new(std::nothrow) char[len+1];
-                glGetShaderInfoLog(shader, len, nullptr, info);
-                LOG("error log: " << info);
-                delete[] info;
-            }
-
-            return shader;
-        }
-
-        GLuint linkProgram(
-            GLuint vertex_shader,
-            GLuint fragment_shader
-        ) throw() {
-            GLuint program = glCreateProgram();
-            glAttachShader(program, vertex_shader);
-            glAttachShader(program, fragment_shader);
-            glLinkProgram(program);
-
-            GLint result = GL_FALSE;
-            int len;
-            glGetProgramiv(program, GL_LINK_STATUS, &result);
-            glGetProgramiv(program, GL_INFO_LOG_LENGTH, &len);
-            if (len > 0) {
-                auto info = new(std::nothrow) char[len+1];
-                glGetProgramInfoLog(program, len, nullptr, info);
-                LOG("error log: " << info);
-                delete[] info;
-            }
-
-            return program;
         }
 
         void loadPng(

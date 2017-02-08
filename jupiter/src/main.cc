@@ -8,6 +8,7 @@ spinning jupiter example.
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
+#include <aggiornamento/master.h>
 
 #include "window.h"
 
@@ -15,15 +16,12 @@ spinning jupiter example.
 namespace {
 	const auto kFrameTimeMS = 1000/60;
 
-    bool g_stop_flag = false;
-
     class Jupiter {
     public:
         Jupiter() = default;
         Jupiter(const Jupiter &) = default;
         ~Jupiter() = default;
 
-        bool stop_flag_ = false;
         JupiterWindow *window_ = nullptr;
 
         void run() throw() {
@@ -35,16 +33,16 @@ namespace {
         }
 
         void run_loop() throw() {
-            while (g_stop_flag == false) {
+            for(;;) {
+                auto is_done = agm::master::isDone();
+                if (is_done) {
+                    break;
+                }
                 //agm::sleep::milliseconds(kFrameTimeMS);
                 window_->run();
             }
         }
     };
-}
-
-void main_stop() {
-    g_stop_flag = true;
 }
 
 int main(
