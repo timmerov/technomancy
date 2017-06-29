@@ -104,11 +104,11 @@ namespace {
     public:
         Convert() = default;
         Convert(const Convert &) = delete;
-        ~Convert() throw() {
+        ~Convert() noexcept {
             destruct();
         }
 
-        void destruct() throw() {
+        void destruct() noexcept {
             delete[] xweights_;
             delete[] yweights_;
             xweights_ = nullptr;
@@ -125,7 +125,7 @@ namespace {
         bool parseOptions(
             int argc,
             char *argv[]
-        ) throw() {
+        ) noexcept {
             bool result = true;
             bool show_help = false;
 
@@ -177,14 +177,14 @@ namespace {
             return result;
         }
 
-        void showHelp() throw() {
+        void showHelp() noexcept {
             LOG("Usage: polar2cube [options]");
             LOG("  --help        -?  show this message");
             LOG("  --input-file  -i  input file");
             LOG("  --output-file -o  output file");
         }
 
-        void copyAllFaces() throw() {
+        void copyAllFaces() noexcept {
             destruct();
             auto wd = outpng_.wd_ / 3;
             auto ht = outpng_.ht_ / 2;
@@ -198,7 +198,7 @@ namespace {
 
         double *initWeights(
             int size
-        ) throw() {
+        ) noexcept {
             // for anti-alias over-sample
             size *= 4;
 
@@ -214,7 +214,7 @@ namespace {
 
         void copyFace(
             int face
-        ) throw() {
+        ) noexcept {
             auto pi = std::acos(-1);
             auto cf = g_cube_faces[face];
             auto tl = g_cube_vertexes[cf.tl_];
@@ -312,7 +312,7 @@ namespace {
 
 int main(
     int argc, char *argv[]
-) throw() {
+) noexcept {
     agm::log::init(AGM_TARGET_NAME ".log");
 
     Convert cvt;

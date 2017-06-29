@@ -23,8 +23,8 @@ namespace agm {
         };
 
         CmdLineOptions(int argc, char **argv, const char *options,
-            const LongFormat *lf = nullptr) throw();
-        ~CmdLineOptions() throw();
+            const LongFormat *lf = nullptr) noexcept;
+        ~CmdLineOptions() noexcept;
 
         // walk the list of arguments looking for properly formatted arguments.
         // this function is similar to gnu's getopt function.
@@ -39,10 +39,10 @@ namespace agm {
         // parsing stops at an unknown option.
         // parsing stops if a required option is missing.
         // arg_index_ is the index of the first non-option argument.
-        bool get() throw();
+        bool get() noexcept;
 
         // reset the internal state so we can parse the command line again.
-        void reset() throw();
+        void reset() noexcept;
 
         char option_;
         char *value_;

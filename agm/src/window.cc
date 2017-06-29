@@ -26,10 +26,10 @@ namespace {
     };
 }
 
-SimpleWindow::SimpleWindow() throw() {
+SimpleWindow::SimpleWindow() noexcept {
 }
 
-SimpleWindow::~SimpleWindow() throw() {
+SimpleWindow::~SimpleWindow() noexcept {
     auto swd = (SimpleWindowData *) opaque_;
     delete swd;
 }
@@ -38,7 +38,7 @@ void SimpleWindow::simple_window_init(
     const char *title,
     int width,
     int height
-) throw() {
+) noexcept {
     auto swd = (SimpleWindowData *) opaque_;
     if (swd == nullptr) {
         swd = new(std::nothrow) SimpleWindowData;
@@ -79,7 +79,7 @@ void SimpleWindow::simple_window_init(
     swd->height_ = -1;
 }
 
-void SimpleWindow::simple_window_exit() throw() {
+void SimpleWindow::simple_window_exit() noexcept {
     auto swd = (SimpleWindowData *) opaque_;
 
     XUnmapWindow(swd->display_, swd->window_);
@@ -90,7 +90,7 @@ void SimpleWindow::simple_window_exit() throw() {
     XCloseDisplay(swd->display_);
 }
 
-void SimpleWindow::simple_window_run() throw() {
+void SimpleWindow::simple_window_run() noexcept {
     auto swd = (SimpleWindowData *) opaque_;
 
     auto available = XPending(swd->display_);

@@ -10,13 +10,13 @@ spinning world example.
 
 class JupiterWindow {
 protected:
-    JupiterWindow() throw();
+    JupiterWindow() noexcept;
 public:
     JupiterWindow(const JupiterWindow &) = delete;
-    static JupiterWindow *create() throw();
-    virtual ~JupiterWindow() throw();
+    static JupiterWindow *create() noexcept;
+    virtual ~JupiterWindow() noexcept;
 
-    virtual void init() throw() = 0;
-    virtual void exit() throw() = 0;
-    virtual void run() throw() = 0;
+    virtual void init() noexcept = 0;
+    virtual void exit() noexcept = 0;
+    virtual void run() noexcept = 0;
 };

@@ -87,21 +87,21 @@ namespace sphere {
 
     class Gen {
     public:
-        Gen() throw();
+        Gen() noexcept;
         Gen(const Gen &) = delete;
-        ~Gen() throw();
+        ~Gen() noexcept;
 
-        void generate(int num_segments, sphere::Sphere *sphere) throw();
+        void generate(int num_segments, sphere::Sphere *sphere) noexcept;
 
     private:
-        void destruct() throw();
-        void initWeights() throw();
-        void createAllVertices() throw();
-        void createVertices(int side) throw();
-        void createAllSides() throw();
-        void createSide(int side) throw();
-        void createAllTextures() throw();
-        void createTexture(int side) throw();
+        void destruct() noexcept;
+        void initWeights() noexcept;
+        void createAllVertices() noexcept;
+        void createVertices(int side) noexcept;
+        void createAllSides() noexcept;
+        void createSide(int side) noexcept;
+        void createAllTextures() noexcept;
+        void createTexture(int side) noexcept;
 
     private:
         int num_segments_;

@@ -17,7 +17,7 @@ opengl utilities.
 GLuint agm::gl::compileShader(
     GLenum type,
     const char *source
-) throw() {
+) noexcept {
     GLuint shader = glCreateShader(type);
     glShaderSource(shader, 1, &source, nullptr);
     glCompileShader(shader);
@@ -39,7 +39,7 @@ GLuint agm::gl::compileShader(
 GLuint agm::gl::linkProgram(
     GLuint vertex_shader,
     GLuint fragment_shader
-) throw() {
+) noexcept {
     GLuint program = glCreateProgram();
     glAttachShader(program, vertex_shader);
     glAttachShader(program, fragment_shader);

@@ -14,7 +14,7 @@ agm::CmdLineOptions::CmdLineOptions(
     char **argv,
     const char *options,
     const LongFormat *lf
-) throw() :
+) noexcept :
     argc_(argc),
     argv_(argv),
     options_(options),
@@ -23,10 +23,10 @@ agm::CmdLineOptions::CmdLineOptions(
     reset();
 }
 
-agm::CmdLineOptions::~CmdLineOptions() throw() {
+agm::CmdLineOptions::~CmdLineOptions() noexcept {
 }
 
-void agm::CmdLineOptions::reset() throw() {
+void agm::CmdLineOptions::reset() noexcept {
     option_ = 0;
     value_ = nullptr;
     arg_index_ = 1;
@@ -34,7 +34,7 @@ void agm::CmdLineOptions::reset() throw() {
     place_ = nullptr;
 }
 
-bool agm::CmdLineOptions::get() throw() {
+bool agm::CmdLineOptions::get() noexcept {
     // sanity checks
     if (arg_index_ < 0 || argv_ == nullptr || options_ == nullptr) {
         error_ = true;

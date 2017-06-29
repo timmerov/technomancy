@@ -23,7 +23,7 @@ namespace {
         png_structp png,
         png_bytep data,
         png_size_t len
-    ) throw() {
+    ) noexcept {
         auto f = (std::fstream *) png_get_io_ptr(png);
         f->read((char *) data, len);
     }
@@ -32,13 +32,13 @@ namespace {
         png_structp png,
         png_bytep data,
         png_size_t len
-    ) throw() {
+    ) noexcept {
         auto f = (std::fstream *) png_get_io_ptr(png);
         f->write((char *) data, len);
     }
 }
 
-Png::Png() throw() :
+Png::Png() noexcept :
     wd_(0),
     ht_(0),
     stride_(0),
@@ -46,18 +46,18 @@ Png::Png() throw() :
 {
 }
 
-Png::~Png() throw() {
+Png::~Png() noexcept {
     destruct();
 }
 
-void Png::destruct() throw() {
+void Png::destruct() noexcept {
     delete[] data_;
     data_ = nullptr;
 }
 
 bool Png::read(
     const char *filename
-) throw() {
+) noexcept {
     bool result = true;
     std::fstream f;
     png_byte sig[kPngSigSize];
@@ -179,7 +179,7 @@ bool Png::read(
 void Png::init(
     int width,
     int height
-) throw() {
+) noexcept {
     destruct();
     wd_ = width;
     ht_ = height;
@@ -190,7 +190,7 @@ void Png::init(
 
 bool Png::write(
     const char *filename
-) throw() {
+) noexcept {
     bool result = true;
     std::fstream f;
     //png_byte sig[kPngSigSize];

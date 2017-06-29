@@ -11,14 +11,14 @@ spinning world example.
 
 class Render {
 protected:
-    Render() throw();
+    Render() noexcept;
 public:
     Render(const Render &) = default;
-    static Render *create() throw();
-    virtual ~Render() throw();
+    static Render *create() noexcept;
+    virtual ~Render() noexcept;
 
-    virtual void init(int width, int height) throw() = 0;
-    virtual void exit() throw() = 0;
-    virtual void draw() throw() = 0;
-    virtual void resize(int width, int height) throw() = 0;
+    virtual void init(int width, int height) noexcept = 0;
+    virtual void exit() noexcept = 0;
+    virtual void draw() noexcept = 0;
+    virtual void resize(int width, int height) noexcept = 0;
 };

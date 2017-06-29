@@ -10,13 +10,13 @@ spinning world example.
 
 class WorldWindow {
 protected:
-    WorldWindow() throw();
+    WorldWindow() noexcept;
 public:
     WorldWindow(const WorldWindow &) = delete;
-    static WorldWindow *create() throw();
-    virtual ~WorldWindow() throw();
+    static WorldWindow *create() noexcept;
+    virtual ~WorldWindow() noexcept;
 
-    virtual void init() throw() = 0;
-    virtual void exit() throw() = 0;
-    virtual void run() throw() = 0;
+    virtual void init() noexcept = 0;
+    virtual void exit() noexcept = 0;
+    virtual void run() noexcept = 0;
 };

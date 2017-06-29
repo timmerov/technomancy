@@ -96,7 +96,7 @@ namespace {
         virtual void init(
             int width,
             int height
-        ) throw() {
+        ) noexcept {
             LOG("width=" << width << " height" << height);
 
             width_ = width;
@@ -244,7 +244,7 @@ namespace {
             delete[] vertex_array;
         }
 
-        virtual void exit() throw() {
+        virtual void exit() noexcept {
             if (program_) {
                 if (fragment_shader_) {
                     glDetachShader(program_, fragment_shader_);
@@ -301,7 +301,7 @@ namespace {
             }
         }
 
-        virtual void draw() throw() {
+        virtual void draw() noexcept {
             glClearColor(0.2f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -328,7 +328,7 @@ namespace {
 
         void drawWorld(
             int offset
-        ) throw() {
+        ) noexcept {
             glm::mat4 model_mat = std::move(glm::rotate(
                 glm::mat4(),
                 angle_,
@@ -368,7 +368,7 @@ namespace {
             glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
         }
 
-        void drawStars() throw() {
+        void drawStars() noexcept {
             glm::mat4 model_mat;
             model_mat[0][0] = 1.0f;
             model_mat[0][1] = 0.0f;
@@ -416,7 +416,7 @@ namespace {
         virtual void resize(
             int width,
             int height
-        ) throw() {
+        ) noexcept {
             int cur_segments = calcSegments(width_, height_);
             int new_segments = calcSegments(width, height);
 
@@ -432,7 +432,7 @@ namespace {
         void loadPng(
             const char *filename,
             SphereTexture *texture
-        ) throw() {
+        ) noexcept {
             Png png;
             png.read(filename);
             auto ht2 = png.ht_ / 2;
@@ -448,7 +448,7 @@ namespace {
             int width,
             int height,
             GLubyte *data
-        ) throw() {
+        ) noexcept {
             GLuint texture = 0;
             glGenTextures(1, &texture);
 
@@ -469,14 +469,14 @@ namespace {
         int calcSegments(
             int width,
             int height
-        ) throw() {
+        ) noexcept {
             // oddly, does not depend on width.
             (void) width;
             auto segs = kNumSegments * height / 640;
             return segs;
         }
 
-        void captureFrame() throw() {
+        void captureFrame() noexcept {
             if (frame_count_ >= 24*60) {
                 return;
             }
@@ -507,13 +507,13 @@ namespace {
     };
 }
 
-Render::Render() throw() {
+Render::Render() noexcept {
 }
 
-Render::~Render() throw() {
+Render::~Render() noexcept {
 }
 
-Render *Render::create() throw() {
+Render *Render::create() noexcept {
     auto impl = new(std::nothrow) RenderImpl;
     return impl;
 }

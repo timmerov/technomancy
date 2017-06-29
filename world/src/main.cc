@@ -24,7 +24,7 @@ namespace {
 
         WorldWindow *window_ = nullptr;
 
-        void run() throw() {
+        void run() noexcept {
             window_ = WorldWindow::create();
             window_->init();
             run_loop();
@@ -32,7 +32,7 @@ namespace {
             delete window_;
         }
 
-        void run_loop() throw() {
+        void run_loop() noexcept {
             for(;;) {
                 auto is_done = agm::master::isDone();
                 if (is_done) {
@@ -47,7 +47,7 @@ namespace {
 
 int main(
     int argc, char *argv[]
-) throw() {
+) noexcept {
     (void) argc;
     (void) argv;
 

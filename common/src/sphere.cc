@@ -79,7 +79,7 @@ namespace {
     };
 }
 
-sphere::Gen::Gen() throw() :
+sphere::Gen::Gen() noexcept :
     num_segments_(0),
     vertexes_per_side_(0),
     weights_(nullptr),
@@ -88,11 +88,11 @@ sphere::Gen::Gen() throw() :
 {
 }
 
-sphere::Gen::~Gen() throw() {
+sphere::Gen::~Gen() noexcept {
     destruct();
 }
 
-void sphere::Gen::destruct() throw() {
+void sphere::Gen::destruct() noexcept {
     delete[] table_;
     delete[] weights_;
 
@@ -103,7 +103,7 @@ void sphere::Gen::destruct() throw() {
 void sphere::Gen::generate(
     int num_segments,
     sphere::Sphere *sphere
-) throw() {
+) noexcept {
     destruct();
 
     num_segments_ = num_segments;
@@ -146,7 +146,7 @@ void sphere::Gen::generate(
     sphere_.face_ = nullptr;
 }
 
-void sphere::Gen::initWeights() throw() {
+void sphere::Gen::initWeights() noexcept {
     auto pi = std::acos(-1);
     weights_[0] = 1.0f;
     for (int i = 1; i < num_segments_; ++i) {
@@ -157,7 +157,7 @@ void sphere::Gen::initWeights() throw() {
     weights_[num_segments_] = 0.0f;
 }
 
-void sphere::Gen::createAllVertices() throw() {
+void sphere::Gen::createAllVertices() noexcept {
     for (int side = 0; side < 6; ++side) {
         createVertices(side);
     }
@@ -165,7 +165,7 @@ void sphere::Gen::createAllVertices() throw() {
 
 void sphere::Gen::createVertices(
     int side
-) throw() {
+) noexcept {
     int idx = vertexes_per_side_ * side;
     auto cf = g_cube_faces[side];
     auto tl = g_cube_vertexes[cf.tl_];
@@ -206,7 +206,7 @@ void sphere::Gen::createVertices(
     }
 }
 
-void sphere::Gen::createAllSides() throw() {
+void sphere::Gen::createAllSides() noexcept {
     for (int side = 0; side < 6; ++side) {
         createSide(side);
     }
@@ -214,7 +214,7 @@ void sphere::Gen::createAllSides() throw() {
 
 void sphere::Gen::createSide(
     int side
-) throw() {
+) noexcept {
     // first build a table.
     int idx = vertexes_per_side_ * side;
     auto cf = g_cube_faces[side];
@@ -283,7 +283,7 @@ void sphere::Gen::createSide(
     }
 }
 
-void sphere::Gen::createAllTextures() throw() {
+void sphere::Gen::createAllTextures() noexcept {
     for (int side = 0; side < 6; ++side) {
         createTexture(side);
     }
@@ -291,7 +291,7 @@ void sphere::Gen::createAllTextures() throw() {
 
 void sphere::Gen::createTexture(
     int side
-) throw() {
+) noexcept {
     auto fx = double(side % 3) / 3.0;
     auto fy = double(side / 3) / 2.0;
 

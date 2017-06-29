@@ -27,46 +27,46 @@ namespace {
 
         Render *render_ = nullptr;
 
-        virtual void init() throw() {
+        virtual void init() noexcept {
             render_ = Render::create();
             simple_window_init(kWindowTitle, kWindowWidth, kWindowHeight);
             render_->init(kWindowWidth, kWindowHeight);
         }
 
-        virtual void exit() throw() {
+        virtual void exit() noexcept {
             simple_window_exit();
             render_->exit();
             delete render_;
         }
 
-        virtual void run() throw() {
+        virtual void run() noexcept {
             simple_window_run();
         }
 
-        virtual void simple_window_stop() throw() {
+        virtual void simple_window_stop() noexcept {
             agm::master::setDone();
         }
 
         virtual void simple_window_size(
             int width,
             int height
-        ) throw() {
+        ) noexcept {
             render_->resize(width, height);
         }
 
-        virtual void simple_window_draw() throw() {
+        virtual void simple_window_draw() noexcept {
             render_->draw();
         }
     };
 }
 
-WorldWindow::WorldWindow() throw() {
+WorldWindow::WorldWindow() noexcept {
 }
 
-WorldWindow::~WorldWindow() throw() {
+WorldWindow::~WorldWindow() noexcept {
 }
 
-WorldWindow *WorldWindow::create() throw() {
+WorldWindow *WorldWindow::create() noexcept {
     auto impl = new(std::nothrow) WindowImpl;
     return impl;
 }
