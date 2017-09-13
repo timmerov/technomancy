@@ -5,3 +5,4 @@ build-win64
 *.obj
 *.png
 *.mp4
+*.lnk

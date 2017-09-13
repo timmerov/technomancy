@@ -64,9 +64,9 @@ namespace {
         }
     )shader_code";
 
-    const GLfloat kA = 1.0f;
-    const GLfloat kB = 0.9f;
-    const GLfloat kC = 0.96f;
+    const GLfloat kA = 0.50f;
+    const GLfloat kB = 0.45f;
+    const GLfloat kC = 0.48f;
     static GLfloat g_cube_vertexes[] {
 		+kC, +kC, +kC, /// 0+8*0
 		-kC, +kC, +kC, /// 1+8*0
@@ -134,15 +134,6 @@ namespace {
 
 		0.1f, 0.1f, 0.1f, /// dark
 		0.1f, 0.1f, 0.1f, /// dark
-		0.0f, 1.0f, 0.0f, /// green
-		0.0f, 1.0f, 0.0f, /// green
-		0.0f, 1.0f, 0.0f, /// green
-		0.0f, 1.0f, 0.0f, /// green
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
-
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
 		1.0f, 1.0f, 0.0f, /// yellow
 		1.0f, 1.0f, 0.0f, /// yellow
 		1.0f, 1.0f, 0.0f, /// yellow
@@ -161,6 +152,15 @@ namespace {
 
 		0.1f, 0.1f, 0.1f, /// dark
 		0.1f, 0.1f, 0.1f, /// dark
+		1.0f, 0.5f, 0.0f, /// orange
+		1.0f, 0.5f, 0.0f, /// orange
+		1.0f, 0.5f, 0.0f, /// orange
+		1.0f, 0.5f, 0.0f, /// orange
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
 		0.0f, 0.0f, 1.0f, /// blue
 		0.0f, 0.0f, 1.0f, /// blue
 		0.0f, 0.0f, 1.0f, /// blue
@@ -170,10 +170,10 @@ namespace {
 
 		0.1f, 0.1f, 0.1f, /// dark
 		0.1f, 0.1f, 0.1f, /// dark
-		1.0f, 0.5f, 0.0f, /// orange
-		1.0f, 0.5f, 0.0f, /// orange
-		1.0f, 0.5f, 0.0f, /// orange
-		1.0f, 0.5f, 0.0f, /// orange
+		0.0f, 1.0f, 0.0f, /// green
+		0.0f, 1.0f, 0.0f, /// green
+		0.0f, 1.0f, 0.0f, /// green
+		0.0f, 1.0f, 0.0f, /// green
 		0.1f, 0.1f, 0.1f, /// dark
 		0.1f, 0.1f, 0.1f, /// dark
 	};
@@ -351,21 +351,22 @@ namespace {
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
             }
-            glm::mat4 model_mat = std::move(glm::rotate(
-                glm::mat4(),
-                angle_,
-                glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
-                //glm::vec3(0.0f, 0.0f, 1.0f)  // around z axis
-                //glm::vec3(1.0f, 0.0f, 0.0f)  // around x axis
-            ));
+
+			glm::mat4 rot_mat = std::move(glm::rotate(
+				glm::mat4(),
+				angle_,
+				glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
+				//glm::vec3(0.0f, 0.0f, 1.0f)  // around z axis
+				//glm::vec3(1.0f, 0.0f, 0.0f)  // around x axis
+			));
 
             glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(0.0f, 2.0f, 5.0f),  // camera location
+                glm::vec3(0.0f, 8.0f, 12.0f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
             ));
             glm::mat4 proj_mat = std::move(glm::perspective(
-                glm::radians(52.0f),  // fov
+                glm::radians(26.0f),  // fov
                 float(width_)/float(height_),   // aspect ratio
                 0.1f,  // near clipping plane
                 30.0f  // far  clipping plane
@@ -375,7 +376,6 @@ namespace {
             glViewport(0, 0, width_, height_);
 
             glUseProgram(program_);
-            glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
             glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
             glEnableVertexAttribArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
@@ -384,7 +384,8 @@ namespace {
             glBindBuffer(GL_ARRAY_BUFFER, color_buffer_);
             glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
-            glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
+
+			drawAllCubes(rot_mat);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -393,6 +394,24 @@ namespace {
             glUseProgram(0);
 
             //captureFrame();
+        }
+
+        void drawAllCubes(
+			glm::mat4& rot_mat
+		) noexcept {
+			for (int x = -1; x < 2; ++x) {
+				for (int y = -1; y < 2; ++y) {
+					for (int z = -1; z < 2; ++z) {
+						glm::mat4 model_mat = std::move(glm::translate(
+							rot_mat,
+							glm::vec3(float(x), float(y), float(z))
+						));
+
+						glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
+						glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
+					}
+				}
+			}
         }
 
         virtual void resize(
