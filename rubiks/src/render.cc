@@ -26,7 +26,6 @@ and render them separately.
 #include <aggiornamento/log.h>
 #include <aggiornamento/opengl.h>
 #include <common/png.h>
-#include <common/sphere.h>
 
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
@@ -46,13 +45,11 @@ namespace {
         layout (location = 0) in vec3 vertex_pos_in;
         layout (location = 1) in vec3 color_in;
         out mediump vec3 color;
-		out mediump vec3 vertex_pos;
         uniform mat4 model_mat;
         uniform mat4 proj_view_mat;
         void main() {
             vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
             gl_Position = proj_view_mat * world_pos;
-			vertex_pos = vertex_pos_in;
 			color = color_in;
         }
     )shader_code";
@@ -60,26 +57,193 @@ namespace {
     auto g_fragment_source = R"shader_code(
         #version 310 es
         in mediump vec3 color;
-        in mediump vec3 vertex_pos;
         out mediump vec4 color_out;
         void main() {
-			int cnt = 0;
-			if (abs(vertex_pos.x) >= 0.5) {
-				++cnt;
-			}
-			if (abs(vertex_pos.y) >= 0.5) {
-				++cnt;
-			}
-			if (abs(vertex_pos.z) >= 0.5) {
-				++cnt;
-			}
 			color_out.rgb = color;
-			if (cnt >= 2) {
-				color_out.rgb *= 0.2f;
-			}
             color_out.a = 1.0f;
         }
     )shader_code";
+
+    const GLfloat kA = 1.0f;
+    const GLfloat kB = 0.9f;
+    const GLfloat kC = 0.96f;
+    static GLfloat g_cube_vertexes[] {
+		+kC, +kC, +kC, /// 0+8*0
+		-kC, +kC, +kC, /// 1+8*0
+		+kB, +kB, +kA, /// 2+8*0
+		-kB, +kB, +kA, /// 3+8*0
+		+kB, -kB, +kA, /// 4+8*0
+		-kB, -kB, +kA, /// 5+8*0
+		+kC, -kC, +kC, /// 6+8*0
+		-kC, -kC, +kC, /// 7+8*0
+
+		-kC, +kC, -kC, /// 0+8*1
+		+kC, +kC, -kC, /// 1+8*1
+		-kB, +kB, -kA, /// 2+8*1
+		+kB, +kB, -kA, /// 3+8*1
+		-kB, -kB, -kA, /// 4+8*1
+		+kB, -kB, -kA, /// 5+8*1
+		-kC, -kC, -kC, /// 6+8*1
+		+kC, -kC, -kC, /// 7+8*1
+
+		+kC, +kC, +kC, /// 0+8*2
+		+kC, -kC, +kC, /// 1+8*2
+		+kA, +kB, +kB, /// 2+8*2
+		+kA, -kB, +kB, /// 3+8*2
+		+kA, +kB, -kB, /// 4+8*2
+		+kA, -kB, -kB, /// 5+8*2
+		+kC, +kC, -kC, /// 6+8*2
+		+kC, -kC, -kC, /// 7+8*2
+
+		-kC, +kC, -kC, /// 0+8*3
+		-kC, -kC, -kC, /// 1+8*3
+		-kA, +kB, -kB, /// 2+8*3
+		-kA, -kB, -kB, /// 3+8*3
+		-kA, +kB, +kB, /// 4+8*3
+		-kA, -kB, +kB, /// 5+8*3
+		-kC, +kC, +kC, /// 6+8*3
+		-kC, -kC, +kC, /// 7+8*3
+
+		-kC, +kC, +kC, /// 0+8*4
+		+kC, +kC, +kC, /// 1+8*4
+		-kB, +kA, +kB, /// 2+8*4
+		+kB, +kA, +kB, /// 3+8*4
+		-kB, +kA, -kB, /// 4+8*4
+		+kB, +kA, -kB, /// 5+8*4
+		-kC, +kC, -kC, /// 6+8*4
+		+kC, +kC, -kC, /// 7+8*4
+
+		-kC, -kC, -kC, /// 0+8*5
+		+kC, -kC, -kC, /// 1+8*5
+		-kB, -kA, -kB, /// 2+8*5
+		+kB, -kA, -kB, /// 3+8*5
+		-kB, -kA, +kB, /// 4+8*5
+		+kB, -kA, +kB, /// 5+8*5
+		-kC, -kC, +kC, /// 6+8*5
+		+kC, -kC, +kC, /// 7+8*5
+	};
+	static GLfloat g_colors[] = {
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+		1.0f, 1.0f, 1.0f, /// white
+		1.0f, 1.0f, 1.0f, /// white
+		1.0f, 1.0f, 1.0f, /// white
+		1.0f, 1.0f, 1.0f, /// white
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+		0.0f, 1.0f, 0.0f, /// green
+		0.0f, 1.0f, 0.0f, /// green
+		0.0f, 1.0f, 0.0f, /// green
+		0.0f, 1.0f, 0.0f, /// green
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+		1.0f, 1.0f, 0.0f, /// yellow
+		1.0f, 1.0f, 0.0f, /// yellow
+		1.0f, 1.0f, 0.0f, /// yellow
+		1.0f, 1.0f, 0.0f, /// yellow
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+		1.0f, 0.0f, 0.0f, /// red
+		1.0f, 0.0f, 0.0f, /// red
+		1.0f, 0.0f, 0.0f, /// red
+		1.0f, 0.0f, 0.0f, /// red
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+		0.0f, 0.0f, 1.0f, /// blue
+		0.0f, 0.0f, 1.0f, /// blue
+		0.0f, 0.0f, 1.0f, /// blue
+		0.0f, 0.0f, 1.0f, /// blue
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+		1.0f, 0.5f, 0.0f, /// orange
+		1.0f, 0.5f, 0.0f, /// orange
+		1.0f, 0.5f, 0.0f, /// orange
+		1.0f, 0.5f, 0.0f, /// orange
+		0.1f, 0.1f, 0.1f, /// dark
+		0.1f, 0.1f, 0.1f, /// dark
+	};
+	static GLushort g_cube_indexes[] = {
+		8*0+0, 8*0+1, 8*0+2,
+		8*0+0, 8*0+2, 8*0+4,
+		8*0+0, 8*0+4, 8*0+6,
+		8*0+1, 8*0+3, 8*0+2,
+		8*0+1, 8*0+7, 8*0+3,
+		8*0+2, 8*0+3, 8*0+4,
+		8*0+3, 8*0+5, 8*0+4,
+		8*0+3, 8*0+7, 8*0+5,
+		8*0+4, 8*0+5, 8*0+6,
+		8*0+5, 8*0+7, 8*0+6,
+
+		8*1+0, 8*1+1, 8*1+2,
+		8*1+0, 8*1+2, 8*1+4,
+		8*1+0, 8*1+4, 8*1+6,
+		8*1+1, 8*1+3, 8*1+2,
+		8*1+1, 8*1+7, 8*1+3,
+		8*1+2, 8*1+3, 8*1+4,
+		8*1+3, 8*1+5, 8*1+4,
+		8*1+3, 8*1+7, 8*1+5,
+		8*1+4, 8*1+5, 8*1+6,
+		8*1+5, 8*1+7, 8*1+6,
+
+		8*2+0, 8*2+1, 8*2+2,
+		8*2+0, 8*2+2, 8*2+4,
+		8*2+0, 8*2+4, 8*2+6,
+		8*2+1, 8*2+3, 8*2+2,
+		8*2+1, 8*2+7, 8*2+3,
+		8*2+2, 8*2+3, 8*2+4,
+		8*2+3, 8*2+5, 8*2+4,
+		8*2+3, 8*2+7, 8*2+5,
+		8*2+4, 8*2+5, 8*2+6,
+		8*2+5, 8*2+7, 8*2+6,
+
+		8*3+0, 8*3+1, 8*3+2,
+		8*3+0, 8*3+2, 8*3+4,
+		8*3+0, 8*3+4, 8*3+6,
+		8*3+1, 8*3+3, 8*3+2,
+		8*3+1, 8*3+7, 8*3+3,
+		8*3+2, 8*3+3, 8*3+4,
+		8*3+3, 8*3+5, 8*3+4,
+		8*3+3, 8*3+7, 8*3+5,
+		8*3+4, 8*3+5, 8*3+6,
+		8*3+5, 8*3+7, 8*3+6,
+
+		8*4+0, 8*4+1, 8*4+2,
+		8*4+0, 8*4+2, 8*4+4,
+		8*4+0, 8*4+4, 8*4+6,
+		8*4+1, 8*4+3, 8*4+2,
+		8*4+1, 8*4+7, 8*4+3,
+		8*4+2, 8*4+3, 8*4+4,
+		8*4+3, 8*4+5, 8*4+4,
+		8*4+3, 8*4+7, 8*4+5,
+		8*4+4, 8*4+5, 8*4+6,
+		8*4+5, 8*4+7, 8*4+6,
+
+		8*5+0, 8*5+1, 8*5+2,
+		8*5+0, 8*5+2, 8*5+4,
+		8*5+0, 8*5+4, 8*5+6,
+		8*5+1, 8*5+3, 8*5+2,
+		8*5+1, 8*5+7, 8*5+3,
+		8*5+2, 8*5+3, 8*5+4,
+		8*5+3, 8*5+5, 8*5+4,
+		8*5+3, 8*5+7, 8*5+5,
+		8*5+4, 8*5+5, 8*5+6,
+		8*5+5, 8*5+7, 8*5+6,
+	};
 
     class RenderImpl : public Render {
     public:
@@ -107,50 +271,9 @@ namespace {
             width_ = width;
             height_ = height;
 
-            int num_segments = 1;
-            sphere::Sphere sphere;
-            {
-                sphere::Gen gen;
-                gen.generate(num_segments, &sphere);
-            }
-            LOG("num_segments=" << num_segments << " num_vertexes=" << sphere.num_vertexes_ << " num_faces=" << sphere.num_faces_);
-            if (sphere.num_vertexes_ > 65535) {
-                LOG("*** ERROR *** required index range exceeds unsigned short.");
-            }
-
-            int num_vertex_floats = 3 * sphere.num_vertexes_;
-            auto vertex_array = new(std::nothrow) GLfloat[num_vertex_floats];
-            for (int i = 0; i < sphere.num_vertexes_; ++i) {
-                vertex_array[3*i+0] = (GLfloat) sphere.vertex_[i].x_;
-                vertex_array[3*i+1] = (GLfloat) sphere.vertex_[i].y_;
-                vertex_array[3*i+2] = (GLfloat) sphere.vertex_[i].z_;
-                //LOG("vertex[" << i << "]={" << vertex_array_[3*i+0] << ", " << vertex_array_[3*i+1] << ", " << vertex_array_[3*i+2] << "}");
-            }
-            int num_color_floats = 3 * sphere.num_vertexes_;
-            static GLfloat g_colors[] = {
-				1.0f, 1.0f, 1.0f, /// white
-				0.0f, 1.0f, 0.0f, /// green
-				1.0f, 1.0f, 0.0f, /// yellow
-				1.0f, 0.0f, 0.0f, /// red
-				0.0f, 0.0f, 1.0f, /// blue
-				1.0f, 0.5f, 0.0f  /// orange
-            };
-            auto color_array = new(std::nothrow) GLfloat[num_color_floats];
-            for (int i = 0; i < 6; ++i) {
-				for (int k = 0; k < 4; ++k) {
-					color_array[4*3*i+3*k+0] = g_colors[3*i+0];
-					color_array[4*3*i+3*k+1] = g_colors[3*i+1];
-					color_array[4*3*i+3*k+2] = g_colors[3*i+2];
-				}
-			}
-            num_indexes_ = 3 * sphere.num_faces_;
-            auto index_array = new(std::nothrow) GLushort[num_indexes_];
-            for (int i = 0; i < sphere.num_faces_; ++i) {
-                index_array[3*i+0] = (GLushort) sphere.face_[i].a_;
-                index_array[3*i+1] = (GLushort) sphere.face_[i].b_;
-                index_array[3*i+2] = (GLushort) sphere.face_[i].c_;
-                //LOG("face[" << i << "]={" << index_array_[3*i+0] << ", " << index_array_[3*i+1] << ", " << index_array_[3*i+2] << "}");
-            }
+            int num_vertex_floats = 3 * 8 * 6;
+            int num_color_floats = 3 * 8 * 6;
+            num_indexes_ = 3 * 10 * 6;
 
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
@@ -158,17 +281,17 @@ namespace {
 
             glGenBuffers(1, &vertex_buffer_);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_vertex_floats, vertex_array, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_vertex_floats, g_cube_vertexes, GL_STATIC_DRAW);
             LOG("vertex=" << vertex_buffer_);
 
             glGenBuffers(1, &color_buffer_);
             glBindBuffer(GL_ARRAY_BUFFER, color_buffer_);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_color_floats, color_array, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_color_floats, g_colors, GL_STATIC_DRAW);
             LOG("color=" << color_buffer_);
 
             glGenBuffers(1, &index_buffer_);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_indexes_, index_array, GL_STATIC_DRAW);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_indexes_, g_cube_indexes, GL_STATIC_DRAW);
             LOG("index=" << index_buffer_);
 
             vertex_shader_ = agm::gl::compileShader(GL_VERTEX_SHADER, g_vertex_source);
@@ -184,10 +307,6 @@ namespace {
             LOG("model_mat_loc=" << model_mat_loc_);
             proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
             LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
-
-            delete[] index_array;
-            delete[] color_array;
-            delete[] vertex_array;
         }
 
         virtual void exit() noexcept {
@@ -236,10 +355,12 @@ namespace {
                 glm::mat4(),
                 angle_,
                 glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
+                //glm::vec3(0.0f, 0.0f, 1.0f)  // around z axis
+                //glm::vec3(1.0f, 0.0f, 0.0f)  // around x axis
             ));
 
             glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(0.0f, 1.0f, 2.5f),  // camera location
+                glm::vec3(0.0f, 2.0f, 5.0f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
             ));
