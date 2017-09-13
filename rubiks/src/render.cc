@@ -47,35 +47,26 @@ namespace {
     auto g_vertex_source =R"shader_code(
         #version 310 es
         layout (location = 0) in vec3 vertex_pos_in;
-        layout (location = 1) in vec2 texture_pos_in;
-        out mediump vec2 texture_pos;
+        layout (location = 1) in vec3 color_in;
+        out mediump vec3 color;
         uniform mat4 model_mat;
         uniform mat4 proj_view_mat;
         void main() {
             vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
             gl_Position = proj_view_mat * world_pos;
-            texture_pos = texture_pos_in;
+            color = color_in;
         }
     )shader_code";
 
     auto g_fragment_source = R"shader_code(
         #version 310 es
-        in mediump vec2 texture_pos;
+        in mediump vec3 color;
         out mediump vec4 color_out;
-        uniform sampler2D texture_sampler;
         void main() {
-            color_out = texture(texture_sampler, texture_pos);
+            color_out.rgb = color.rgb;
+            color_out.a = 1.0f;
         }
     )shader_code";
-
-    class SphereTexture {
-    public:
-        SphereTexture() = default;
-        ~SphereTexture() = default;
-
-        GLuint front_ = 0;
-        GLuint back_ = 0;
-    };
 
     class RenderImpl : public Render {
     public:
@@ -85,18 +76,15 @@ namespace {
         int width_ = 0;
         int height_ = 0;
         GLuint vertex_buffer_ = 0;
-        GLuint coords_buffer_ = 0;
+        GLuint color_buffer_ = 0;
         GLuint index_buffer_ = 0;
-        SphereTexture tex_;
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
         GLuint model_mat_loc_ = 0;
         GLuint proj_view_mat_loc_ = 0;
-        GLuint texture_loc_ = 0;
         int num_indexes_ = 0;
         float angle_ = 0.0f;
-        glm::mat4 rotxz_;
         int frame_count_ = 0;
 
         virtual void init(
@@ -106,7 +94,7 @@ namespace {
             width_ = width;
             height_ = height;
 
-            int num_segments = 1; //calcSegments(width, height);
+            int num_segments = 1;
             sphere::Sphere sphere;
             {
                 sphere::Gen gen;
@@ -117,28 +105,34 @@ namespace {
                 LOG("*** ERROR *** required index range exceeds unsigned short.");
             }
 
-            /*
-            we only need half of the vertexes and coords.
-            we're going to draw the sphere in two strips.
-            the first half of the vertexes will be rotated to draw the second half.
-            */
-            int num_vertex_floats = 3 * sphere.num_vertexes_ / 2;
+            int num_vertex_floats = 3 * sphere.num_vertexes_;
             auto vertex_array = new(std::nothrow) GLfloat[num_vertex_floats];
-            for (int i = 0; i < sphere.num_vertexes_ / 2; ++i) {
+            for (int i = 0; i < sphere.num_vertexes_; ++i) {
                 vertex_array[3*i+0] = (GLfloat) sphere.vertex_[i].x_;
                 vertex_array[3*i+1] = (GLfloat) sphere.vertex_[i].y_;
                 vertex_array[3*i+2] = (GLfloat) sphere.vertex_[i].z_;
                 //LOG("vertex[" << i << "]={" << vertex_array_[3*i+0] << ", " << vertex_array_[3*i+1] << ", " << vertex_array_[3*i+2] << "}");
             }
-            int num_coords_floats = 2 * sphere.num_vertexes_ / 2;
-            auto coords_array = new(std::nothrow) GLfloat[num_coords_floats];
-            for (int i = 0; i < sphere.num_vertexes_ / 2; ++i) {
-                coords_array[2*i+0] = (GLfloat) sphere.texture_[i].x_;
-                coords_array[2*i+1] = 2.0f * (GLfloat) sphere.texture_[i].y_;
-            }
-            num_indexes_ = 3 * sphere.num_faces_ / 2;
+            int num_color_floats = 3 * sphere.num_vertexes_;
+            static GLfloat g_colors[] = {
+				1.0f, 1.0f, 1.0f, /// white
+				0.0f, 1.0f, 0.0f, /// green
+				1.0f, 1.0f, 0.0f, /// yellow
+				1.0f, 0.0f, 0.0f, /// red
+				0.0f, 0.0f, 1.0f, /// blue
+				1.0f, 0.5f, 0.0f  /// orange
+            };
+            auto color_array = new(std::nothrow) GLfloat[num_color_floats];
+            for (int i = 0; i < 6; ++i) {
+				for (int k = 0; k < 4; ++k) {
+					color_array[4*3*i+3*k+0] = g_colors[3*i+0];
+					color_array[4*3*i+3*k+1] = g_colors[3*i+1];
+					color_array[4*3*i+3*k+2] = g_colors[3*i+2];
+				}
+			}
+            num_indexes_ = 3 * sphere.num_faces_;
             auto index_array = new(std::nothrow) GLushort[num_indexes_];
-            for (int i = 0; i < sphere.num_faces_ / 2; ++i) {
+            for (int i = 0; i < sphere.num_faces_; ++i) {
                 index_array[3*i+0] = (GLushort) sphere.face_[i].a_;
                 index_array[3*i+1] = (GLushort) sphere.face_[i].b_;
                 index_array[3*i+2] = (GLushort) sphere.face_[i].c_;
@@ -154,10 +148,10 @@ namespace {
             glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_vertex_floats, vertex_array, GL_STATIC_DRAW);
             LOG("vertex=" << vertex_buffer_);
 
-            glGenBuffers(1, &coords_buffer_);
-            glBindBuffer(GL_ARRAY_BUFFER, coords_buffer_);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_coords_floats, coords_array, GL_STATIC_DRAW);
-            LOG("coords=" << coords_buffer_);
+            glGenBuffers(1, &color_buffer_);
+            glBindBuffer(GL_ARRAY_BUFFER, color_buffer_);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_color_floats, color_array, GL_STATIC_DRAW);
+            LOG("color=" << color_buffer_);
 
             glGenBuffers(1, &index_buffer_);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
@@ -172,32 +166,14 @@ namespace {
             program_ = agm::gl::linkProgram(vertex_shader_, fragment_shader_);
             LOG("program=" << program_);
 
-            loadPng(kTextureFilename, &tex_);
-
             glUseProgram(program_);
             model_mat_loc_ = glGetUniformLocation(program_, "model_mat");
             LOG("model_mat_loc=" << model_mat_loc_);
             proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
             LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
-            texture_loc_ = glGetUniformLocation(program_, "texture_sampler");
-            LOG("texture_loc=" << texture_loc_);
-
-            glUseProgram(program_);
-            glUniform1i(texture_loc_, 0);
-            glUseProgram(0);
-
-            rotxz_[0][0] = -1.0f;
-            rotxz_[0][1] = +0.0f;
-            rotxz_[0][2] = +0.0f;
-            rotxz_[1][0] = +0.0f;
-            rotxz_[1][1] = +0.0f;
-            rotxz_[1][2] = +1.0f;
-            rotxz_[2][0] = +0.0f;
-            rotxz_[2][1] = +1.0f;
-            rotxz_[2][2] = +0.0f;
 
             delete[] index_array;
-            delete[] coords_array;
+            delete[] color_array;
             delete[] vertex_array;
         }
 
@@ -220,21 +196,13 @@ namespace {
                 glDeleteShader(vertex_shader_);
                 vertex_shader_ = 0;
             }
-            if (tex_.back_) {
-                glDeleteTextures(1, &tex_.back_);
-                tex_.back_ = 0;
-            }
-            if (tex_.front_) {
-                glDeleteTextures(1, &tex_.front_);
-                tex_.front_ = 0;
-            }
             if (index_buffer_) {
                 glDeleteBuffers(1, &index_buffer_);
                 index_buffer_ = 0;
             }
-            if (coords_buffer_) {
-                glDeleteBuffers(1, &coords_buffer_);
-                coords_buffer_ = 0;
+            if (color_buffer_) {
+                glDeleteBuffers(1, &color_buffer_);
+                color_buffer_ = 0;
             }
             if (vertex_buffer_) {
                 glDeleteBuffers(1, &vertex_buffer_);
@@ -247,7 +215,7 @@ namespace {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             float pi = (float) acos(-1.0f);
-            angle_ += 2.0f*pi/60.0f/48.0f;  // 24 hours in 48 seconds.
+            angle_ += 2.0f*pi/60.0f/12.0f;
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
             }
@@ -279,22 +247,11 @@ namespace {
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
             glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, coords_buffer_);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+            glBindBuffer(GL_ARRAY_BUFFER, color_buffer_);
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, tex_.front_);
             glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
 
-            model_mat = model_mat * rotxz_;
-            glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, tex_.back_);
-            glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
-
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            glActiveTexture(GL_TEXTURE0);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glDisableVertexAttribArray(1);
@@ -308,64 +265,8 @@ namespace {
             int width,
             int height
         ) noexcept {
-            int cur_segments = calcSegments(width_, height_);
-            int new_segments = calcSegments(width, height);
-
             width_ = width;
             height_ = height;
-
-            if (cur_segments != new_segments) {
-
-                exit();
-                init(width, height);
-            }
-        }
-
-        void loadPng(
-            const char *filename,
-            SphereTexture *texture
-        ) noexcept {
-            Png png;
-            png.read(filename);
-            auto ht2 = png.ht_ / 2;
-            auto data = png.data_;
-            texture->front_ = loadTexture(png.wd_, ht2, data);
-            LOG("front=" << texture->front_);
-            data += png.stride_ * ht2;
-            texture->back_ = loadTexture(png.wd_, ht2, data);
-            LOG("back=" << texture->back_);
-        }
-
-        GLuint loadTexture(
-            int width,
-            int height,
-            GLubyte *data
-        ) noexcept {
-            GLuint texture = 0;
-            glGenTextures(1, &texture);
-
-            glBindTexture(GL_TEXTURE_2D, texture);
-            {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                glGenerateMipmap(GL_TEXTURE_2D);
-            }
-            glBindTexture(GL_TEXTURE_2D, 0);
-
-            return texture;
-        }
-
-        int calcSegments(
-            int width,
-            int height
-        ) noexcept {
-            // oddly, does not depend on width.
-            (void) width;
-            auto segs = kNumSegments * height / 640;
-            return segs;
         }
 
         void captureFrame() noexcept {
