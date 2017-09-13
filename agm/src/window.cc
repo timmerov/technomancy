@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2016 tim cotter. All rights reserved.
+Copyright (C) 2012-2017 tim cotter. All rights reserved.
 */
 
 /**
@@ -34,7 +34,7 @@ SimpleWindow::~SimpleWindow() noexcept {
     delete swd;
 }
 
-void SimpleWindow::simple_window_init(
+void SimpleWindow::simpleWindowInit(
     const char *title,
     int width,
     int height
@@ -79,7 +79,7 @@ void SimpleWindow::simple_window_init(
     swd->height_ = -1;
 }
 
-void SimpleWindow::simple_window_exit() noexcept {
+void SimpleWindow::simpleWindowExit() noexcept {
     auto swd = (SimpleWindowData *) opaque_;
 
     XUnmapWindow(swd->display_, swd->window_);
@@ -104,7 +104,7 @@ void SimpleWindow::simple_window_run() noexcept {
                 if (window_attributes.width != swd->width_ || window_attributes.height != swd->height_) {
                     swd->width_ = window_attributes.width;
                     swd->height_ = window_attributes.height;
-                    simple_window_size(swd->width_, swd->height_);
+                    simpleWindowSize(swd->width_, swd->height_);
                 }
                 break;
             }
@@ -113,7 +113,7 @@ void SimpleWindow::simple_window_run() noexcept {
                 LOG("Event:ClientMessage");
                 // the user hit the close box.
                 if (Atom(event.xclient.data.l[0]) == swd->delete_message_) {
-                    simple_window_stop();
+                    simpleWindowStop();
                 }
                 break;
             }
@@ -121,14 +121,14 @@ void SimpleWindow::simple_window_run() noexcept {
             case KeyPress: {
                 auto key = XLookupKeysym(&event.xkey, 0);
                 if (key == XK_Escape) {
-                    simple_window_stop();
+                    simpleWindowStop();
                 }
                 LOG("Event:KeyPress key=" << key);
             break;
             }
         }
     } else {
-        simple_window_draw();
+        simpleWindowDraw();
         glXSwapBuffers(swd->display_, swd->window_);
     }
 }

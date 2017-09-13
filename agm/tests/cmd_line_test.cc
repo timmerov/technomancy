@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016 CastAR, Inc. All rights reserved.
+Copyright (C) 2017 CastAR, Inc. All rights reserved.
 */
 
 /*

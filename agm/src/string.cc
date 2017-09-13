@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2016 tim cotter. All rights reserved.
+Copyright (C) 2012-2017 tim cotter. All rights reserved.
 */
 
 /**
@@ -57,7 +57,7 @@ on windows: calls _stricmp
 on all other platforms: calls strcasecmp
 because microsoft
 */
-int agm::string::compare_case(
+int agm::string::compareCase(
     const char *s1,
     const char *s2
 ) noexcept {
@@ -74,7 +74,7 @@ on windows: calls _strnicmp
 on all other platforms: calls strncasecmp
 because microsoft
 */
-int agm::string::compare_case(
+int agm::string::compareCase(
     const char *s1,
     const char *s2,
     int len

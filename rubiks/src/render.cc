@@ -42,34 +42,29 @@ and render them separately.
 
 namespace {
     const int kNumSegments = 12;
-    const char kTextureFilename[] = "jupiter-cube-sharp50.png";
+    const char kTextureFilename[] = "cube-sharp50.png";
 
     auto g_vertex_source =R"shader_code(
         #version 310 es
         layout (location = 0) in vec3 vertex_pos_in;
         layout (location = 1) in vec2 texture_pos_in;
         out mediump vec2 texture_pos;
-        out mediump float bright;
         uniform mat4 model_mat;
         uniform mat4 proj_view_mat;
         void main() {
-            vec3 sun_dir = normalize(vec3(3.0f, 1.0f, 3.0f));
             vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
             gl_Position = proj_view_mat * world_pos;
             texture_pos = texture_pos_in;
-            bright = dot(world_pos.xyz, sun_dir);
-            bright = clamp(bright, 0.0f, 1.0f);
         }
     )shader_code";
 
     auto g_fragment_source = R"shader_code(
         #version 310 es
         in mediump vec2 texture_pos;
-        in mediump float bright;
         out mediump vec4 color_out;
         uniform sampler2D texture_sampler;
         void main() {
-            color_out = bright * texture(texture_sampler, texture_pos);
+            color_out = texture(texture_sampler, texture_pos);
         }
     )shader_code";
 
@@ -111,7 +106,7 @@ namespace {
             width_ = width;
             height_ = height;
 
-            int num_segments = calcSegments(width, height);
+            int num_segments = 1; //calcSegments(width, height);
             sphere::Sphere sphere;
             {
                 sphere::Gen gen;

@@ -5,16 +5,16 @@ Copyright (C) 2012-2017 tim cotter. All rights reserved.
 #pragma once
 
 /**
-stereogram example.
+rubiks cube example.
 **/
 
-class StereoWindow {
+class RubiksWindow {
 protected:
-    StereoWindow() noexcept;
+    RubiksWindow() noexcept;
 public:
-    StereoWindow(const StereoWindow &) = delete;
-    static StereoWindow *create() noexcept;
-    virtual ~StereoWindow() noexcept;
+    RubiksWindow(const RubiksWindow &) = delete;
+    static RubiksWindow *create() noexcept;
+    virtual ~RubiksWindow() noexcept;
 
     virtual void init() noexcept = 0;
     virtual void exit() noexcept = 0;

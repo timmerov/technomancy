@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2016 CastAR, Inc. All rights reserved.
+Copyright (C) 2017 CastAR, Inc. All rights reserved.
 */
 
 #include <aggiornamento/aggiornamento.h>
@@ -113,7 +113,7 @@ bool agm::CmdLineOptions::get() noexcept {
                     return false;
                 }
                 int len = (int) strlen(lf->long_name_);
-                if (0 == agm::string::compare_case(cp, lf->long_name_, len)) {
+                if (0 == agm::string::compareCase(cp, lf->long_name_, len)) {
                     cp += len;
                     auto ch = *cp;
                     if (ch == 0) {

@@ -3,7 +3,7 @@ Copyright (C) 2012-2017 tim cotter. All rights reserved.
 */
 
 /**
-spinning world example.
+rubiks cube example.
 **/
 
 #include "render.h"
@@ -17,10 +17,10 @@ spinning world example.
 
 namespace {
 	const auto kWindowTitle = AGM_TARGET_NAME;
-	const auto kWindowWidth = 1024;
-	const auto kWindowHeight = 512;
+	const auto kWindowWidth = 1200/32*32;
+	const auto kWindowHeight = kWindowWidth;
 
-    class WindowImpl : public StereoWindow, public SimpleWindow {
+    class WindowImpl : public RubiksWindow, public SimpleWindow {
     public:
         WindowImpl() = default;
         virtual ~WindowImpl() = default;
@@ -60,13 +60,13 @@ namespace {
     };
 }
 
-StereoWindow::StereoWindow() noexcept {
+RubiksWindow::RubiksWindow() noexcept {
 }
 
-StereoWindow::~StereoWindow() noexcept {
+RubiksWindow::~RubiksWindow() noexcept {
 }
 
-StereoWindow *StereoWindow::create() noexcept {
+RubiksWindow *RubiksWindow::create() noexcept {
     auto impl = new(std::nothrow) WindowImpl;
     return impl;
 }

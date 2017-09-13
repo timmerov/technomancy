@@ -1,11 +1,11 @@
 #
-# Copyright (C) 2012-2016 tim cotter. All rights reserved.
+# Copyright (C) 2012-2017 tim cotter. All rights reserved.
 #
 
 # search for "you need to"
 
 # you need to set these:
-set(THIS_TARGET_NAME mnist)
+set(THIS_TARGET_NAME rubiks)
 
 # log it
 message("-- Adding executable ${THIS_TARGET_NAME}...")
@@ -28,11 +28,16 @@ target_compile_definitions(${THIS_TARGET_NAME} PRIVATE AGM_TARGET=${THIS_TARGET_
 # add the include directories
 set(INCS
     ${CMAKE_SOURCE_DIR}/agm/inc
+    ${CMAKE_SOURCE_DIR}/common/inc
 )
 include_directories(${INCS})
 
 # add the libraries
 set(LIBS
     agm
+    common
+    GL
+    png
+    X11
 )
 target_link_libraries(${THIS_TARGET_NAME} ${LIBS})

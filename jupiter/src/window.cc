@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2016 tim cotter. All rights reserved.
+Copyright (C) 2012-2017 tim cotter. All rights reserved.
 */
 
 /**
@@ -29,12 +29,12 @@ namespace {
 
         virtual void init() noexcept {
             render_ = Render::create();
-            simple_window_init(kWindowTitle, kWindowWidth, kWindowHeight);
+            simpleWindowInit(kWindowTitle, kWindowWidth, kWindowHeight);
             render_->init(kWindowWidth, kWindowHeight);
         }
 
         virtual void exit() noexcept {
-            simple_window_exit();
+            simpleWindowExit();
             render_->exit();
             delete render_;
         }
@@ -43,18 +43,18 @@ namespace {
             simple_window_run();
         }
 
-        virtual void simple_window_stop() noexcept {
+        virtual void simpleWindowStop() noexcept {
             agm::master::setDone();
         }
 
-        virtual void simple_window_size(
+        virtual void simpleWindowSize(
             int width,
             int height
         ) noexcept {
             render_->resize(width, height);
         }
 
-        virtual void simple_window_draw() noexcept {
+        virtual void simpleWindowDraw() noexcept {
             render_->draw();
         }
     };

@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2016 tim cotter. All rights reserved.
+Copyright (C) 2012-2017 tim cotter. All rights reserved.
 */
 
 /**
@@ -100,8 +100,8 @@ namespace {
                 result = false;
             }
 
-            LOG("num_segments=" << num_segments_);
-            LOG("output filename=\"" << filename_ << "\"");
+            LOG("num-segments=" << num_segments_);
+            LOG("output-file=\"" << filename_ << "\"");
 
             return result;
         }

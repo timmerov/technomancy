@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2016 tim cotter. All rights reserved.
+Copyright (C) 2012-2017 tim cotter. All rights reserved.
 */
 
 /**
@@ -27,12 +27,12 @@ namespace {
         void run() noexcept {
             window_ = WorldWindow::create();
             window_->init();
-            run_loop();
+            runLoop();
             window_->exit();
             delete window_;
         }
 
-        void run_loop() noexcept {
+        void runLoop() noexcept {
             for(;;) {
                 auto is_done = agm::master::isDone();
                 if (is_done) {

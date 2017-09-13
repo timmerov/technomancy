@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2016 tim cotter. All rights reserved.
+Copyright (C) 2012-2017 tim cotter. All rights reserved.
 */
 
 /**
@@ -73,7 +73,7 @@ namespace agm {
         on all other platforms: calls strcasecmp
         because microsoft
         */
-        int compare_case(const char *s1, const char *s2) noexcept;
+        int compareCase(const char *s1, const char *s2) noexcept;
 
         /*
         case insensitve compare
@@ -81,7 +81,7 @@ namespace agm {
         on all other platforms: calls strncasecmp
         because microsoft
         */
-        int compare_case(const char *s1, const char *s2, int len) noexcept;
+        int compareCase(const char *s1, const char *s2, int len) noexcept;
 
         /*
         tokenize a string

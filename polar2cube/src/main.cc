@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2016 tim cotter. All rights reserved.
+Copyright (C) 2012-2017 tim cotter. All rights reserved.
 */
 
 /**
@@ -159,12 +159,14 @@ namespace {
                 LOG("Must specify input file.");
                 show_help = true;
                 result = false;
+                input_filename_ = "";
             }
 
             if (output_filename_ == nullptr) {
                 LOG("Must specify output file.");
                 show_help = true;
                 result = false;
+                output_filename_ = "";
             }
 
             if (show_help) {
