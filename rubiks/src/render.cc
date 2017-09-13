@@ -41,29 +41,42 @@ and render them separately.
 
 
 namespace {
-    const int kNumSegments = 12;
-    const char kTextureFilename[] = "cube-sharp50.png";
-
     auto g_vertex_source =R"shader_code(
         #version 310 es
         layout (location = 0) in vec3 vertex_pos_in;
         layout (location = 1) in vec3 color_in;
         out mediump vec3 color;
+		out mediump vec3 vertex_pos;
         uniform mat4 model_mat;
         uniform mat4 proj_view_mat;
         void main() {
             vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
             gl_Position = proj_view_mat * world_pos;
-            color = color_in;
+			vertex_pos = vertex_pos_in;
+			color = color_in;
         }
     )shader_code";
 
     auto g_fragment_source = R"shader_code(
         #version 310 es
         in mediump vec3 color;
+        in mediump vec3 vertex_pos;
         out mediump vec4 color_out;
         void main() {
-            color_out.rgb = color.rgb;
+			int cnt = 0;
+			if (abs(vertex_pos.x) >= 0.5) {
+				++cnt;
+			}
+			if (abs(vertex_pos.y) >= 0.5) {
+				++cnt;
+			}
+			if (abs(vertex_pos.z) >= 0.5) {
+				++cnt;
+			}
+			color_out.rgb = color;
+			if (cnt >= 2) {
+				color_out.rgb *= 0.2f;
+			}
             color_out.a = 1.0f;
         }
     )shader_code";
