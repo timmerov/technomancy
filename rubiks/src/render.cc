@@ -121,11 +121,11 @@ namespace {
 	};
 	static GLfloat g_colors[] = {
 		1.0f, 1.0f, 1.0f, /// white
-		1.0f, 1.0f, 0.0f, /// yellow
-		1.0f, 0.0f, 0.0f, /// red
+		0.9f, 0.9f, 0.0f, /// yellow
+		0.0f, 0.3f, 0.0f, /// green
+		0.0f, 0.0f, 0.8f, /// blue
+		0.7f, 0.0f, 0.0f, /// red
 		1.0f, 0.5f, 0.0f, /// orange
-		0.0f, 0.0f, 1.0f, /// blue
-		0.0f, 1.0f, 0.0f, /// green
 	};
 	static GLushort g_bevel_indexes[] = {
 		8*0+0, 8*0+1, 8*0+2,
