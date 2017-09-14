@@ -43,21 +43,18 @@ namespace {
     auto g_vertex_source =R"shader_code(
         #version 310 es
         layout (location = 0) in vec3 vertex_pos_in;
-        layout (location = 1) in vec3 color_in;
-        out mediump vec3 color;
         uniform mat4 model_mat;
         uniform mat4 proj_view_mat;
         void main() {
             vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
             gl_Position = proj_view_mat * world_pos;
-			color = color_in;
         }
     )shader_code";
 
     auto g_fragment_source = R"shader_code(
         #version 310 es
-        in mediump vec3 color;
         out mediump vec4 color_out;
+        uniform mediump vec3 color;
         void main() {
 			color_out.rgb = color;
             color_out.a = 1.0f;
@@ -123,68 +120,19 @@ namespace {
 		+kC, -kC, +kC, /// 7+8*5
 	};
 	static GLfloat g_colors[] = {
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
 		1.0f, 1.0f, 1.0f, /// white
-		1.0f, 1.0f, 1.0f, /// white
-		1.0f, 1.0f, 1.0f, /// white
-		1.0f, 1.0f, 1.0f, /// white
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
-
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
 		1.0f, 1.0f, 0.0f, /// yellow
-		1.0f, 1.0f, 0.0f, /// yellow
-		1.0f, 1.0f, 0.0f, /// yellow
-		1.0f, 1.0f, 0.0f, /// yellow
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
-
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
 		1.0f, 0.0f, 0.0f, /// red
-		1.0f, 0.0f, 0.0f, /// red
-		1.0f, 0.0f, 0.0f, /// red
-		1.0f, 0.0f, 0.0f, /// red
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
-
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
 		1.0f, 0.5f, 0.0f, /// orange
-		1.0f, 0.5f, 0.0f, /// orange
-		1.0f, 0.5f, 0.0f, /// orange
-		1.0f, 0.5f, 0.0f, /// orange
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
-
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
 		0.0f, 0.0f, 1.0f, /// blue
-		0.0f, 0.0f, 1.0f, /// blue
-		0.0f, 0.0f, 1.0f, /// blue
-		0.0f, 0.0f, 1.0f, /// blue
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
-
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
 		0.0f, 1.0f, 0.0f, /// green
-		0.0f, 1.0f, 0.0f, /// green
-		0.0f, 1.0f, 0.0f, /// green
-		0.0f, 1.0f, 0.0f, /// green
-		0.1f, 0.1f, 0.1f, /// dark
-		0.1f, 0.1f, 0.1f, /// dark
 	};
-	static GLushort g_cube_indexes[] = {
+	static GLushort g_bevel_indexes[] = {
 		8*0+0, 8*0+1, 8*0+2,
 		8*0+0, 8*0+2, 8*0+4,
 		8*0+0, 8*0+4, 8*0+6,
 		8*0+1, 8*0+3, 8*0+2,
 		8*0+1, 8*0+7, 8*0+3,
-		8*0+2, 8*0+3, 8*0+4,
-		8*0+3, 8*0+5, 8*0+4,
 		8*0+3, 8*0+7, 8*0+5,
 		8*0+4, 8*0+5, 8*0+6,
 		8*0+5, 8*0+7, 8*0+6,
@@ -194,8 +142,6 @@ namespace {
 		8*1+0, 8*1+4, 8*1+6,
 		8*1+1, 8*1+3, 8*1+2,
 		8*1+1, 8*1+7, 8*1+3,
-		8*1+2, 8*1+3, 8*1+4,
-		8*1+3, 8*1+5, 8*1+4,
 		8*1+3, 8*1+7, 8*1+5,
 		8*1+4, 8*1+5, 8*1+6,
 		8*1+5, 8*1+7, 8*1+6,
@@ -205,8 +151,6 @@ namespace {
 		8*2+0, 8*2+4, 8*2+6,
 		8*2+1, 8*2+3, 8*2+2,
 		8*2+1, 8*2+7, 8*2+3,
-		8*2+2, 8*2+3, 8*2+4,
-		8*2+3, 8*2+5, 8*2+4,
 		8*2+3, 8*2+7, 8*2+5,
 		8*2+4, 8*2+5, 8*2+6,
 		8*2+5, 8*2+7, 8*2+6,
@@ -216,8 +160,6 @@ namespace {
 		8*3+0, 8*3+4, 8*3+6,
 		8*3+1, 8*3+3, 8*3+2,
 		8*3+1, 8*3+7, 8*3+3,
-		8*3+2, 8*3+3, 8*3+4,
-		8*3+3, 8*3+5, 8*3+4,
 		8*3+3, 8*3+7, 8*3+5,
 		8*3+4, 8*3+5, 8*3+6,
 		8*3+5, 8*3+7, 8*3+6,
@@ -227,8 +169,6 @@ namespace {
 		8*4+0, 8*4+4, 8*4+6,
 		8*4+1, 8*4+3, 8*4+2,
 		8*4+1, 8*4+7, 8*4+3,
-		8*4+2, 8*4+3, 8*4+4,
-		8*4+3, 8*4+5, 8*4+4,
 		8*4+3, 8*4+7, 8*4+5,
 		8*4+4, 8*4+5, 8*4+6,
 		8*4+5, 8*4+7, 8*4+6,
@@ -238,11 +178,23 @@ namespace {
 		8*5+0, 8*5+4, 8*5+6,
 		8*5+1, 8*5+3, 8*5+2,
 		8*5+1, 8*5+7, 8*5+3,
-		8*5+2, 8*5+3, 8*5+4,
-		8*5+3, 8*5+5, 8*5+4,
 		8*5+3, 8*5+7, 8*5+5,
 		8*5+4, 8*5+5, 8*5+6,
 		8*5+5, 8*5+7, 8*5+6,
+	};
+	static GLushort g_face_indexes[] = {
+		8*0+2, 8*0+3, 8*0+4,
+		8*0+3, 8*0+5, 8*0+4,
+		8*1+2, 8*1+3, 8*1+4,
+		8*1+3, 8*1+5, 8*1+4,
+		8*2+2, 8*2+3, 8*2+4,
+		8*2+3, 8*2+5, 8*2+4,
+		8*3+2, 8*3+3, 8*3+4,
+		8*3+3, 8*3+5, 8*3+4,
+		8*4+2, 8*4+3, 8*4+4,
+		8*4+3, 8*4+5, 8*4+4,
+		8*5+2, 8*5+3, 8*5+4,
+		8*5+3, 8*5+5, 8*5+4,
 	};
 
     class RenderImpl : public Render {
@@ -253,14 +205,16 @@ namespace {
         int width_ = 0;
         int height_ = 0;
         GLuint vertex_buffer_ = 0;
-        GLuint color_buffer_ = 0;
-        GLuint index_buffer_ = 0;
+        GLuint bevel_index_buffer_ = 0;
+        GLuint face_index_buffer_[6] = {0};
         GLuint vertex_shader_ = 0;
         GLuint fragment_shader_ = 0;
         GLuint program_ = 0;
         GLuint model_mat_loc_ = 0;
         GLuint proj_view_mat_loc_ = 0;
-        int num_indexes_ = 0;
+        GLuint color_loc_ = 0;
+        int num_bevel_indexes_ = 0;
+        int num_face_indexes_ = 0;
         float angle_ = 0.0f;
         int frame_count_ = 0;
 
@@ -272,8 +226,8 @@ namespace {
             height_ = height;
 
             int num_vertex_floats = 3 * 8 * 6;
-            int num_color_floats = 3 * 8 * 6;
-            num_indexes_ = 3 * 10 * 6;
+            num_bevel_indexes_ = 3 * 8 * 6;
+            num_face_indexes_ = 3 * 2;
 
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
@@ -284,15 +238,18 @@ namespace {
             glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_vertex_floats, g_cube_vertexes, GL_STATIC_DRAW);
             LOG("vertex=" << vertex_buffer_);
 
-            glGenBuffers(1, &color_buffer_);
-            glBindBuffer(GL_ARRAY_BUFFER, color_buffer_);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_color_floats, g_colors, GL_STATIC_DRAW);
-            LOG("color=" << color_buffer_);
+            glGenBuffers(1, &bevel_index_buffer_);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bevel_index_buffer_);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_bevel_indexes_, g_bevel_indexes, GL_STATIC_DRAW);
+            LOG("bevel_index=" << bevel_index_buffer_);
 
-            glGenBuffers(1, &index_buffer_);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_indexes_, g_cube_indexes, GL_STATIC_DRAW);
-            LOG("index=" << index_buffer_);
+            glGenBuffers(6, &face_index_buffer_[0]);
+            for (int i = 0; i < 6; ++i) {
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, face_index_buffer_[i]);
+				auto face_indexes = &g_face_indexes[num_face_indexes_*i];
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_face_indexes_, face_indexes, GL_STATIC_DRAW);
+				LOG("face_index[" << i << "]=" << face_index_buffer_[i]);
+			}
 
             vertex_shader_ = agm::gl::compileShader(GL_VERTEX_SHADER, g_vertex_source);
             LOG("vertex_shader=" << vertex_shader_);
@@ -307,6 +264,8 @@ namespace {
             LOG("model_mat_loc=" << model_mat_loc_);
             proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
             LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
+            color_loc_ = glGetUniformLocation(program_, "color");
+            LOG("color_loc=" << color_loc_);
         }
 
         virtual void exit() noexcept {
@@ -328,14 +287,16 @@ namespace {
                 glDeleteShader(vertex_shader_);
                 vertex_shader_ = 0;
             }
-            if (index_buffer_) {
-                glDeleteBuffers(1, &index_buffer_);
-                index_buffer_ = 0;
+            if (bevel_index_buffer_) {
+                glDeleteBuffers(1, &bevel_index_buffer_);
+                bevel_index_buffer_ = 0;
             }
-            if (color_buffer_) {
-                glDeleteBuffers(1, &color_buffer_);
-                color_buffer_ = 0;
-            }
+            for (int i = 0; i < 6; ++i) {
+				if (face_index_buffer_[i]) {
+					glDeleteBuffers(1, &face_index_buffer_[i]);
+					face_index_buffer_[i] = 0;
+				}
+			}
             if (vertex_buffer_) {
                 glDeleteBuffers(1, &vertex_buffer_);
                 vertex_buffer_ = 0;
@@ -379,17 +340,12 @@ namespace {
             glUniformMatrix4fv(proj_view_mat_loc_, 1, GL_FALSE, &proj_view_mat[0][0]);
             glEnableVertexAttribArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, color_buffer_);
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
 			drawAllCubes(rot_mat);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glDisableVertexAttribArray(1);
             glDisableVertexAttribArray(0);
             glUseProgram(0);
 
@@ -402,15 +358,29 @@ namespace {
 			for (int x = -1; x < 2; ++x) {
 				for (int y = -1; y < 2; ++y) {
 					for (int z = -1; z < 2; ++z) {
+						//if (x == 0 && y == 0 && z == 0) {
 						glm::mat4 model_mat = std::move(glm::translate(
 							rot_mat,
 							glm::vec3(float(x), float(y), float(z))
 						));
-
 						glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
-						glDrawElements(GL_TRIANGLES, num_indexes_, GL_UNSIGNED_SHORT, nullptr);
+						draw1Cube();
+						//}
 					}
 				}
+			}
+        }
+
+        void draw1Cube() noexcept {
+			GLfloat dark[] = {0.1f, 0.1f, 0.1f};
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bevel_index_buffer_);
+			glUniform3fv(color_loc_, 1, &dark[0]);
+			glDrawElements(GL_TRIANGLES, num_bevel_indexes_, GL_UNSIGNED_SHORT, nullptr);
+
+			for (int i = 0; i < 6; ++i) {
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, face_index_buffer_[i]);
+				glUniform3fv(color_loc_, 1, &g_colors[3*i]);
+				glDrawElements(GL_TRIANGLES, num_face_indexes_, GL_UNSIGNED_SHORT, nullptr);
 			}
         }
 
