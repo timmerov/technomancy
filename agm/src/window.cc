@@ -122,8 +122,14 @@ void SimpleWindow::simple_window_run() noexcept {
                 auto key = XLookupKeysym(&event.xkey, 0);
                 if (key == XK_Escape) {
                     simpleWindowStop();
-                }
-                LOG("Event:KeyPress key=" << key);
+                } else {
+					char buff[4] = {0};
+					int count = XLookupString(&event.xkey, buff, sizeof(buff), nullptr, nullptr);
+					//LOG("Event:KeyPress key=" << key << " count=" << count << " str=" << buff);
+					if (count == 1) {
+						simpleWindowKeyPressed(buff[0]);
+					}
+				}
             break;
             }
         }
@@ -131,4 +137,10 @@ void SimpleWindow::simple_window_run() noexcept {
         simpleWindowDraw();
         glXSwapBuffers(swd->display_, swd->window_);
     }
+}
+
+void SimpleWindow::simpleWindowKeyPressed(
+	char key
+) noexcept {
+	(void) key;
 }

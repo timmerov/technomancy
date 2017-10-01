@@ -528,6 +528,12 @@ namespace {
 
             ++frame_count_;
         }
+
+		virtual void keyPressed(
+			char key
+		) noexcept {
+			LOG("keyPressed=" << key);
+		}
     };
 }
 

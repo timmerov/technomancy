@@ -57,6 +57,12 @@ namespace {
         virtual void simpleWindowDraw() noexcept {
             render_->draw();
         }
+
+        virtual void simpleWindowKeyPressed(
+			char key
+		) noexcept {
+			render_->keyPressed(key);
+		}
     };
 }
 

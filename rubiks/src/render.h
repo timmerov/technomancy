@@ -5,7 +5,7 @@ Copyright (C) 2012-2017 tim cotter. All rights reserved.
 #pragma once
 
 /**
-spinning world example.
+rubiks cube example.
 **/
 
 
@@ -21,4 +21,5 @@ public:
     virtual void exit() noexcept = 0;
     virtual void draw() noexcept = 0;
     virtual void resize(int width, int height) noexcept = 0;
+    virtual void keyPressed(char key) noexcept = 0;
 };

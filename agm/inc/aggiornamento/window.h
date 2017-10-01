@@ -25,6 +25,9 @@ public:
     // derived classes must implement the draw function.
     virtual void simpleWindowDraw() noexcept = 0;
 
+    // derived classes may override the keyPressed function.
+    virtual void simpleWindowKeyPressed(char key) noexcept;
+
     // derived classes may (but probably don't need to) override these functions.
     virtual void simpleWindowInit(const char *title, int width, int height) noexcept;
     virtual void simpleWindowExit() noexcept;
