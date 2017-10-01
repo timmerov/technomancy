@@ -26,7 +26,9 @@ public:
     virtual void simpleWindowDraw() noexcept = 0;
 
     // derived classes may override the keyPressed function.
-    virtual void simpleWindowKeyPressed(char key) noexcept;
+    // symbol is an ascii character if 0..255.
+    // otherwise it's an XK_ symbol.
+    virtual void simpleWindowKeyPressed(int symbol) noexcept;
 
     // derived classes may (but probably don't need to) override these functions.
     virtual void simpleWindowInit(const char *title, int width, int height) noexcept;

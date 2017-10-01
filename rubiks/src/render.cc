@@ -530,9 +530,13 @@ namespace {
         }
 
 		virtual void keyPressed(
-			char key
+			int symbol
 		) noexcept {
-			LOG("keyPressed=" << key);
+			if (symbol >= 0 && symbol <= 255) {
+				LOG((char) symbol);
+			} else {
+				LOG(symbol);
+			}
 		}
     };
 }

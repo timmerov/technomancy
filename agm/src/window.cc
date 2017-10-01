@@ -119,17 +119,10 @@ void SimpleWindow::simple_window_run() noexcept {
             }
 
             case KeyPress: {
-                auto key = XLookupKeysym(&event.xkey, 0);
-                if (key == XK_Escape) {
-                    simpleWindowStop();
-                } else {
-					char buff[4] = {0};
-					int count = XLookupString(&event.xkey, buff, sizeof(buff), nullptr, nullptr);
-					//LOG("Event:KeyPress key=" << key << " count=" << count << " str=" << buff);
-					if (count == 1) {
-						simpleWindowKeyPressed(buff[0]);
-					}
-				}
+				KeySym key = 0;
+				char buff[4] = {0};
+				XLookupString(&event.xkey, buff, sizeof(buff), &key, nullptr);
+				simpleWindowKeyPressed((int) key);
             break;
             }
         }
@@ -140,7 +133,9 @@ void SimpleWindow::simple_window_run() noexcept {
 }
 
 void SimpleWindow::simpleWindowKeyPressed(
-	char key
+	int symbol
 ) noexcept {
-	(void) key;
+	if (symbol == XK_Escape) {
+		simpleWindowStop();
+	}
 }

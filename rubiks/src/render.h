@@ -21,5 +21,5 @@ public:
     virtual void exit() noexcept = 0;
     virtual void draw() noexcept = 0;
     virtual void resize(int width, int height) noexcept = 0;
-    virtual void keyPressed(char key) noexcept = 0;
+    virtual void keyPressed(int symbol) noexcept = 0;
 };

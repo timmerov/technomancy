@@ -14,6 +14,11 @@ rubiks cube example.
 #include <aggiornamento/master.h>
 #include <aggiornamento/window.h>
 
+#if !defined(XK_MISCELLANY)
+#define XK_MISCELLANY 1
+#endif
+#include <X11/keysymdef.h>
+
 
 namespace {
 	const auto kWindowTitle = AGM_TARGET_NAME;
@@ -59,9 +64,13 @@ namespace {
         }
 
         virtual void simpleWindowKeyPressed(
-			char key
+			int symbol
 		) noexcept {
-			render_->keyPressed(key);
+			if (symbol == XK_Escape) {
+				simpleWindowStop();
+			} else {
+				render_->keyPressed(symbol);
+			}
 		}
     };
 }
