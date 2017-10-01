@@ -3,21 +3,11 @@ Copyright (C) 2012-2017 tim cotter. All rights reserved.
 */
 
 /**
-spinning jupiter example.
+spinning rubik's cube.
 
-much help from here.
-https://github.com/opengl-tutorials/ogl
-
-*** caution ***
-we're going to use tri-linear interpolation.
-which means we're going to generate mip-maps.
-which means the top strip is going to bleed into
-the bottom strip.
-resulting in a visible seam.
-there's not much we can do about it.
-other than create separate textures for the top
-and bottom strips.
-and render them separately.
+the rubik's cube is a 3x3x3 stack of identical colored cubes.
+we don't render the center cube.
+cause it can never be seen.
 **/
 
 #include "render.h"
@@ -64,7 +54,7 @@ namespace {
     const GLfloat kA = 0.50f;  /// sub-cube size
     const GLfloat kB = 0.45f;  /// sticker size
     const GLfloat kC = 0.48f;  /// bevel
-    static GLfloat g_cube_vertexes[] {
+    const GLfloat g_cube_vertexes[] {
 		+kC, +kC, +kC, /// 0+8*0
 		-kC, +kC, +kC, /// 1+8*0
 		+kB, +kB, +kA, /// 2+8*0
@@ -119,7 +109,7 @@ namespace {
 		-kC, -kC, +kC, /// 6+8*5
 		+kC, -kC, +kC, /// 7+8*5
 	};
-	static GLfloat g_colors[] = {
+	const GLfloat g_colors[] = {
 		1.0f, 1.0f, 1.0f, /// white
 		0.9f, 0.9f, 0.0f, /// yellow
 		0.0f, 0.3f, 0.0f, /// green
@@ -127,7 +117,7 @@ namespace {
 		0.7f, 0.0f, 0.0f, /// red
 		1.0f, 0.5f, 0.0f, /// orange
 	};
-	static GLushort g_bevel_indexes[] = {
+	const GLushort g_bevel_indexes[] = {
 		8*0+0, 8*0+1, 8*0+2,
 		8*0+0, 8*0+2, 8*0+4,
 		8*0+0, 8*0+4, 8*0+6,
@@ -182,7 +172,7 @@ namespace {
 		8*5+4, 8*5+5, 8*5+6,
 		8*5+5, 8*5+7, 8*5+6,
 	};
-	static GLushort g_face_indexes[] = {
+	const GLushort g_face_indexes[] = {
 		8*0+2, 8*0+3, 8*0+4,
 		8*0+3, 8*0+5, 8*0+4,
 		8*1+2, 8*1+3, 8*1+4,
@@ -196,6 +186,100 @@ namespace {
 		8*5+2, 8*5+3, 8*5+4,
 		8*5+3, 8*5+5, 8*5+4,
 	};
+	const glm::vec3 g_xyz[26] = {
+		{-1.0f, -1.0f, -1.0f},
+		{-1.0f, -1.0f, +0.0f},
+		{-1.0f, -1.0f, +1.0f},
+		{-1.0f, +0.0f, -1.0f},
+		{-1.0f, +0.0f, +0.0f},
+		{-1.0f, +0.0f, +1.0f},
+		{-1.0f, +1.0f, -1.0f},
+		{-1.0f, +1.0f, +0.0f},
+		{-1.0f, +1.0f, +1.0f},
+
+		{+0.0f, -1.0f, -1.0f},
+		{+0.0f, -1.0f, +0.0f},
+		{+0.0f, -1.0f, +1.0f},
+		{+0.0f, +0.0f, -1.0f},
+		{+0.0f, +0.0f, +1.0f},
+		{+0.0f, +1.0f, -1.0f},
+		{+0.0f, +1.0f, +0.0f},
+		{+0.0f, +1.0f, +1.0f},
+
+		{+1.0f, -1.0f, -1.0f},
+		{+1.0f, -1.0f, +0.0f},
+		{+1.0f, -1.0f, +1.0f},
+		{+1.0f, +0.0f, -1.0f},
+		{+1.0f, +0.0f, +0.0f},
+		{+1.0f, +0.0f, +1.0f},
+		{+1.0f, +1.0f, -1.0f},
+		{+1.0f, +1.0f, +0.0f},
+		{+1.0f, +1.0f, +1.0f}
+	};
+
+	const glm::mat4 g_ident = {
+		+1.0f, +0.0f, +0.0f, +0.0f,
+		+0.0f, +1.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, +1.0f, +0.0f,
+		+0.0f, +0.0f, +0.0f, +1.0f
+	};
+	const glm::mat4 g_rotx2 = {
+		+1.0f, +0.0f, +0.0f, +0.0f,
+		+0.0f, -1.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, -1.0f, +0.0f,
+		+0.0f, +0.0f, +0.0f, +1.0f
+	};
+	const glm::mat4 g_rotxp = {
+		+1.0f, +0.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, +1.0f, +0.0f,
+		+0.0f, -1.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, +0.0f, +1.0f
+	};
+	const glm::mat4 g_rotxm = {
+		+1.0f, +0.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, -1.0f, +0.0f,
+		+0.0f, +1.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, +0.0f, +1.0f
+	};
+	const glm::mat4 g_roty2 = {
+		-1.0f, +0.0f, +0.0f, +0.0f,
+		+0.0f, +1.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, -1.0f, +0.0f,
+		+0.0f, +0.0f, +0.0f, +1.0f
+	};
+	const glm::mat4 g_rotyp = {
+		+0.0f, +0.0f, -1.0f, +0.0f,
+		+0.0f, +1.0f, +0.0f, +0.0f,
+		+1.0f, +0.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, +0.0f, +1.0f
+	};
+	const glm::mat4 g_rotym = {
+		+0.0f, +0.0f, +1.0f, +0.0f,
+		+0.0f, +1.0f, +0.0f, +0.0f,
+		-1.0f, +0.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, +0.0f, +1.0f
+	};
+	const glm::mat4 g_rotzp = {
+		+0.0f, +1.0f, +0.0f, +0.0f,
+		-1.0f, +0.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, +1.0f, +0.0f,
+		+0.0f, +0.0f, +0.0f, +1.0f
+	};
+	const glm::mat4 g_rotzm = {
+		+0.0f, -1.0f, +0.0f, +0.0f,
+		+1.0f, +0.0f, +0.0f, +0.0f,
+		+0.0f, +0.0f, +1.0f, +0.0f,
+		+0.0f, +0.0f, +0.0f, +1.0f
+	};
+	const glm::mat4 g_rot_table[24] = {
+		g_ident, g_rotxp,         g_rotx2,         g_rotxm,
+		g_rotyp, g_rotxp*g_rotyp, g_rotx2*g_rotyp, g_rotxm*g_rotyp,
+		g_roty2, g_rotxp*g_roty2, g_rotx2*g_roty2, g_rotxm*g_roty2,
+		g_rotym, g_rotxp*g_rotym, g_rotx2*g_rotym, g_rotxm*g_rotym,
+		g_rotzp, g_rotxp*g_rotzp, g_rotx2*g_rotzp, g_rotxm*g_rotzp,
+		g_rotzm, g_rotxp*g_rotzm, g_rotx2*g_rotzm, g_rotxm*g_rotzm
+	};
+
 
     class RenderImpl : public Render {
     public:
@@ -217,6 +301,13 @@ namespace {
         int num_face_indexes_ = 0;
         float angle_ = 0.0f;
         int frame_count_ = 0;
+        const int X = 0;
+		int state_[26] = {
+			X, 0, X, 0, 0, 0, X, 0, X,
+			0, 0, 0, 0,    0, 0, 0, 0,
+			X, 0, X, 0, 0, 0, X, 0, X
+		};
+		int update_counter_ = 0;
 
         virtual void init(
             int width,
@@ -342,6 +433,7 @@ namespace {
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
+			bool capture = updateCubes();
 			drawAllCubes(rot_mat);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -349,125 +441,34 @@ namespace {
             glDisableVertexAttribArray(0);
             glUseProgram(0);
 
-            //captureFrame();
+			if (capture) {
+				captureFrame();
+			}
         }
+
+		bool updateCubes() noexcept {
+			++update_counter_;
+			if (update_counter_ < 30) {
+				return false;
+			}
+
+			update_counter_ = 0;
+			int state = state_[6];
+			state = (state + 1) % 24;
+			state_[6] = state;
+			state_[8] = state;
+			state_[23] = state;
+			state_[25] = state;
+
+			//return true;
+			return false;
+		}
 
         void drawAllCubes(
 			glm::mat4& rot_mat
 		) noexcept {
-			static const glm::vec3 g_xyz[26] = {
-				{-1.0f, -1.0f, -1.0f},
-				{-1.0f, -1.0f, +0.0f},
-				{-1.0f, -1.0f, +1.0f},
-				{-1.0f, +0.0f, -1.0f},
-				{-1.0f, +0.0f, +0.0f},
-				{-1.0f, +0.0f, +1.0f},
-				{-1.0f, +1.0f, -1.0f},
-				{-1.0f, +1.0f, +0.0f},
-				{-1.0f, +1.0f, +1.0f},
-
-				{+0.0f, -1.0f, -1.0f},
-				{+0.0f, -1.0f, +0.0f},
-				{+0.0f, -1.0f, +1.0f},
-				{+0.0f, +0.0f, -1.0f},
-				{+0.0f, +0.0f, +1.0f},
-				{+0.0f, +1.0f, -1.0f},
-				{+0.0f, +1.0f, +0.0f},
-				{+0.0f, +1.0f, +1.0f},
-
-				{+1.0f, -1.0f, -1.0f},
-				{+1.0f, -1.0f, +0.0f},
-				{+1.0f, -1.0f, +1.0f},
-				{+1.0f, +0.0f, -1.0f},
-				{+1.0f, +0.0f, +0.0f},
-				{+1.0f, +0.0f, +1.0f},
-				{+1.0f, +1.0f, -1.0f},
-				{+1.0f, +1.0f, +0.0f},
-				{+1.0f, +1.0f, +1.0f}
-			};
-
-			static const int X = 0;
-			static int g_state[26] {
-				X, 0, X, 0, 0, 0, X, 0, X,
-				0, 0, 0, 0,    0, 0, 0, 0,
-				X, 0, X, 0, 0, 0, X, 0, X
-			};
-
-			static const glm::mat4 g_ident = {
-				+1.0f, +0.0f, +0.0f, +0.0f,
-				+0.0f, +1.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, +1.0f, +0.0f,
-				+0.0f, +0.0f, +0.0f, +1.0f
-			};
-			static const glm::mat4 g_rotx2 = {
-				+1.0f, +0.0f, +0.0f, +0.0f,
-				+0.0f, -1.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, -1.0f, +0.0f,
-				+0.0f, +0.0f, +0.0f, +1.0f
-			};
-			static const glm::mat4 g_rotxp = {
-				+1.0f, +0.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, +1.0f, +0.0f,
-				+0.0f, -1.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, +0.0f, +1.0f
-			};
-			static const glm::mat4 g_rotxm = {
-				+1.0f, +0.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, -1.0f, +0.0f,
-				+0.0f, +1.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, +0.0f, +1.0f
-			};
-			static const glm::mat4 g_roty2 = {
-				-1.0f, +0.0f, +0.0f, +0.0f,
-				+0.0f, +1.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, -1.0f, +0.0f,
-				+0.0f, +0.0f, +0.0f, +1.0f
-			};
-			static const glm::mat4 g_rotyp = {
-				+0.0f, +0.0f, -1.0f, +0.0f,
-				+0.0f, +1.0f, +0.0f, +0.0f,
-				+1.0f, +0.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, +0.0f, +1.0f
-			};
-			static const glm::mat4 g_rotym = {
-				+0.0f, +0.0f, +1.0f, +0.0f,
-				+0.0f, +1.0f, +0.0f, +0.0f,
-				-1.0f, +0.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, +0.0f, +1.0f
-			};
-			static const glm::mat4 g_rotzp = {
-				+0.0f, +1.0f, +0.0f, +0.0f,
-				-1.0f, +0.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, +1.0f, +0.0f,
-				+0.0f, +0.0f, +0.0f, +1.0f
-			};
-			static const glm::mat4 g_rotzm = {
-				+0.0f, -1.0f, +0.0f, +0.0f,
-				+1.0f, +0.0f, +0.0f, +0.0f,
-				+0.0f, +0.0f, +1.0f, +0.0f,
-				+0.0f, +0.0f, +0.0f, +1.0f
-			};
-			static const glm::mat4 g_rot_table[24] = {
-				g_ident, g_rotxp,         g_rotx2,         g_rotxm,
-				g_rotyp, g_rotxp*g_rotyp, g_rotx2*g_rotyp, g_rotxm*g_rotyp,
-				g_roty2, g_rotxp*g_roty2, g_rotx2*g_roty2, g_rotxm*g_roty2,
-				g_rotym, g_rotxp*g_rotym, g_rotx2*g_rotym, g_rotxm*g_rotym,
-				g_rotzp, g_rotxp*g_rotzp, g_rotx2*g_rotzp, g_rotxm*g_rotzp,
-				g_rotzm, g_rotxp*g_rotzm, g_rotx2*g_rotzm, g_rotxm*g_rotzm
-			};
-
-			static int g_counter = 0;
-			if (++g_counter > 30) {
-				g_counter = 0;
-				int state = g_state[6];
-				state = (state + 1) % 24;
-				g_state[6] = state;
-				g_state[8] = state;
-				g_state[23] = state;
-				g_state[25] = state;
-			}
 			for (int i = 0; i < 26; ++i) {
-				int state = g_state[i];
+				int state = state_[i];
 				glm::mat4 temp_mat = std::move(glm::translate(
 					rot_mat,
 					g_xyz[i]
@@ -520,7 +521,7 @@ namespace {
             }
 
             std::stringstream ss;
-            ss << "output/world" << std::setfill('0') << std::setw(5) << frame_count_
+            ss << "output/rubiks" << std::setfill('0') << std::setw(5) << frame_count_
                 << std::setfill(' ') << std::setw(0) << ".png";
             LOG("ss=" << ss.str().c_str());
             png.write(ss.str().c_str());
