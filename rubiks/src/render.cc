@@ -61,9 +61,9 @@ namespace {
         }
     )shader_code";
 
-    const GLfloat kA = 0.50f;
-    const GLfloat kB = 0.45f;
-    const GLfloat kC = 0.48f;
+    const GLfloat kA = 0.50f;  /// sub-cube size
+    const GLfloat kB = 0.45f;  /// sticker size
+    const GLfloat kC = 0.48f;  /// bevel
     static GLfloat g_cube_vertexes[] {
 		+kC, +kC, +kC, /// 0+8*0
 		-kC, +kC, +kC, /// 1+8*0
@@ -355,19 +355,126 @@ namespace {
         void drawAllCubes(
 			glm::mat4& rot_mat
 		) noexcept {
-			for (int x = -1; x < 2; ++x) {
-				for (int y = -1; y < 2; ++y) {
-					for (int z = -1; z < 2; ++z) {
-						//if (x == 0 && y == 0 && z == 0) {
-						glm::mat4 model_mat = std::move(glm::translate(
-							rot_mat,
-							glm::vec3(float(x), float(y), float(z))
-						));
-						glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
-						draw1Cube();
-						//}
-					}
-				}
+			static const glm::vec3 g_xyz[26] = {
+				{-1.0f, -1.0f, -1.0f},
+				{-1.0f, -1.0f, +0.0f},
+				{-1.0f, -1.0f, +1.0f},
+				{-1.0f, +0.0f, -1.0f},
+				{-1.0f, +0.0f, +0.0f},
+				{-1.0f, +0.0f, +1.0f},
+				{-1.0f, +1.0f, -1.0f},
+				{-1.0f, +1.0f, +0.0f},
+				{-1.0f, +1.0f, +1.0f},
+
+				{+0.0f, -1.0f, -1.0f},
+				{+0.0f, -1.0f, +0.0f},
+				{+0.0f, -1.0f, +1.0f},
+				{+0.0f, +0.0f, -1.0f},
+				{+0.0f, +0.0f, +1.0f},
+				{+0.0f, +1.0f, -1.0f},
+				{+0.0f, +1.0f, +0.0f},
+				{+0.0f, +1.0f, +1.0f},
+
+				{+1.0f, -1.0f, -1.0f},
+				{+1.0f, -1.0f, +0.0f},
+				{+1.0f, -1.0f, +1.0f},
+				{+1.0f, +0.0f, -1.0f},
+				{+1.0f, +0.0f, +0.0f},
+				{+1.0f, +0.0f, +1.0f},
+				{+1.0f, +1.0f, -1.0f},
+				{+1.0f, +1.0f, +0.0f},
+				{+1.0f, +1.0f, +1.0f}
+			};
+
+			static const int X = 0;
+			static int g_state[26] {
+				X, 0, X, 0, 0, 0, X, 0, X,
+				0, 0, 0, 0,    0, 0, 0, 0,
+				X, 0, X, 0, 0, 0, X, 0, X
+			};
+
+			static const glm::mat4 g_ident = {
+				+1.0f, +0.0f, +0.0f, +0.0f,
+				+0.0f, +1.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, +1.0f, +0.0f,
+				+0.0f, +0.0f, +0.0f, +1.0f
+			};
+			static const glm::mat4 g_rotx2 = {
+				+1.0f, +0.0f, +0.0f, +0.0f,
+				+0.0f, -1.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, -1.0f, +0.0f,
+				+0.0f, +0.0f, +0.0f, +1.0f
+			};
+			static const glm::mat4 g_rotxp = {
+				+1.0f, +0.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, +1.0f, +0.0f,
+				+0.0f, -1.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, +0.0f, +1.0f
+			};
+			static const glm::mat4 g_rotxm = {
+				+1.0f, +0.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, -1.0f, +0.0f,
+				+0.0f, +1.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, +0.0f, +1.0f
+			};
+			static const glm::mat4 g_roty2 = {
+				-1.0f, +0.0f, +0.0f, +0.0f,
+				+0.0f, +1.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, -1.0f, +0.0f,
+				+0.0f, +0.0f, +0.0f, +1.0f
+			};
+			static const glm::mat4 g_rotyp = {
+				+0.0f, +0.0f, -1.0f, +0.0f,
+				+0.0f, +1.0f, +0.0f, +0.0f,
+				+1.0f, +0.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, +0.0f, +1.0f
+			};
+			static const glm::mat4 g_rotym = {
+				+0.0f, +0.0f, +1.0f, +0.0f,
+				+0.0f, +1.0f, +0.0f, +0.0f,
+				-1.0f, +0.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, +0.0f, +1.0f
+			};
+			static const glm::mat4 g_rotzp = {
+				+0.0f, +1.0f, +0.0f, +0.0f,
+				-1.0f, +0.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, +1.0f, +0.0f,
+				+0.0f, +0.0f, +0.0f, +1.0f
+			};
+			static const glm::mat4 g_rotzm = {
+				+0.0f, -1.0f, +0.0f, +0.0f,
+				+1.0f, +0.0f, +0.0f, +0.0f,
+				+0.0f, +0.0f, +1.0f, +0.0f,
+				+0.0f, +0.0f, +0.0f, +1.0f
+			};
+			static const glm::mat4 g_rot_table[24] = {
+				g_ident, g_rotxp,         g_rotx2,         g_rotxm,
+				g_rotyp, g_rotxp*g_rotyp, g_rotx2*g_rotyp, g_rotxm*g_rotyp,
+				g_roty2, g_rotxp*g_roty2, g_rotx2*g_roty2, g_rotxm*g_roty2,
+				g_rotym, g_rotxp*g_rotym, g_rotx2*g_rotym, g_rotxm*g_rotym,
+				g_rotzp, g_rotxp*g_rotzp, g_rotx2*g_rotzp, g_rotxm*g_rotzp,
+				g_rotzm, g_rotxp*g_rotzm, g_rotx2*g_rotzm, g_rotxm*g_rotzm
+			};
+
+			static int g_counter = 0;
+			if (++g_counter > 30) {
+				g_counter = 0;
+				int state = g_state[6];
+				state = (state + 1) % 24;
+				g_state[6] = state;
+				g_state[8] = state;
+				g_state[23] = state;
+				g_state[25] = state;
+			}
+			for (int i = 0; i < 26; ++i) {
+				int state = g_state[i];
+				glm::mat4 temp_mat = std::move(glm::translate(
+					rot_mat,
+					g_xyz[i]
+				));
+				glm::mat4 model_mat = temp_mat * g_rot_table[state];
+				glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
+				draw1Cube();
 			}
         }
 
