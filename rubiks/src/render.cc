@@ -28,6 +28,11 @@ cause it can never be seen.
 #include <sstream>
 #include <iomanip>
 
+#if !defined(XK_MISCELLANY)
+#define XK_MISCELLANY 1
+#endif
+#include <X11/keysymdef.h>
+
 
 namespace {
     auto g_vertex_source =R"shader_code(
@@ -50,6 +55,9 @@ namespace {
             color_out.a = 1.0f;
         }
     )shader_code";
+
+	const int kNumCubes = 26;
+	const int kNumStates = 24;
 
     const GLfloat kA = 0.50f;  /// sub-cube size
     const GLfloat kB = 0.45f;  /// sticker size
@@ -271,7 +279,7 @@ namespace {
 		+0.0f, +0.0f, +1.0f, +0.0f,
 		+0.0f, +0.0f, +0.0f, +1.0f
 	};
-	const glm::mat4 g_rot_table[24] = {
+	const glm::mat4 g_rot_table[kNumStates] = {
 		g_ident, g_rotxp,         g_rotx2,         g_rotxm,
 		g_rotyp, g_rotxp*g_rotyp, g_rotx2*g_rotyp, g_rotxm*g_rotyp,
 		g_roty2, g_rotxp*g_roty2, g_rotx2*g_roty2, g_rotxm*g_roty2,
@@ -301,11 +309,10 @@ namespace {
         int num_face_indexes_ = 0;
         float angle_ = 0.0f;
         int frame_count_ = 0;
-        const int X = 0;
-		int state_[26] = {
-			X, 0, X, 0, 0, 0, X, 0, X,
+		int state_[kNumCubes] = {
+			0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0,    0, 0, 0, 0,
-			X, 0, X, 0, 0, 0, X, 0, X
+			0, 0, 0, 0, 0, 0, 0, 0, 0
 		};
 		int update_counter_ = 0;
 
@@ -315,6 +322,9 @@ namespace {
         ) noexcept {
             width_ = width;
             height_ = height;
+
+            float pi = (float) acos(-1.0f);
+            angle_ = 2.0f*pi/7.0f;
 
             int num_vertex_floats = 3 * 8 * 6;
             num_bevel_indexes_ = 3 * 8 * 6;
@@ -398,11 +408,11 @@ namespace {
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            float pi = (float) acos(-1.0f);
+            /*float pi = (float) acos(-1.0f);
             angle_ += 2.0f*pi/60.0f/12.0f;
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
-            }
+            }*/
 
 			glm::mat4 rot_mat = std::move(glm::rotate(
 				glm::mat4(),
@@ -433,7 +443,6 @@ namespace {
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-			bool capture = updateCubes();
 			drawAllCubes(rot_mat);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -441,33 +450,13 @@ namespace {
             glDisableVertexAttribArray(0);
             glUseProgram(0);
 
-			if (capture) {
-				captureFrame();
-			}
+			//captureFrame();
         }
-
-		bool updateCubes() noexcept {
-			++update_counter_;
-			if (update_counter_ < 30) {
-				return false;
-			}
-
-			update_counter_ = 0;
-			int state = state_[6];
-			state = (state + 1) % 24;
-			state_[6] = state;
-			state_[8] = state;
-			state_[23] = state;
-			state_[25] = state;
-
-			//return true;
-			return false;
-		}
 
         void drawAllCubes(
 			glm::mat4& rot_mat
 		) noexcept {
-			for (int i = 0; i < 26; ++i) {
+			for (int i = 0; i < kNumCubes; ++i) {
 				int state = state_[i];
 				glm::mat4 temp_mat = std::move(glm::translate(
 					rot_mat,
@@ -532,10 +521,18 @@ namespace {
 		virtual void keyPressed(
 			int symbol
 		) noexcept {
-			if (symbol >= 0 && symbol <= 255) {
-				LOG((char) symbol);
-			} else {
-				LOG(symbol);
+			switch (symbol) {
+				case XK_Down: {
+					for (int i = 0; i < kNumCubes; ++i) {
+						int state = state_[i];
+						int a = state % 4;
+						int b = state / 4;
+						a = (a + 1) % 4;
+						state = a + 4*b;
+						state_[i] = state;
+					}
+					break;
+				}
 			}
 		}
     };
