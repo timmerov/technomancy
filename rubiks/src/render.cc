@@ -24,6 +24,7 @@ cause it can never be seen.
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <sstream>
 #include <iomanip>
@@ -118,10 +119,10 @@ namespace {
 		+kC, -kC, +kC, /// 7+8*5
 	};
 	const GLfloat g_colors[] = {
+		0.0f, 0.0f, 0.8f, /// blue
+		0.0f, 0.3f, 0.0f, /// green
 		1.0f, 1.0f, 1.0f, /// white
 		0.9f, 0.9f, 0.0f, /// yellow
-		0.0f, 0.3f, 0.0f, /// green
-		0.0f, 0.0f, 0.8f, /// blue
 		0.7f, 0.0f, 0.0f, /// red
 		1.0f, 0.5f, 0.0f, /// orange
 	};
@@ -312,7 +313,7 @@ namespace {
 		int state_[kNumCubes] = {
 			0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0,    0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0
+			3, 3, 3, 3, 3, 3, 3, 3, 3
 		};
 		int update_counter_ = 0;
 
@@ -323,8 +324,13 @@ namespace {
             width_ = width;
             height_ = height;
 
-            float pi = (float) acos(-1.0f);
-            angle_ = 2.0f*pi/7.0f;
+			for (int i = 0; i < kNumStates; ++i) {
+				glm::quat q = glm::toQuat(g_rot_table[i]);
+				LOG("q[" << i << "]={" << q.x << ", " << q.y << ", " << q.z << ", " << q.w << "}");
+			}
+
+            /*float pi = (float) acos(-1.0f);
+            angle_ = 2.0f*pi/7.0f;*/
 
             int num_vertex_floats = 3 * 8 * 6;
             num_bevel_indexes_ = 3 * 8 * 6;
@@ -408,12 +414,11 @@ namespace {
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            /*float pi = (float) acos(-1.0f);
+            float pi = (float) acos(-1.0f);
             angle_ += 2.0f*pi/60.0f/12.0f;
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
-            }*/
-
+            }
 			glm::mat4 rot_mat = std::move(glm::rotate(
 				glm::mat4(),
 				angle_,
@@ -422,8 +427,25 @@ namespace {
 				//glm::vec3(1.0f, 0.0f, 0.0f)  // around x axis
 			));
 
+			/*static int g_counter = 0;
+			++g_counter;
+			if (g_counter >= 240) {
+				g_counter = 0;
+			}
+			int x = g_counter;
+			if (x > 120) {
+				x = 240 - x;
+			}
+			auto fx = float(x) / 120.0f;
+			auto q0 = glm::toQuat(g_rot_table[0]);
+			auto q1 = glm::toQuat(g_rot_table[1]);
+            auto qx = glm::mix(q0, q1, fx);
+            auto rot_mat = glm::toMat4(qx);*/
+
+            /*glm::mat4 rot_mat;*/
+
             glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(0.0f, 8.0f, 12.0f),  // camera location
+                glm::vec3(8.0f, 8.0f, 8.0f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
             ));
