@@ -57,6 +57,10 @@ namespace {
         }
     )shader_code";
 
+	const float kFramesPerSecond = 60.0f;
+	const float kSecondsPerRotation = 0.5f;
+	const int kFramesPerRotation = (int)( kFramesPerSecond * kSecondsPerRotation );
+
 	const int kNumCubes = 26;
 	const int kNumStates = 24;
 
@@ -195,35 +199,35 @@ namespace {
 		8*5+2, 8*5+3, 8*5+4,
 		8*5+3, 8*5+5, 8*5+4,
 	};
-	const glm::vec3 g_xyz[26] = {
-		{-1.0f, -1.0f, -1.0f},
-		{-1.0f, -1.0f, +0.0f},
-		{-1.0f, -1.0f, +1.0f},
-		{-1.0f, +0.0f, -1.0f},
-		{-1.0f, +0.0f, +0.0f},
-		{-1.0f, +0.0f, +1.0f},
-		{-1.0f, +1.0f, -1.0f},
-		{-1.0f, +1.0f, +0.0f},
-		{-1.0f, +1.0f, +1.0f},
-
-		{+0.0f, -1.0f, -1.0f},
-		{+0.0f, -1.0f, +0.0f},
-		{+0.0f, -1.0f, +1.0f},
-		{+0.0f, +0.0f, -1.0f},
-		{+0.0f, +0.0f, +1.0f},
-		{+0.0f, +1.0f, -1.0f},
-		{+0.0f, +1.0f, +0.0f},
-		{+0.0f, +1.0f, +1.0f},
-
-		{+1.0f, -1.0f, -1.0f},
-		{+1.0f, -1.0f, +0.0f},
-		{+1.0f, -1.0f, +1.0f},
-		{+1.0f, +0.0f, -1.0f},
-		{+1.0f, +0.0f, +0.0f},
-		{+1.0f, +0.0f, +1.0f},
-		{+1.0f, +1.0f, -1.0f},
+	const glm::vec3 g_xyz[kNumCubes] = {
+		{+1.0f, +1.0f, +1.0f},
 		{+1.0f, +1.0f, +0.0f},
-		{+1.0f, +1.0f, +1.0f}
+		{+1.0f, +1.0f, -1.0f},
+		{+1.0f, +0.0f, +1.0f},
+		{+1.0f, +0.0f, +0.0f},
+		{+1.0f, +0.0f, -1.0f},
+		{+1.0f, -1.0f, +1.0f},
+		{+1.0f, -1.0f, +0.0f},
+		{+1.0f, -1.0f, -1.0f},
+
+		{+0.0f, +1.0f, +1.0f},
+		{+0.0f, +1.0f, +0.0f},
+		{+0.0f, +1.0f, -1.0f},
+		{+0.0f, +0.0f, +1.0f},
+		{+0.0f, +0.0f, -1.0f},
+		{+0.0f, -1.0f, +1.0f},
+		{+0.0f, -1.0f, +0.0f},
+		{+0.0f, -1.0f, -1.0f},
+
+		{-1.0f, +1.0f, +1.0f},
+		{-1.0f, +1.0f, +0.0f},
+		{-1.0f, +1.0f, -1.0f},
+		{-1.0f, +0.0f, +1.0f},
+		{-1.0f, +0.0f, +0.0f},
+		{-1.0f, +0.0f, -1.0f},
+		{-1.0f, -1.0f, +1.0f},
+		{-1.0f, -1.0f, +0.0f},
+		{-1.0f, -1.0f, -1.0f}
 	};
 
 	const glm::mat4 g_ident = {
@@ -308,14 +312,13 @@ namespace {
         GLuint color_loc_ = 0;
         int num_bevel_indexes_ = 0;
         int num_face_indexes_ = 0;
-        float angle_ = 0.0f;
         int frame_count_ = 0;
 		int state_[kNumCubes] = {
-			0, 0, 0, 0, 0, 0, 0, 0, 0,
+			3, 3, 3, 3, 3, 3, 3, 3, 3,
 			0, 0, 0, 0,    0, 0, 0, 0,
-			3, 3, 3, 3, 3, 3, 3, 3, 3
+			0, 0, 0, 0, 0, 0, 0, 0, 0
 		};
-		int update_counter_ = 0;
+		int rotate_counter_ = 0;
 
         virtual void init(
             int width,
@@ -328,9 +331,6 @@ namespace {
 				glm::quat q = glm::toQuat(g_rot_table[i]);
 				LOG("q[" << i << "]={" << q.x << ", " << q.y << ", " << q.z << ", " << q.w << "}");
 			}
-
-            /*float pi = (float) acos(-1.0f);
-            angle_ = 2.0f*pi/7.0f;*/
 
             int num_vertex_floats = 3 * 8 * 6;
             num_bevel_indexes_ = 3 * 8 * 6;
@@ -411,17 +411,17 @@ namespace {
         }
 
         virtual void draw() noexcept {
+			int rotate = std::max(0, rotate_counter_);
+			rotate_counter_ = rotate - 1;
+
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             float pi = (float) acos(-1.0f);
-            angle_ += 2.0f*pi/60.0f/12.0f;
-            if (angle_ >= 2.0f*pi) {
-                angle_ -= 2.0f*pi;
-            }
+            float angle = - (2.0f*pi/4.0f)/*90 deg*/ / float(kFramesPerRotation) * float(rotate);
 			glm::mat4 rot_mat = std::move(glm::rotate(
 				glm::mat4(),
-				angle_,
+				angle,
 				glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
 				//glm::vec3(0.0f, 0.0f, 1.0f)  // around z axis
 				//glm::vec3(1.0f, 0.0f, 0.0f)  // around x axis
@@ -552,6 +552,13 @@ namespace {
 						a = (a + 1) % 4;
 						state = a + 4*b;
 						state_[i] = state;
+					}
+					break;
+
+				case 'd':
+				case 'D':
+					if (rotate_counter_ < 0) {
+						rotate_counter_ = kFramesPerRotation;
 					}
 					break;
 				}
