@@ -342,6 +342,21 @@ namespace {
 		20, 13, 18, 7, 21, 1, 17, 11, 22, 5, 16, 15, 23, 9, 19, 3, 0, 12, 8, 4, 10, 14, 2, 6
 	};
 
+	class StateChange {
+	public:
+		int symbol_;
+		const int *rotation_map_;
+		const int *state_map_;
+		glm::vec3 axis_;
+	};
+
+	const StateChange g_change_table[] = {
+		{'a', g_mapym, g_state_ym, {+0.0f, -1.0f, +0.0f}},
+		{'d', g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}},
+		{'w', g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}},
+		{'s', g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}}
+	};
+
     class RenderImpl : public Render {
     public:
         RenderImpl() = default;
@@ -367,7 +382,8 @@ namespace {
 			0, 0, 0, 0, 0, 0, 0, 0, 0
 		};
 		int rotate_counter_ = 0;
-		int key_queue_ = 0;
+		const StateChange *state_change_ = nullptr;
+		const StateChange *key_queue_ = nullptr;
 
         virtual void init(
             int width,
@@ -462,32 +478,16 @@ namespace {
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            float pi = (float) acos(-1.0f);
-            float angle = - (2.0f*pi/4.0f)/*90 deg*/ / float(kFramesPerRotation) * float(rotate);
-			glm::mat4 rot_mat = std::move(glm::rotate(
-				glm::mat4(),
-				angle,
-				glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
-				//glm::vec3(0.0f, 0.0f, 1.0f)  // around z axis
-				//glm::vec3(1.0f, 0.0f, 0.0f)  // around x axis
-			));
-
-			/*static int g_counter = 0;
-			++g_counter;
-			if (g_counter >= 240) {
-				g_counter = 0;
+			glm::mat4 rot_mat;
+			if (state_change_ && rotate) {
+				float pi = (float) acos(-1.0f);
+				float angle = - (2.0f*pi/4.0f)/*90 deg*/ / float(kFramesPerRotation) * float(rotate);
+				rot_mat = std::move(glm::rotate(
+					glm::mat4(),
+					angle,
+					state_change_->axis_
+				));
 			}
-			int x = g_counter;
-			if (x > 120) {
-				x = 240 - x;
-			}
-			auto fx = float(x) / 120.0f;
-			auto q0 = glm::toQuat(g_rot_table[0]);
-			auto q1 = glm::toQuat(g_rot_table[1]);
-            auto qx = glm::mix(q0, q1, fx);
-            auto rot_mat = glm::toMat4(qx);*/
-
-            /*glm::mat4 rot_mat;*/
 
             glm::mat4 view_mat = std::move(glm::lookAt(
                 glm::vec3(8.0f, 8.0f, 8.0f),  // camera location
@@ -588,22 +588,10 @@ namespace {
 		virtual void keyPressed(
 			int symbol
 		) noexcept {
-			switch (symbol) {
-				case XK_Down: {
-					for (int i = 0; i < kNumCubes; ++i) {
-						int state = state_[i];
-						int a = state % 4;
-						int b = state / 4;
-						a = (a + 1) % 4;
-						state = a + 4*b;
-						state_[i] = state;
-					}
-					break;
-
-				case 'd':
-				case 'D':
-					symbol = tolower(symbol);
-					key_queue_ = symbol;
+			symbol = tolower(symbol);
+			for (auto pct = g_change_table; pct->symbol_; ++pct) {
+				if (symbol == pct->symbol_) {
+					key_queue_ = pct;
 					break;
 				}
 			}
@@ -611,14 +599,11 @@ namespace {
 
 		int updateDraw() noexcept {
 			if (rotate_counter_ < 0) {
-				if (key_queue_ != 0) {
-					switch (key_queue_) {
-					case 'd':
-						changeState(g_mapyp, g_state_yp);
-						break;
-					}
-					key_queue_ = 0;
+				if (key_queue_) {
 					rotate_counter_ = kFramesPerRotation;
+					state_change_ = key_queue_;
+					key_queue_ = nullptr;
+					changeState();
 				}
 			}
 			int rotate = std::max(0, rotate_counter_);
@@ -626,18 +611,17 @@ namespace {
 			return rotate;
 		}
 
-		void changeState(
-			const int *rot_map,
-			const int *state_map
-		) noexcept {
+		void changeState() noexcept {
 			int new_state[kNumCubes];
 			for (int i = 0; i < kNumCubes; ++i) {
-				int new_idx = rot_map[i];
+				int new_idx = state_change_->rotation_map_[i];
 				int moved_idx = state_[new_idx];
-				int rot_idx = state_map[moved_idx];
+				int rot_idx = state_change_->state_map_[moved_idx];
 				new_state[i] = rot_idx;
 			}
-			memcpy(state_, new_state, sizeof(state_));
+			for (int i = 0; i < kNumCubes; ++i) {
+				state_[i] = new_state[i];
+			}
 		}
 
 		void genTables() noexcept {
