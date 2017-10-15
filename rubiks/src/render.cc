@@ -26,8 +26,9 @@ cause it can never be seen.
 #include <glm/gtc/matrix_transform.hpp>
 //#include <glm/gtx/quaternion.hpp>
 
-#include <sstream>
 #include <iomanip>
+#include <random>
+#include <sstream>
 
 #if !defined(XK_MISCELLANY)
 #define XK_MISCELLANY 1
@@ -61,6 +62,7 @@ namespace {
 	const float kSecondsPerRotation = 0.5f;
 	const int kFramesPerRotation = (int)( kFramesPerSecond * kSecondsPerRotation );
 
+	const int kNumEdgeCubes = 9;
 	const int kNumCubes = 26;
 	const int kNumStates = 24;
 
@@ -341,6 +343,7 @@ namespace {
 	const int g_state_zm[kNumStates] = {
 		20, 13, 18, 7, 21, 1, 17, 11, 22, 5, 16, 15, 23, 9, 19, 3, 0, 12, 8, 4, 10, 14, 2, 6
 	};
+	const int g_ran_choices[] = { 'a', 's', 'w', 'd', XK_Up, XK_Down };
 
 	class StateChange {
 	public:
@@ -348,20 +351,25 @@ namespace {
 		const int *rotation_map_;
 		const int *state_map_;
 		glm::vec3 axis_;
+		int count_;
 	};
 
 	const StateChange g_change_table[] = {
-		{'a',     g_mapym, g_state_ym, {+0.0f, -1.0f, +0.0f}},
-		{'d',     g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}},
-		{'s',     g_mapzm, g_state_zm, {+0.0f, +0.0f, -1.0f}},
-		{'w',     g_mapzp, g_state_zp, {+0.0f, +0.0f, +1.0f}},
-		{XK_Up,   g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}},
-		{XK_Down, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}}
+		{'a',     g_mapym, g_state_ym, {+0.0f, -1.0f, +0.0f}, kNumCubes},
+		{'d',     g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}, kNumCubes},
+		{'s',     g_mapzm, g_state_zm, {+0.0f, +0.0f, -1.0f}, kNumCubes},
+		{'w',     g_mapzp, g_state_zp, {+0.0f, +0.0f, +1.0f}, kNumCubes},
+		{XK_Up,   g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}, kNumEdgeCubes},
+		{XK_Down, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumEdgeCubes}
 	};
 
     class RenderImpl : public Render {
     public:
-        RenderImpl() = default;
+        RenderImpl() noexcept :
+			ran_eng_(ran_dev_()),
+			ran_turn_(0, 5) {
+        };
+
         virtual ~RenderImpl() = default;
 
         int width_ = 0;
@@ -379,13 +387,17 @@ namespace {
         int num_face_indexes_ = 0;
         int frame_count_ = 0;
 		int state_[kNumCubes] = {
-			1, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0,    0, 0, 0, 0,
 			0, 0, 0, 0, 0, 0, 0, 0, 0
 		};
 		int rotate_counter_ = 0;
 		const StateChange *state_change_ = nullptr;
 		const StateChange *key_queue_ = nullptr;
+		bool mix_up_ = false;
+		std::random_device ran_dev_;
+		std::default_random_engine ran_eng_;
+		std::uniform_int_distribution<int> ran_turn_;
 
         virtual void init(
             int width,
@@ -523,9 +535,22 @@ namespace {
         }
 
         void drawAllCubes(
-			glm::mat4& rot_mat
+			const glm::mat4& rot_mat
 		) noexcept {
-			for (int i = 0; i < kNumCubes; ++i) {
+			int ncubes = kNumCubes;
+			if (state_change_) {
+				ncubes = state_change_->count_;
+			}
+			drawSomeCubes(rot_mat, 0, ncubes);
+			drawSomeCubes(g_ident, ncubes, kNumCubes);
+		}
+
+		void drawSomeCubes(
+			const glm::mat4& rot_mat,
+			int start,
+			int stop
+		) noexcept {
+			for (int i = start; i < stop; ++i) {
 				int state = state_[i];
 				glm::mat4 temp_mat = std::move(glm::translate(
 					rot_mat,
@@ -591,16 +616,25 @@ namespace {
 			int symbol
 		) noexcept {
 			symbol = tolower(symbol);
-			for (auto pct = g_change_table; pct->symbol_; ++pct) {
-				if (symbol == pct->symbol_) {
-					key_queue_ = pct;
-					break;
+			if (symbol == ' ') {
+				mix_up_ = !mix_up_;
+			} else {
+				for (auto pct = g_change_table; pct->symbol_; ++pct) {
+					if (symbol == pct->symbol_) {
+						key_queue_ = pct;
+						break;
+					}
 				}
 			}
 		}
 
 		int updateDraw() noexcept {
 			if (rotate_counter_ < 0) {
+				if (key_queue_ == nullptr && mix_up_) {
+					int ran_idx = ran_turn_(ran_eng_);
+					int symbol = g_ran_choices[ran_idx];
+					keyPressed(symbol);
+				}
 				if (key_queue_) {
 					rotate_counter_ = kFramesPerRotation;
 					state_change_ = key_queue_;
@@ -615,13 +649,14 @@ namespace {
 
 		void changeState() noexcept {
 			int new_state[kNumCubes];
-			for (int i = 0; i < kNumCubes; ++i) {
+			int ncubes = state_change_->count_;
+			for (int i = 0; i < ncubes; ++i) {
 				int new_idx = state_change_->rotation_map_[i];
 				int moved_idx = state_[new_idx];
 				int rot_idx = state_change_->state_map_[moved_idx];
 				new_state[i] = rot_idx;
 			}
-			for (int i = 0; i < kNumCubes; ++i) {
+			for (int i = 0; i < ncubes; ++i) {
 				state_[i] = new_state[i];
 			}
 		}
