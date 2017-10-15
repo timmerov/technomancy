@@ -24,7 +24,7 @@ cause it can never be seen.
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/quaternion.hpp>
+//#include <glm/gtx/quaternion.hpp>
 
 #include <sstream>
 #include <iomanip>
@@ -293,6 +293,54 @@ namespace {
 		g_rotzm, g_rotxp*g_rotzm, g_rotx2*g_rotzm, g_rotxm*g_rotzm
 	};
 
+	const int g_mapxp[kNumCubes] = {
+		2,  5,  8,  1,  4,  7,  0,  3,  6,
+		11, 13, 16, 10,     15, 9,  12, 14,
+		19, 22, 25, 18, 21, 24, 17, 20, 23
+	};
+	const int g_mapxm[kNumCubes] = {
+		6,  3,  0,  7,  4,  1,  8,  5,  2,
+		14, 12, 9,  15,     10, 16, 13, 11,
+		23, 20, 17, 24, 21, 18, 25, 22, 19
+	};
+	const int g_mapyp[kNumCubes] = {
+		17, 9,  0,  20, 12, 3,  23, 14, 6,
+		18, 10, 1,  21,     4,  24, 15, 7,
+		19, 11, 2,  22, 13, 5,  25, 16, 8
+	};
+	const int g_mapym[kNumCubes] = {
+		2,  11, 19, 5,  13, 22, 8,  16, 25,
+		1,  10, 18, 4,      21, 7,  15, 24,
+		0,  9,  17, 3,  12, 20, 6,  14, 23
+	};
+	const int g_mapzp[kNumCubes] = {
+		6,  7,  8, 14, 15, 16, 23, 24, 25,
+		3,  4,  5, 12,     13, 20, 21, 22,
+		0,  1,  2, 9,  10, 11, 17, 18, 19
+	};
+	const int g_mapzm[kNumCubes] = {
+		17, 18, 19, 9,  10, 11, 0,  1,  2,
+		20, 21, 22, 12,     13, 3,  4,  5,
+		23, 24, 25, 14, 15, 16, 6,  7,  8
+	};
+	const int g_state_xp[kNumStates] = {
+		1, 2, 3, 0, 5, 6, 7, 4, 9, 10, 11, 8, 13, 14, 15, 12, 17, 18, 19, 16, 21, 22, 23, 20
+	};
+	const int g_state_xm[kNumStates] = {
+		3, 0, 1, 2, 7, 4, 5, 6, 11, 8, 9, 10, 15, 12, 13, 14, 19, 16, 17, 18, 23, 20, 21, 22
+	};
+	const int g_state_yp[kNumStates] = {
+		4, 21, 14, 19, 8, 22, 2, 18, 12, 23, 6, 17, 0, 20, 10, 16, 5, 1, 13, 9, 7, 11, 15, 3
+	};
+	const int g_state_ym[kNumStates] = {
+		12, 17, 6, 23, 0, 16, 10, 20, 4, 19, 14, 21, 8, 18, 2, 22, 15, 11, 7, 3, 13, 1, 5, 9
+	};
+	const int g_state_zp[kNumStates] = {
+		16, 5, 22, 15, 19, 9, 23, 3, 18, 13, 20, 7, 17, 1, 21, 11, 10, 6, 2, 14, 0, 4, 8, 12
+	};
+	const int g_state_zm[kNumStates] = {
+		20, 13, 18, 7, 21, 1, 17, 11, 22, 5, 16, 15, 23, 9, 19, 3, 0, 12, 8, 4, 10, 14, 2, 6
+	};
 
     class RenderImpl : public Render {
     public:
@@ -314,11 +362,12 @@ namespace {
         int num_face_indexes_ = 0;
         int frame_count_ = 0;
 		int state_[kNumCubes] = {
-			3, 3, 3, 3, 3, 3, 3, 3, 3,
+			1, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0,    0, 0, 0, 0,
 			0, 0, 0, 0, 0, 0, 0, 0, 0
 		};
 		int rotate_counter_ = 0;
+		int key_queue_ = 0;
 
         virtual void init(
             int width,
@@ -327,10 +376,7 @@ namespace {
             width_ = width;
             height_ = height;
 
-			for (int i = 0; i < kNumStates; ++i) {
-				glm::quat q = glm::toQuat(g_rot_table[i]);
-				LOG("q[" << i << "]={" << q.x << ", " << q.y << ", " << q.z << ", " << q.w << "}");
-			}
+            //genTables();
 
             int num_vertex_floats = 3 * 8 * 6;
             num_bevel_indexes_ = 3 * 8 * 6;
@@ -411,8 +457,7 @@ namespace {
         }
 
         virtual void draw() noexcept {
-			int rotate = std::max(0, rotate_counter_);
-			rotate_counter_ = rotate - 1;
+			int rotate = updateDraw();
 
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -557,12 +602,88 @@ namespace {
 
 				case 'd':
 				case 'D':
-					if (rotate_counter_ < 0) {
-						rotate_counter_ = kFramesPerRotation;
-					}
+					symbol = tolower(symbol);
+					key_queue_ = symbol;
 					break;
 				}
 			}
+		}
+
+		int updateDraw() noexcept {
+			if (rotate_counter_ < 0) {
+				if (key_queue_ != 0) {
+					switch (key_queue_) {
+					case 'd':
+						changeState(g_mapyp, g_state_yp);
+						break;
+					}
+					key_queue_ = 0;
+					rotate_counter_ = kFramesPerRotation;
+				}
+			}
+			int rotate = std::max(0, rotate_counter_);
+			rotate_counter_ = rotate - 1;
+			return rotate;
+		}
+
+		void changeState(
+			const int *rot_map,
+			const int *state_map
+		) noexcept {
+			int new_state[kNumCubes];
+			for (int i = 0; i < kNumCubes; ++i) {
+				int new_idx = rot_map[i];
+				int moved_idx = state_[new_idx];
+				int rot_idx = state_map[moved_idx];
+				new_state[i] = rot_idx;
+			}
+			memcpy(state_, new_state, sizeof(state_));
+		}
+
+		void genTables() noexcept {
+			genTable(g_rotxp);
+			genTable(g_rotxm);
+			genTable(g_rotyp);
+			genTable(g_rotym);
+			genTable(g_rotzp);
+			genTable(g_rotzm);
+		}
+
+		void genTable(
+			const glm::mat4& rot_mat
+		) noexcept {
+			for (int i = 0; i < kNumCubes; ++i) {
+				auto& xyz = g_xyz[i];
+				auto xyz1 = glm::vec4(xyz, 1.0f);
+				auto rot4 = rot_mat * xyz1;
+				auto rot3 = glm::vec3(rot4.x, rot4.y, rot4.z);
+
+				int idx = -1;
+				for (int k = 0; k < kNumCubes; ++k) {
+					auto& xyz = g_xyz[k];
+					if (rot3 == xyz) {
+						idx = k;
+						break;
+					}
+				}
+				std::cout << idx << ", ";
+			}
+			std::cout << std::endl;
+			for (int i = 0; i < kNumStates; ++i) {
+				auto& entry = g_rot_table[i];
+				auto result = rot_mat * entry;
+
+				int idx = -1;
+				for (int k = 0; k < kNumStates; ++k) {
+					auto &entry = g_rot_table[k];
+					if (result == entry) {
+						idx = k;
+						break;
+					}
+				}
+				std::cout << idx << ", ";
+			}
+			std::cout << std::endl;
 		}
     };
 }
