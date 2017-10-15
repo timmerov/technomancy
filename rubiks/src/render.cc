@@ -351,10 +351,13 @@ namespace {
 	};
 
 	const StateChange g_change_table[] = {
-		{'a', g_mapym, g_state_ym, {+0.0f, -1.0f, +0.0f}},
-		{'d', g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}},
-		{'w', g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}},
-		{'s', g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}}
+		{'a',     g_mapym, g_state_ym, {+0.0f, -1.0f, +0.0f}},
+		{'d',     g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}},
+		{'w',     g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}},
+		{'s',     g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}},
+		{XK_Up,   g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}},
+		{XK_Down, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}}
+
 	};
 
     class RenderImpl : public Render {
