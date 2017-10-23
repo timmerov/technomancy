@@ -343,7 +343,6 @@ namespace {
 	const int g_state_zm[kNumStates] = {
 		20, 13, 18, 7, 21, 1, 17, 11, 22, 5, 16, 15, 23, 9, 19, 3, 0, 12, 8, 4, 10, 14, 2, 6
 	};
-	const int g_ran_choices[] = { 'a', 's', 'w', 'd', XK_Up, XK_Down };
 
 	class StateChange {
 	public:
@@ -363,11 +362,87 @@ namespace {
 		{XK_Down, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumEdgeCubes}
 	};
 
+	class MixUp {
+	public:
+		float prob_;
+		int symbol_;
+		const MixUp *next_;
+	};
+	extern const MixUp g_mixup_x_unforced[];
+	extern const MixUp g_mixup_x_forced[];
+	extern const MixUp g_mixup_x_up2[];
+	extern const MixUp g_mixup_x_down2[];
+	extern const MixUp g_mixup_y_unforced[];
+	extern const MixUp g_mixup_y_forced[];
+	extern const MixUp g_mixup_y_a2[];
+	extern const MixUp g_mixup_y_d2[];
+	extern const MixUp g_mixup_z_unforced[];
+	extern const MixUp g_mixup_z_forced[];
+	extern const MixUp g_mixup_z_w2[];
+	extern const MixUp g_mixup_z_s2[];
+	const MixUp g_mixup_x_unforced[] = {
+		{0.25f,  0,       g_mixup_y_forced  },
+		{0.25f,  XK_Up,   g_mixup_y_unforced},
+		{0.25f,  XK_Down, g_mixup_y_unforced},
+		{0.125f, XK_Up,   g_mixup_x_up2     },
+		{2.0f,   XK_Down, g_mixup_x_down2   }
+	};
+	const MixUp g_mixup_x_forced[] = {
+		{0.333f, XK_Up,   g_mixup_y_unforced},
+		{0.333f, XK_Down, g_mixup_y_unforced},
+		{0.167f, XK_Up,   g_mixup_x_up2     },
+		{2.0f,   XK_Down, g_mixup_x_down2   }
+	};
+	const MixUp g_mixup_x_up2[] = {
+		{2.0f,   XK_Up,   g_mixup_y_unforced},
+	};
+	const MixUp g_mixup_x_down2[] = {
+		{2.0f,   XK_Down, g_mixup_y_unforced},
+	};
+	const MixUp g_mixup_y_unforced[] = {
+		{0.25f,  0,       g_mixup_z_forced  },
+		{0.25f,  'a',     g_mixup_z_unforced},
+		{0.25f,  'd',     g_mixup_z_unforced},
+		{0.125f, 'a',     g_mixup_y_a2      },
+		{2.0f,   'd',     g_mixup_y_d2      }
+	};
+	const MixUp g_mixup_y_forced[] = {
+		{0.333f, 'a',     g_mixup_z_unforced},
+		{0.333f, 'd',     g_mixup_z_unforced},
+		{0.167f, 'a',     g_mixup_y_a2      },
+		{2.0f,   'd',     g_mixup_y_d2      }
+	};
+	const MixUp g_mixup_y_a2[] = {
+		{2.0f,   'a',     g_mixup_z_unforced},
+	};
+	const MixUp g_mixup_y_d2[] = {
+		{2.0f,   'd',     g_mixup_z_unforced},
+	};
+	const MixUp g_mixup_z_unforced[] = {
+		{0.25f,  0,       g_mixup_x_forced  },
+		{0.25f,  'w',     g_mixup_x_unforced},
+		{0.25f,  's',     g_mixup_x_unforced},
+		{0.125f, 'w',     g_mixup_z_w2      },
+		{2.0f,   's',     g_mixup_z_s2      }
+	};
+	const MixUp g_mixup_z_forced[] = {
+		{0.333f, 'w',     g_mixup_x_unforced},
+		{0.333f, 's',     g_mixup_x_unforced},
+		{0.167f, 'w',     g_mixup_z_w2      },
+		{2.0f,   's',     g_mixup_z_s2      }
+	};
+	const MixUp g_mixup_z_w2[] = {
+		{2.0f,   'w',     g_mixup_x_unforced},
+	};
+	const MixUp g_mixup_z_s2[] = {
+		{2.0f,   's',     g_mixup_x_unforced},
+	};
+
     class RenderImpl : public Render {
     public:
         RenderImpl() noexcept :
 			ran_eng_(ran_dev_()),
-			ran_turn_(0, 5) {
+			ran_turn_(0.0f, 1.0f) {
         };
 
         virtual ~RenderImpl() = default;
@@ -394,10 +469,10 @@ namespace {
 		int rotate_counter_ = 0;
 		const StateChange *state_change_ = nullptr;
 		const StateChange *key_queue_ = nullptr;
-		bool mix_up_ = false;
+		const MixUp *mix_up_ = nullptr;
 		std::random_device ran_dev_;
 		std::default_random_engine ran_eng_;
-		std::uniform_int_distribution<int> ran_turn_;
+		std::uniform_real_distribution<> ran_turn_;
 
         virtual void init(
             int width,
@@ -617,7 +692,7 @@ namespace {
 		) noexcept {
 			symbol = tolower(symbol);
 			if (symbol == ' ') {
-				mix_up_ = !mix_up_;
+				mix_up_ = mix_up_ ? nullptr : g_mixup_x_unforced;
 			} else {
 				for (auto pct = g_change_table; pct->symbol_; ++pct) {
 					if (symbol == pct->symbol_) {
@@ -631,9 +706,15 @@ namespace {
 		int updateDraw() noexcept {
 			if (rotate_counter_ < 0) {
 				if (key_queue_ == nullptr && mix_up_) {
-					int ran_idx = ran_turn_(ran_eng_);
-					int symbol = g_ran_choices[ran_idx];
-					keyPressed(symbol);
+					float ran_idx = ran_turn_(ran_eng_);
+					for (auto dist = mix_up_; ; ++dist) {
+						if (ran_idx < dist->prob_) {
+							keyPressed(dist->symbol_);
+							mix_up_ = dist->next_;
+							break;
+						}
+						ran_idx -= dist->prob_;
+					}
 				}
 				if (key_queue_) {
 					rotate_counter_ = kFramesPerRotation;
