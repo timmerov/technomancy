@@ -441,11 +441,23 @@ namespace {
 		{2.0f,   's', g_mixup_x_unforced},
 	};
 
+	class State {
+	public:
+		int index_;
+		int orient_;
+	};
+
     class RenderImpl : public Render {
     public:
         RenderImpl() noexcept :
 			ran_eng_(ran_dev_()),
 			ran_turn_(0.0f, 1.0f) {
+
+			for (int i = 0; i < kNumCubes; ++i) {
+				auto& s = state_[i];
+				s.index_ = i;
+				s.orient_ = 0;
+			}
         };
 
         virtual ~RenderImpl() = default;
@@ -464,11 +476,7 @@ namespace {
         int num_bevel_indexes_ = 0;
         int num_face_indexes_ = 0;
         int frame_count_ = 0;
-		int state_[kNumCubes] = {
-			0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0,    0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0
-		};
+		State state_[kNumCubes];
 		int rotate_counter_ = 0;
 		const StateChange *state_change_ = nullptr;
 		const StateChange *key_queue_ = nullptr;
@@ -629,12 +637,12 @@ namespace {
 			int stop
 		) noexcept {
 			for (int i = start; i < stop; ++i) {
-				int state = state_[i];
+				auto& s = state_[i];
 				glm::mat4 temp_mat = std::move(glm::translate(
 					rot_mat,
 					g_xyz[i]
 				));
-				glm::mat4 model_mat = temp_mat * g_rot_table[state];
+				glm::mat4 model_mat = temp_mat * g_rot_table[s.orient_];
 				glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
 				draw1Cube();
 			}
@@ -734,13 +742,16 @@ namespace {
 		}
 
 		void changeState() noexcept {
-			int new_state[kNumCubes];
+			State new_state[kNumCubes];
 			int ncubes = state_change_->count_;
 			for (int i = 0; i < ncubes; ++i) {
 				int new_idx = state_change_->rotation_map_[i];
-				int moved_idx = state_[new_idx];
+				auto& s = state_[new_idx];
+				int moved_idx = s.orient_;
 				int rot_idx = state_change_->state_map_[moved_idx];
-				new_state[i] = rot_idx;
+				auto& ns = new_state[i];
+				ns.index_ = s.index_;
+				ns.orient_ = rot_idx;
 			}
 			for (int i = 0; i < ncubes; ++i) {
 				state_[i] = new_state[i];
