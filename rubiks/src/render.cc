@@ -353,13 +353,16 @@ namespace {
 		int count_;
 	};
 
+	const int kUp = XK_Up;
+	const int kDn = XK_Down;
+
 	const StateChange g_change_table[] = {
-		{'a',     g_mapym, g_state_ym, {+0.0f, -1.0f, +0.0f}, kNumCubes},
-		{'d',     g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}, kNumCubes},
-		{'s',     g_mapzm, g_state_zm, {+0.0f, +0.0f, -1.0f}, kNumCubes},
-		{'w',     g_mapzp, g_state_zp, {+0.0f, +0.0f, +1.0f}, kNumCubes},
-		{XK_Up,   g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}, kNumEdgeCubes},
-		{XK_Down, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumEdgeCubes}
+		{'a', g_mapym, g_state_ym, {+0.0f, -1.0f, +0.0f}, kNumCubes},
+		{'d', g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}, kNumCubes},
+		{'s', g_mapzm, g_state_zm, {+0.0f, +0.0f, -1.0f}, kNumCubes},
+		{'w', g_mapzp, g_state_zp, {+0.0f, +0.0f, +1.0f}, kNumCubes},
+		{kUp, g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}, kNumEdgeCubes},
+		{kDn, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumEdgeCubes}
 	};
 
 	class MixUp {
@@ -381,61 +384,61 @@ namespace {
 	extern const MixUp g_mixup_z_w2[];
 	extern const MixUp g_mixup_z_s2[];
 	const MixUp g_mixup_x_unforced[] = {
-		{0.25f,  0,       g_mixup_y_forced  },
-		{0.25f,  XK_Up,   g_mixup_y_unforced},
-		{0.25f,  XK_Down, g_mixup_y_unforced},
-		{0.125f, XK_Up,   g_mixup_x_up2     },
-		{2.0f,   XK_Down, g_mixup_x_down2   }
+		{0.25f,  0,   g_mixup_y_forced  },
+		{0.25f,  kUp, g_mixup_y_unforced},
+		{0.25f,  kDn, g_mixup_y_unforced},
+		{0.125f, kUp, g_mixup_x_up2     },
+		{2.0f,   kDn, g_mixup_x_down2   }
 	};
 	const MixUp g_mixup_x_forced[] = {
-		{0.333f, XK_Up,   g_mixup_y_unforced},
-		{0.333f, XK_Down, g_mixup_y_unforced},
-		{0.167f, XK_Up,   g_mixup_x_up2     },
-		{2.0f,   XK_Down, g_mixup_x_down2   }
+		{0.333f, kUp, g_mixup_y_unforced},
+		{0.333f, kDn, g_mixup_y_unforced},
+		{0.167f, kUp, g_mixup_x_up2     },
+		{2.0f,   kDn, g_mixup_x_down2   }
 	};
 	const MixUp g_mixup_x_up2[] = {
-		{2.0f,   XK_Up,   g_mixup_y_unforced},
+		{2.0f,   kUp, g_mixup_y_unforced},
 	};
 	const MixUp g_mixup_x_down2[] = {
-		{2.0f,   XK_Down, g_mixup_y_unforced},
+		{2.0f,   kDn, g_mixup_y_unforced},
 	};
 	const MixUp g_mixup_y_unforced[] = {
-		{0.25f,  0,       g_mixup_z_forced  },
-		{0.25f,  'a',     g_mixup_z_unforced},
-		{0.25f,  'd',     g_mixup_z_unforced},
-		{0.125f, 'a',     g_mixup_y_a2      },
-		{2.0f,   'd',     g_mixup_y_d2      }
+		{0.25f,  0,   g_mixup_z_forced  },
+		{0.25f,  'a', g_mixup_z_unforced},
+		{0.25f,  'd', g_mixup_z_unforced},
+		{0.125f, 'a', g_mixup_y_a2      },
+		{2.0f,   'd', g_mixup_y_d2      }
 	};
 	const MixUp g_mixup_y_forced[] = {
-		{0.333f, 'a',     g_mixup_z_unforced},
-		{0.333f, 'd',     g_mixup_z_unforced},
-		{0.167f, 'a',     g_mixup_y_a2      },
-		{2.0f,   'd',     g_mixup_y_d2      }
+		{0.333f, 'a', g_mixup_z_unforced},
+		{0.333f, 'd', g_mixup_z_unforced},
+		{0.167f, 'a', g_mixup_y_a2      },
+		{2.0f,   'd', g_mixup_y_d2      }
 	};
 	const MixUp g_mixup_y_a2[] = {
-		{2.0f,   'a',     g_mixup_z_unforced},
+		{2.0f,   'a', g_mixup_z_unforced},
 	};
 	const MixUp g_mixup_y_d2[] = {
-		{2.0f,   'd',     g_mixup_z_unforced},
+		{2.0f,   'd', g_mixup_z_unforced},
 	};
 	const MixUp g_mixup_z_unforced[] = {
-		{0.25f,  0,       g_mixup_x_forced  },
-		{0.25f,  'w',     g_mixup_x_unforced},
-		{0.25f,  's',     g_mixup_x_unforced},
-		{0.125f, 'w',     g_mixup_z_w2      },
-		{2.0f,   's',     g_mixup_z_s2      }
+		{0.25f,  0,   g_mixup_x_forced  },
+		{0.25f,  'w', g_mixup_x_unforced},
+		{0.25f,  's', g_mixup_x_unforced},
+		{0.125f, 'w', g_mixup_z_w2      },
+		{2.0f,   's', g_mixup_z_s2      }
 	};
 	const MixUp g_mixup_z_forced[] = {
-		{0.333f, 'w',     g_mixup_x_unforced},
-		{0.333f, 's',     g_mixup_x_unforced},
-		{0.167f, 'w',     g_mixup_z_w2      },
-		{2.0f,   's',     g_mixup_z_s2      }
+		{0.333f, 'w', g_mixup_x_unforced},
+		{0.333f, 's', g_mixup_x_unforced},
+		{0.167f, 'w', g_mixup_z_w2      },
+		{2.0f,   's', g_mixup_z_s2      }
 	};
 	const MixUp g_mixup_z_w2[] = {
-		{2.0f,   'w',     g_mixup_x_unforced},
+		{2.0f,   'w', g_mixup_x_unforced},
 	};
 	const MixUp g_mixup_z_s2[] = {
-		{2.0f,   's',     g_mixup_x_unforced},
+		{2.0f,   's', g_mixup_x_unforced},
 	};
 
     class RenderImpl : public Render {
@@ -705,15 +708,17 @@ namespace {
 
 		int updateDraw() noexcept {
 			if (rotate_counter_ < 0) {
-				if (key_queue_ == nullptr && mix_up_) {
-					float ran_idx = ran_turn_(ran_eng_);
-					for (auto dist = mix_up_; ; ++dist) {
-						if (ran_idx < dist->prob_) {
-							keyPressed(dist->symbol_);
-							mix_up_ = dist->next_;
-							break;
+				if (mix_up_) {
+					while (key_queue_ == nullptr) {
+						float ran_idx = ran_turn_(ran_eng_);
+						for (auto dist = mix_up_; ; ++dist) {
+							if (ran_idx < dist->prob_) {
+								keyPressed(dist->symbol_);
+								mix_up_ = dist->next_;
+								break;
+							}
+							ran_idx -= dist->prob_;
 						}
-						ran_idx -= dist->prob_;
 					}
 				}
 				if (key_queue_) {
