@@ -125,12 +125,12 @@ namespace {
 		+kC, -kC, +kC, /// 7+8*5
 	};
 	const GLfloat g_colors[] = {
+		0.7f, 0.0f, 0.0f, /// red
+		1.0f, 0.5f, 0.0f, /// orange
 		0.0f, 0.0f, 0.8f, /// blue
 		0.0f, 0.3f, 0.0f, /// green
 		1.0f, 1.0f, 1.0f, /// white
 		0.9f, 0.9f, 0.0f, /// yellow
-		0.7f, 0.0f, 0.0f, /// red
-		1.0f, 0.5f, 0.0f, /// orange
 	};
 	const GLushort g_bevel_indexes[] = {
 		8*0+0, 8*0+1, 8*0+2,
