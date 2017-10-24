@@ -62,7 +62,7 @@ namespace {
 	const float kSecondsPerRotation = 0.5f;
 	const int kFramesPerRotation = (int)( kFramesPerSecond * kSecondsPerRotation );
 
-	const int kNumEdgeCubes = 9;
+	const int kNumFaceCubes = 9;
 	const int kNumCubes = 26;
 	const int kNumStates = 24;
 
@@ -361,8 +361,8 @@ namespace {
 		{'d', g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}, kNumCubes},
 		{'s', g_mapzm, g_state_zm, {+0.0f, +0.0f, -1.0f}, kNumCubes},
 		{'w', g_mapzp, g_state_zp, {+0.0f, +0.0f, +1.0f}, kNumCubes},
-		{kUp, g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}, kNumEdgeCubes},
-		{kDn, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumEdgeCubes}
+		{kUp, g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}, kNumFaceCubes},
+		{kDn, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumFaceCubes}
 	};
 
 	class MixUp {
@@ -441,10 +441,15 @@ namespace {
 		{2.0f,   's', g_mixup_x_unforced},
 	};
 
-	class State {
+	class PieceState {
 	public:
 		int index_;
 		int orient_;
+	};
+
+	class CubeState {
+	public:
+		PieceState pieces_[kNumCubes];
 	};
 
     class RenderImpl : public Render {
@@ -454,7 +459,7 @@ namespace {
 			ran_turn_(0.0f, 1.0f) {
 
 			for (int i = 0; i < kNumCubes; ++i) {
-				auto& s = state_[i];
+				auto& s = state_.pieces_[i];
 				s.index_ = i;
 				s.orient_ = 0;
 			}
@@ -476,7 +481,7 @@ namespace {
         int num_bevel_indexes_ = 0;
         int num_face_indexes_ = 0;
         int frame_count_ = 0;
-		State state_[kNumCubes];
+		CubeState state_;
 		int rotate_counter_ = 0;
 		const StateChange *state_change_ = nullptr;
 		const StateChange *key_queue_ = nullptr;
@@ -484,6 +489,7 @@ namespace {
 		std::random_device ran_dev_;
 		std::default_random_engine ran_eng_;
 		std::uniform_real_distribution<> ran_turn_;
+		bool solved_ = false;
 
         virtual void init(
             int width,
@@ -637,7 +643,7 @@ namespace {
 			int stop
 		) noexcept {
 			for (int i = start; i < stop; ++i) {
-				auto& s = state_[i];
+				auto& s = state_.pieces_[i];
 				glm::mat4 temp_mat = std::move(glm::translate(
 					rot_mat,
 					g_xyz[i]
@@ -704,10 +710,12 @@ namespace {
 			symbol = tolower(symbol);
 			if (symbol == ' ') {
 				mix_up_ = mix_up_ ? nullptr : g_mixup_x_unforced;
+			} else if (symbol == XK_Home) {
+				mix_up_ = nullptr;
 			} else {
-				for (auto pct = g_change_table; pct->symbol_; ++pct) {
-					if (symbol == pct->symbol_) {
-						key_queue_ = pct;
+				for (auto change = g_change_table; change->symbol_; ++change) {
+					if (symbol == change->symbol_) {
+						key_queue_ = change;
 						break;
 					}
 				}
@@ -733,7 +741,8 @@ namespace {
 					rotate_counter_ = kFramesPerRotation;
 					state_change_ = key_queue_;
 					key_queue_ = nullptr;
-					changeState();
+					changeState(state_, state_);
+					checkSolved(state_);
 				}
 			}
 			int rotate = std::max(0, rotate_counter_);
@@ -741,20 +750,41 @@ namespace {
 			return rotate;
 		}
 
-		void changeState() noexcept {
-			State new_state[kNumCubes];
+		void changeState(
+			CubeState& old_state,
+			CubeState& new_state
+		) noexcept {
+			CubeState temp_state = old_state;
 			int ncubes = state_change_->count_;
 			for (int i = 0; i < ncubes; ++i) {
 				int new_idx = state_change_->rotation_map_[i];
-				auto& s = state_[new_idx];
+				auto& s = state_.pieces_[new_idx];
 				int moved_idx = s.orient_;
 				int rot_idx = state_change_->state_map_[moved_idx];
-				auto& ns = new_state[i];
+				auto& ns = temp_state.pieces_[i];
 				ns.index_ = s.index_;
 				ns.orient_ = rot_idx;
 			}
-			for (int i = 0; i < ncubes; ++i) {
-				state_[i] = new_state[i];
+			new_state = temp_state;
+		}
+
+		void checkSolved(
+			CubeState& state
+		) noexcept {
+			/// check if white center is at the top.
+			bool new_solved = false;
+			if (state.pieces_[4].index_ == 4 && state.pieces_[10].index_ == 10) {
+				new_solved = true;
+			}
+
+			/// log changes
+			if (solved_ != new_solved) {
+				solved_ = new_solved;
+				if (new_solved) {
+					LOG("Solved!");
+				} else {
+					LOG("Not solved.");
+				}
 			}
 		}
 
