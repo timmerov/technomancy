@@ -463,6 +463,10 @@ namespace {
 				s.index_ = i;
 				s.orient_ = 0;
 			}
+			/*state_.pieces_[3].orient_ = 7;
+			state_.pieces_[5].orient_ = 7;
+			state_.pieces_[20].orient_ = 7;
+			state_.pieces_[22].orient_ = 7;*/
         };
 
         virtual ~RenderImpl() = default;
@@ -786,10 +790,10 @@ namespace {
 				/// check if white center (10) is on the top face.
 				/// we don't care about orientation.
 				if (state.pieces_[10].index_ == 10) {
-					++new_correctness;
+					new_correctness += 4;
 				}
 			}
-			if (new_correctness == 1) {
+			if (new_correctness == 4) {
 				/// check if the top edge pieces (1 9 11 18) are in the correct place
 				/// and oriented correctly.
 				int check_list[] = {1, 9, 11, 18};
@@ -801,7 +805,14 @@ namespace {
 					}
 				}
 			}
-			if (new_correctness == 5) {
+			if (new_correctness == 8) {
+				/// check if blue center (4) is on the right face.
+				/// we don't care about orientation.
+				if (state.pieces_[4].index_ == 4 && state.pieces_[10].index_ == 10) {
+					new_correctness += 4;
+				}
+			}
+			if (new_correctness == 12) {
 				/// check if the top corner pieces (0 2 17 19) are in the correct place
 				/// and oriented correctly.
 				int check_list[] = {0, 2, 17, 19};
@@ -813,14 +824,20 @@ namespace {
 					}
 				}
 			}
-			if (new_correctness == 9) {
-				/// check if blue center (4) is on the right face.
-				/// we don't care about orientation.
-				if (state.pieces_[4].index_ == 4 && state.pieces_[10].index_ == 10) {
-					++new_correctness;
+			if (new_correctness == 16) {
+				/// check if the middle edge pieces (3 5 20 22) are in the correct place
+				/// and oriented correctly.
+				int check_list[] = {3, 5, 20, 22};
+				for (int i = 0; i < intsizeof(check_list)/intsizeof(int); ++i) {
+					int idx = check_list[i];
+					auto& s = state.pieces_[idx];
+					if (s.index_ == idx && s.orient_ == 0) {
+						++new_correctness;
+					}
 				}
 			}
-			if (new_correctness == 10) {
+			if (new_correctness == 20) {
+				// tbd
 			}
 			return new_correctness;
 		}
