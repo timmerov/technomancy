@@ -34,6 +34,7 @@ disable symbols browser.
 // on some platforms size_t is not int.
 // use this handy macro instead.
 #define sizeofint(x) (int(sizeof(x)))
+#define intsizeof(x) sizeofint(x)
 
 // handy macro for converting a #defined value to a string literal
 #define STRINGIZE_(x) #x

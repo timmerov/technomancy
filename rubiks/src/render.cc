@@ -202,34 +202,34 @@ namespace {
 		8*5+3, 8*5+5, 8*5+4,
 	};
 	const glm::vec3 g_xyz[kNumCubes] = {
-		{+1.0f, +1.0f, +1.0f},
-		{+1.0f, +1.0f, +0.0f},
-		{+1.0f, +1.0f, -1.0f},
-		{+1.0f, +0.0f, +1.0f},
-		{+1.0f, +0.0f, +0.0f},
-		{+1.0f, +0.0f, -1.0f},
-		{+1.0f, -1.0f, +1.0f},
-		{+1.0f, -1.0f, +0.0f},
-		{+1.0f, -1.0f, -1.0f},
+		{+1.0f, +1.0f, +1.0f},  /// 0
+		{+1.0f, +1.0f, +0.0f},  /// 1
+		{+1.0f, +1.0f, -1.0f},  /// 2
+		{+1.0f, +0.0f, +1.0f},  /// 3
+		{+1.0f, +0.0f, +0.0f},  /// 4
+		{+1.0f, +0.0f, -1.0f},  /// 5
+		{+1.0f, -1.0f, +1.0f},  /// 6
+		{+1.0f, -1.0f, +0.0f},  /// 7
+		{+1.0f, -1.0f, -1.0f},  /// 8
 
-		{+0.0f, +1.0f, +1.0f},
-		{+0.0f, +1.0f, +0.0f},
-		{+0.0f, +1.0f, -1.0f},
-		{+0.0f, +0.0f, +1.0f},
-		{+0.0f, +0.0f, -1.0f},
-		{+0.0f, -1.0f, +1.0f},
-		{+0.0f, -1.0f, +0.0f},
-		{+0.0f, -1.0f, -1.0f},
+		{+0.0f, +1.0f, +1.0f},  /// 9
+		{+0.0f, +1.0f, +0.0f},  /// 10
+		{+0.0f, +1.0f, -1.0f},  /// 11
+		{+0.0f, +0.0f, +1.0f},  /// 12
+		{+0.0f, +0.0f, -1.0f},  /// 13
+		{+0.0f, -1.0f, +1.0f},  /// 14
+		{+0.0f, -1.0f, +0.0f},  /// 15
+		{+0.0f, -1.0f, -1.0f},  /// 16
 
-		{-1.0f, +1.0f, +1.0f},
-		{-1.0f, +1.0f, +0.0f},
-		{-1.0f, +1.0f, -1.0f},
-		{-1.0f, +0.0f, +1.0f},
-		{-1.0f, +0.0f, +0.0f},
-		{-1.0f, +0.0f, -1.0f},
-		{-1.0f, -1.0f, +1.0f},
-		{-1.0f, -1.0f, +0.0f},
-		{-1.0f, -1.0f, -1.0f}
+		{-1.0f, +1.0f, +1.0f},  /// 17
+		{-1.0f, +1.0f, +0.0f},  /// 18
+		{-1.0f, +1.0f, -1.0f},  /// 19
+		{-1.0f, +0.0f, +1.0f},  /// 20
+		{-1.0f, +0.0f, +0.0f},  /// 21
+		{-1.0f, +0.0f, -1.0f},  /// 22
+		{-1.0f, -1.0f, +1.0f},  /// 23
+		{-1.0f, -1.0f, +0.0f},  /// 24
+		{-1.0f, -1.0f, -1.0f}   /// 25
 	};
 
 	const glm::mat4 g_ident = {
@@ -489,7 +489,7 @@ namespace {
 		std::random_device ran_dev_;
 		std::default_random_engine ran_eng_;
 		std::uniform_real_distribution<> ran_turn_;
-		bool solved_ = false;
+		int correctness_ = 0;
 
         virtual void init(
             int width,
@@ -511,36 +511,36 @@ namespace {
             glGenBuffers(1, &vertex_buffer_);
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
             glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*num_vertex_floats, g_cube_vertexes, GL_STATIC_DRAW);
-            LOG("vertex=" << vertex_buffer_);
+            LOG("GL vertex=" << vertex_buffer_);
 
             glGenBuffers(1, &bevel_index_buffer_);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bevel_index_buffer_);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_bevel_indexes_, g_bevel_indexes, GL_STATIC_DRAW);
-            LOG("bevel_index=" << bevel_index_buffer_);
+            LOG("GL bevel_index=" << bevel_index_buffer_);
 
             glGenBuffers(6, &face_index_buffer_[0]);
             for (int i = 0; i < 6; ++i) {
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, face_index_buffer_[i]);
 				auto face_indexes = &g_face_indexes[num_face_indexes_*i];
 				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*num_face_indexes_, face_indexes, GL_STATIC_DRAW);
-				LOG("face_index[" << i << "]=" << face_index_buffer_[i]);
+				LOG("GL face_index[" << i << "]=" << face_index_buffer_[i]);
 			}
 
             vertex_shader_ = agm::gl::compileShader(GL_VERTEX_SHADER, g_vertex_source);
-            LOG("vertex_shader=" << vertex_shader_);
+            LOG("GL vertex_shader=" << vertex_shader_);
             fragment_shader_ = agm::gl::compileShader(GL_FRAGMENT_SHADER, g_fragment_source);
-            LOG("fragment_shader=" << fragment_shader_);
+            LOG("GL fragment_shader=" << fragment_shader_);
 
             program_ = agm::gl::linkProgram(vertex_shader_, fragment_shader_);
-            LOG("program=" << program_);
+            LOG("GL program=" << program_);
 
             glUseProgram(program_);
             model_mat_loc_ = glGetUniformLocation(program_, "model_mat");
-            LOG("model_mat_loc=" << model_mat_loc_);
+            LOG("GL model_mat_loc=" << model_mat_loc_);
             proj_view_mat_loc_ = glGetUniformLocation(program_, "proj_view_mat");
-            LOG("proj_view_mat_loc=" << proj_view_mat_loc_);
+            LOG("GL proj_view_mat_loc=" << proj_view_mat_loc_);
             color_loc_ = glGetUniformLocation(program_, "color");
-            LOG("color_loc=" << color_loc_);
+            LOG("GL color_loc=" << color_loc_);
         }
 
         virtual void exit() noexcept {
@@ -742,7 +742,7 @@ namespace {
 					state_change_ = key_queue_;
 					key_queue_ = nullptr;
 					changeState(state_, state_);
-					checkSolved(state_);
+					updateCorrectness();
 				}
 			}
 			int rotate = std::max(0, rotate_counter_);
@@ -768,24 +768,61 @@ namespace {
 			new_state = temp_state;
 		}
 
-		void checkSolved(
-			CubeState& state
-		) noexcept {
-			/// check if white center is at the top.
-			bool new_solved = false;
-			if (state.pieces_[4].index_ == 4 && state.pieces_[10].index_ == 10) {
-				new_solved = true;
-			}
+		void updateCorrectness() noexcept {
+			int new_correctness = checkCorrectness(state_);
 
 			/// log changes
-			if (solved_ != new_solved) {
-				solved_ = new_solved;
-				if (new_solved) {
-					LOG("Solved!");
-				} else {
-					LOG("Not solved.");
+			if (correctness_ != new_correctness) {
+				correctness_ = new_correctness;
+				LOG(correctness_);
+			}
+		}
+
+		int checkCorrectness(
+			CubeState& state
+		) noexcept {
+			int new_correctness = 0;
+			if (new_correctness == 0) {
+				/// check if white center (10) is on the top face.
+				/// we don't care about orientation.
+				if (state.pieces_[10].index_ == 10) {
+					++new_correctness;
 				}
 			}
+			if (new_correctness == 1) {
+				/// check if the top edge pieces (1 9 11 18) are in the correct place
+				/// and oriented correctly.
+				int check_list[] = {1, 9, 11, 18};
+				for (int i = 0; i < intsizeof(check_list)/intsizeof(int); ++i) {
+					int idx = check_list[i];
+					auto& s = state.pieces_[idx];
+					if (s.index_ == idx && s.orient_ == 0) {
+						++new_correctness;
+					}
+				}
+			}
+			if (new_correctness == 5) {
+				/// check if the top corner pieces (0 2 17 19) are in the correct place
+				/// and oriented correctly.
+				int check_list[] = {0, 2, 17, 19};
+				for (int i = 0; i < intsizeof(check_list)/intsizeof(int); ++i) {
+					int idx = check_list[i];
+					auto& s = state.pieces_[idx];
+					if (s.index_ == idx && s.orient_ == 0) {
+						++new_correctness;
+					}
+				}
+			}
+			if (new_correctness == 9) {
+				/// check if blue center (4) is on the right face.
+				/// we don't care about orientation.
+				if (state.pieces_[4].index_ == 4 && state.pieces_[10].index_ == 10) {
+					++new_correctness;
+				}
+			}
+			if (new_correctness == 10) {
+			}
+			return new_correctness;
 		}
 
 		void genTables() noexcept {
