@@ -349,6 +349,7 @@ namespace {
 	class StateChange {
 	public:
 		int symbol_;
+		const char *text_;
 		const int *rotation_map_;
 		const int *state_map_;
 		glm::vec3 axis_;
@@ -359,13 +360,13 @@ namespace {
 	const int kDn = XK_Down;
 
 	const StateChange g_change_table[] = {
-		{'a', g_mapym, g_state_ym, {+0.0f, -1.0f, +0.0f}, kNumCubes},
-		{'d', g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}, kNumCubes},
-		{'s', g_mapzm, g_state_zm, {+0.0f, +0.0f, -1.0f}, kNumCubes},
-		{'w', g_mapzp, g_state_zp, {+0.0f, +0.0f, +1.0f}, kNumCubes},
-		{kUp, g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}, kNumFaceCubes},
-		{kDn, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumFaceCubes},
-		{0,   nullptr, nullptr,    {+0.0f, +0.0f, +0.0f}, 0}
+		{'a', "A",  g_mapym, g_state_ym, {+0.0f, -1.0f, +0.0f}, kNumCubes},
+		{'d', "D",  g_mapyp, g_state_yp, {+0.0f, +1.0f, +0.0f}, kNumCubes},
+		{'s', "S",  g_mapzm, g_state_zm, {+0.0f, +0.0f, -1.0f}, kNumCubes},
+		{'w', "W",  g_mapzp, g_state_zp, {+0.0f, +0.0f, +1.0f}, kNumCubes},
+		{kUp, "Up", g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}, kNumFaceCubes},
+		{kDn, "Dn", g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumFaceCubes},
+		{0,   "",   nullptr, nullptr,    {+0.0f, +0.0f, +0.0f}, 0}
 	};
 
 	class MixUp {
@@ -497,6 +498,7 @@ namespace {
 		std::default_random_engine ran_eng_;
 		std::uniform_real_distribution<> ran_turn_;
 		int correctness_ = 0;
+		std::vector<const StateChange *> moves_;
 
         virtual void init(
             int width,
@@ -893,23 +895,22 @@ namespace {
 			//logState(state_);
 			bool found = false;
 			int correctness = 0;
-			const int kSearchDepth = 2;
-			std::vector<const StateChange *> moves;
+			const int kSearchDepth = 10;
 			int depth = 1;
 			for (; depth <= kSearchDepth; ++depth) {
 				LOG("searching depth: " << depth);
-				moves.clear();
+				moves_.clear();
 				for (int i = 0; i < depth; ++i) {
-					moves.push_back(g_change_table);
+					moves_.push_back(g_change_table);
 				}
 				for(;;) {
 					CubeState test = state_;
 					for (int i = 0; i < depth; ++i) {
-						changeState(moves[i], test, test);
+						changeState(moves_[i], test, test);
 						//logState(test);
 					}
 					correctness = checkCorrectness(test);
-					auto s = buildSymbolList(moves);
+					auto s = buildSymbolList();
 					//LOG("=TSC= list=" << s << "correctness=" << correctness);
 					if (correctness > correctness_) {
 						found = true;
@@ -918,14 +919,14 @@ namespace {
 
 					bool try_again = false;
 					for (int i = depth-1; i >= 0; --i) {
-						auto move = moves[i];
+						auto move = moves_[i];
 						++move;
 						if (move->symbol_) {
-							moves[i] = move;
+							moves_[i] = move;
 							try_again = true;
 							break;
 						}
-						moves[i] = g_change_table;
+						moves_[i] = g_change_table;
 					}
 					if (try_again == false) {
 						break;
@@ -936,25 +937,19 @@ namespace {
 				}
 			}
 			if (found) {
-                LOG("Improve from " << correctness_ << " to " << correctness << " with moves:");
-                auto s = buildSymbolList(moves);
-                LOG("  " << s);
+                auto s = buildSymbolList();
+                LOG("Improve from " << correctness_ << " to " << correctness << " with moves: " << s);
 			} else {
 				LOG("No improvement found in " << kSearchDepth << " moves.");
 			}
 		}
 
-		std::string buildSymbolList(
-			std::vector<const StateChange *> moves
-		) noexcept {
+		std::string buildSymbolList() noexcept {
 			std::string s;
-			int n = moves.size();
+			int n = moves_.size();
 			for (int i = 0; i < n; ++i) {
-				auto move = moves[i];
-				int symbol = move->symbol_;
-				s += (char) symbol;
-				s += ":";
-				s += std::to_string(symbol);
+				auto move = moves_[i];
+				s += move->text_;
 				s += " ";
 			}
 			return std::move(s);
