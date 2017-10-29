@@ -66,6 +66,8 @@ namespace {
 	const int kNumCubes = 26;
 	const int kNumStates = 24;
 
+	const int kMaxCorrectness = 20;
+
     const GLfloat kA = 0.50f;  /// sub-cube size
     const GLfloat kB = 0.45f;  /// sticker size
     const GLfloat kC = 0.48f;  /// bevel
@@ -362,7 +364,8 @@ namespace {
 		{'s', g_mapzm, g_state_zm, {+0.0f, +0.0f, -1.0f}, kNumCubes},
 		{'w', g_mapzp, g_state_zp, {+0.0f, +0.0f, +1.0f}, kNumCubes},
 		{kUp, g_mapxm, g_state_xm, {-1.0f, +0.0f, +0.0f}, kNumFaceCubes},
-		{kDn, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumFaceCubes}
+		{kDn, g_mapxp, g_state_xp, {+1.0f, +0.0f, +0.0f}, kNumFaceCubes},
+		{0,   nullptr, nullptr,    {+0.0f, +0.0f, +0.0f}, 0}
 	};
 
 	class MixUp {
@@ -716,6 +719,7 @@ namespace {
 				mix_up_ = mix_up_ ? nullptr : g_mixup_x_unforced;
 			} else if (symbol == XK_Home) {
 				mix_up_ = nullptr;
+				searchSolution();
 			} else {
 				for (auto change = g_change_table; change->symbol_; ++change) {
 					if (symbol == change->symbol_) {
@@ -745,8 +749,8 @@ namespace {
 					rotate_counter_ = kFramesPerRotation;
 					state_change_ = key_queue_;
 					key_queue_ = nullptr;
-					changeState(state_, state_);
-					updateCorrectness();
+					changeState(state_change_, state_, state_);
+					correctness_ = checkCorrectness(state_);
 				}
 			}
 			int rotate = std::max(0, rotate_counter_);
@@ -755,16 +759,17 @@ namespace {
 		}
 
 		void changeState(
-			CubeState& old_state,
+			const StateChange *change,
+			const CubeState& old_state,
 			CubeState& new_state
 		) noexcept {
 			CubeState temp_state = old_state;
-			int ncubes = state_change_->count_;
+			int ncubes = change->count_;
 			for (int i = 0; i < ncubes; ++i) {
-				int new_idx = state_change_->rotation_map_[i];
-				auto& s = state_.pieces_[new_idx];
+				int new_idx = change->rotation_map_[i];
+				auto& s = old_state.pieces_[new_idx];
 				int moved_idx = s.orient_;
-				int rot_idx = state_change_->state_map_[moved_idx];
+				int rot_idx = change->state_map_[moved_idx];
 				auto& ns = temp_state.pieces_[i];
 				ns.index_ = s.index_;
 				ns.orient_ = rot_idx;
@@ -772,18 +777,8 @@ namespace {
 			new_state = temp_state;
 		}
 
-		void updateCorrectness() noexcept {
-			int new_correctness = checkCorrectness(state_);
-
-			/// log changes
-			if (correctness_ != new_correctness) {
-				correctness_ = new_correctness;
-				LOG(correctness_);
-			}
-		}
-
 		int checkCorrectness(
-			CubeState& state
+			const CubeState& state
 		) noexcept {
 			int new_correctness = 0;
 			if (new_correctness == 0) {
@@ -886,6 +881,97 @@ namespace {
 				std::cout << idx << ", ";
 			}
 			std::cout << std::endl;
+		}
+
+		void searchSolution() noexcept {
+			if (correctness_ == kMaxCorrectness) {
+				LOG("It's solved!");
+				return;
+			}
+
+			LOG("starting correctness=" << correctness_);
+			//logState(state_);
+			bool found = false;
+			int correctness = 0;
+			const int kSearchDepth = 2;
+			std::vector<const StateChange *> moves;
+			int depth = 1;
+			for (; depth <= kSearchDepth; ++depth) {
+				LOG("searching depth: " << depth);
+				moves.clear();
+				for (int i = 0; i < depth; ++i) {
+					moves.push_back(g_change_table);
+				}
+				for(;;) {
+					CubeState test = state_;
+					for (int i = 0; i < depth; ++i) {
+						changeState(moves[i], test, test);
+						//logState(test);
+					}
+					correctness = checkCorrectness(test);
+					auto s = buildSymbolList(moves);
+					//LOG("=TSC= list=" << s << "correctness=" << correctness);
+					if (correctness > correctness_) {
+						found = true;
+						break;
+					}
+
+					bool try_again = false;
+					for (int i = depth-1; i >= 0; --i) {
+						auto move = moves[i];
+						++move;
+						if (move->symbol_) {
+							moves[i] = move;
+							try_again = true;
+							break;
+						}
+						moves[i] = g_change_table;
+					}
+					if (try_again == false) {
+						break;
+					}
+				}
+				if (found) {
+					break;
+				}
+			}
+			if (found) {
+                LOG("Improve from " << correctness_ << " to " << correctness << " with moves:");
+                auto s = buildSymbolList(moves);
+                LOG("  " << s);
+			} else {
+				LOG("No improvement found in " << kSearchDepth << " moves.");
+			}
+		}
+
+		std::string buildSymbolList(
+			std::vector<const StateChange *> moves
+		) noexcept {
+			std::string s;
+			int n = moves.size();
+			for (int i = 0; i < n; ++i) {
+				auto move = moves[i];
+				int symbol = move->symbol_;
+				s += (char) symbol;
+				s += ":";
+				s += std::to_string(symbol);
+				s += " ";
+			}
+			return std::move(s);
+		}
+
+		void logState(
+			const CubeState& state
+		) noexcept {
+            std::string str;
+            for (int i = 0; i < kNumCubes; ++i) {
+				auto& s = state.pieces_[i];
+				str += std::to_string(s.index_);
+				str += ":";
+				str += std::to_string(s.orient_);
+				str += " ";
+            }
+            LOG(str);
 		}
     };
 }
