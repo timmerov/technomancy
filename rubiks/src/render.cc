@@ -66,8 +66,6 @@ namespace {
 	const int kNumCubes = 26;
 	const int kNumStates = 24;
 
-	const int kMaxCorrectness = 20;
-
     const GLfloat kA = 0.50f;  /// sub-cube size
     const GLfloat kB = 0.45f;  /// sticker size
     const GLfloat kC = 0.48f;  /// bevel
@@ -505,6 +503,7 @@ namespace {
 		std::uniform_real_distribution<> ran_turn_;
 		int correctness_ = 0;
 		std::vector<SearchState> moves_;
+		int best_score_ = 0;
 
         virtual void init(
             int width,
@@ -753,6 +752,15 @@ namespace {
 						}
 					}
 				}
+				if (mix_up_ == nullptr) {
+					if (key_queue_ == nullptr) {
+						if (moves_.size()) {
+							auto head = moves_.begin();
+							key_queue_ = head->change_;
+							moves_.erase(head);
+						}
+					}
+				}
 				if (key_queue_) {
 					rotate_counter_ = kFramesPerRotation;
 					state_change_ = key_queue_;
@@ -789,14 +797,17 @@ namespace {
 			const CubeState& state
 		) noexcept {
 			int new_correctness = 0;
-			if (new_correctness == 0) {
+			best_score_ = 0;
+			if (new_correctness == best_score_) {
+				best_score_ += 1;
 				/// check if white center (10) is on the top face.
 				/// we don't care about orientation.
 				if (state.pieces_[10].index_ == 10) {
-					new_correctness += 4;
+					new_correctness += 1;
 				}
 			}
-			if (new_correctness == 4) {
+			if (new_correctness == best_score_) {
+				best_score_ += 4;
 				/// check if the top edge pieces (1 9 11 18) are in the correct place
 				/// and oriented correctly.
 				int check_list[] = {1, 9, 11, 18};
@@ -808,14 +819,16 @@ namespace {
 					}
 				}
 			}
-			if (new_correctness == 8) {
+			if (new_correctness == best_score_) {
+				best_score_ += 1;
 				/// check if blue center (4) is on the right face.
 				/// we don't care about orientation.
 				if (state.pieces_[4].index_ == 4 && state.pieces_[10].index_ == 10) {
-					new_correctness += 4;
+					new_correctness += 1;
 				}
 			}
-			if (new_correctness == 12) {
+			if (new_correctness == best_score_) {
+				best_score_ += 4;
 				/// check if the top corner pieces (0 2 17 19) are in the correct place
 				/// and oriented correctly.
 				int check_list[] = {0, 2, 17, 19};
@@ -827,7 +840,8 @@ namespace {
 					}
 				}
 			}
-			if (new_correctness == 16) {
+			if (new_correctness == best_score_) {
+				best_score_ += 4;
 				/// check if the middle edge pieces (3 5 20 22) are in the correct place
 				/// and oriented correctly.
 				int check_list[] = {3, 5, 20, 22};
@@ -838,9 +852,6 @@ namespace {
 						++new_correctness;
 					}
 				}
-			}
-			if (new_correctness == 20) {
-				// tbd
 			}
 			return new_correctness;
 		}
@@ -892,7 +903,7 @@ namespace {
 		}
 
 		void searchSolution() noexcept {
-			if (correctness_ == kMaxCorrectness) {
+			if (correctness_ == best_score_) {
 				LOG("It's solved!");
 				return;
 			}
@@ -901,7 +912,7 @@ namespace {
 			//logState(state_);
 			bool found = false;
 			int correctness = 0;
-			const int kSearchDepth = 10;
+			const int kSearchDepth = 8;
 			int depth = 1;
 			for (; depth <= kSearchDepth; ++depth) {
 				LOG("searching depth: " << depth);
@@ -958,6 +969,7 @@ namespace {
                 auto s = buildSymbolList();
                 LOG("Improve from " << correctness_ << " to " << correctness << " with moves: " << s);
 			} else {
+				moves_.clear();
 				LOG("No improvement found in " << kSearchDepth << " moves.");
 			}
 		}
