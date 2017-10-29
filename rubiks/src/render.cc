@@ -456,6 +456,12 @@ namespace {
 		PieceState pieces_[kNumCubes];
 	};
 
+	class SearchState {
+	public:
+		const StateChange *change_;
+		CubeState state_;
+	};
+
     class RenderImpl : public Render {
     public:
         RenderImpl() noexcept :
@@ -498,7 +504,7 @@ namespace {
 		std::default_random_engine ran_eng_;
 		std::uniform_real_distribution<> ran_turn_;
 		int correctness_ = 0;
-		std::vector<const StateChange *> moves_;
+		std::vector<SearchState> moves_;
 
         virtual void init(
             int width,
@@ -900,17 +906,21 @@ namespace {
 			for (; depth <= kSearchDepth; ++depth) {
 				LOG("searching depth: " << depth);
 				moves_.clear();
-				for (int i = 0; i < depth; ++i) {
-					moves_.push_back(g_change_table);
+				SearchState search;
+				search.change_ = g_change_table;
+				search.state_ = state_;
+				moves_.push_back(search);
+				for (int i = 1; i < depth; ++i) {
+					search.change_ = g_change_table;
+					changeState(search.change_, search.state_, search.state_);
+					moves_.push_back(search);
 				}
 				for(;;) {
-					CubeState test = state_;
-					for (int i = 0; i < depth; ++i) {
-						changeState(moves_[i], test, test);
-						//logState(test);
-					}
+					auto& move = moves_[depth-1];
+					CubeState test;
+					changeState(move.change_, move.state_, test);
 					correctness = checkCorrectness(test);
-					auto s = buildSymbolList();
+					//auto s = buildSymbolList();
 					//LOG("=TSC= list=" << s << "correctness=" << correctness);
 					if (correctness > correctness_) {
 						found = true;
@@ -919,14 +929,22 @@ namespace {
 
 					bool try_again = false;
 					for (int i = depth-1; i >= 0; --i) {
-						auto move = moves_[i];
-						++move;
-						if (move->symbol_) {
-							moves_[i] = move;
+						auto& move = moves_[i];
+						auto change = move.change_;
+						++change;
+						if (change->symbol_) {
 							try_again = true;
+						} else {
+							change = g_change_table;
+						}
+						move.change_ = change;
+						if (try_again) {
+							for (++i; i < depth; ++i) {
+								auto& move1 = moves_[i];
+								changeState(move.change_, move.state_, move1.state_);
+							}
 							break;
 						}
-						moves_[i] = g_change_table;
 					}
 					if (try_again == false) {
 						break;
@@ -949,7 +967,7 @@ namespace {
 			int n = moves_.size();
 			for (int i = 0; i < n; ++i) {
 				auto move = moves_[i];
-				s += move->text_;
+				s += move.change_->text_;
 				s += " ";
 			}
 			return std::move(s);
