@@ -233,7 +233,7 @@ namespace {
             auto aawd = 4 * wd;
             auto aaht = 4 * ht;
             auto temp_row = new(std::nothrow) int[3*wd];
-            memset(temp_row, 0, sizeof(int)*3*wd);
+            std::memset(temp_row, 0, sizeof(int)*3*wd);
 
             for (int y = 0; y < aaht; ++y) {
                 int rc = 0;

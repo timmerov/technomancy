@@ -688,7 +688,7 @@ namespace {
             auto src = png_flipped.data_ + (height_ - 1)*png_flipped.stride_;
             auto dst = png.data_;
             for (int i = 0; i < height_; ++i) {
-                memcpy(dst, src, png.stride_);
+                std::memcpy(dst, src, png.stride_);
                 src -= png_flipped.stride_;
                 dst += png.stride_;
             }

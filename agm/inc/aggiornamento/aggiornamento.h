@@ -26,7 +26,8 @@ disable symbols browser.
 
 // c++
 #include <cinttypes>
-#include <ostream>
+#include <cstring>
+#include <iostream>
 
 
 // sizeof returns size_t.
