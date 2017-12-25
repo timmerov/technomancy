@@ -24,6 +24,31 @@ numbers from wikipedia
 	const double kSeparationKm = 19571;
 	const double kCharonBarycenterKm = 17536;
 	const double kPeriodDays = 6.3872304;
+	const double kBigGM3pKgpS = 6.67408e-11;
+
+/**
+definitions:
+	barycenter = center of mass
+	m1,m2 = mass of objects
+	m = mass of all objects
+	r1,r2 = object to center of mass
+	r = separation of objects
+	v1,v2 = velocities of objects in non-rotating reference frame of the barycenter
+
+formulas:
+	:                       total mass: m = m1 + m2
+	:                       separation: r = r1 + r2
+	:                   center of mass: r * m = r1 * m1 + r2 * m2
+	:   gravitational potential energy:  - G * m1 * m2 / r
+	: gravitational acceleration of m1:    G * m2 / r^2
+	: gravitational acceleration of m2:    G * m1 / r^2
+	:             kinetic energy of m1:  1/2 * m1 * v1^2
+	:             kinetic energy of m2:  1/2 * m2 * v2^2
+	:   centripetal acceleration of m1:  v1^2 / r1
+	:   centripetal acceleration of m2:  v2^2 / r2
+	:                   velocity of m1:  (G * m2 / r^2 * r2)^0.5
+	:                   velocity of m2:  (G * m1 / r^2 * r1)^0.5
+**/
 
     class Pluto {
     public:
@@ -34,7 +59,7 @@ numbers from wikipedia
         void run() noexcept {
 			std::cout << "Hello, World!" << std::endl;
 
-			double pi = acos(-1.0);
+			double pi = std::acos(-1.0);
 
 			double p_volume = 4.0/3.0*pi*kPlutoRadiusKm*kPlutoRadiusKm*kPlutoRadiusKm;
 			double c_volume = 4.0/3.0*pi*kCharonRadiusKm*kCharonRadiusKm*kCharonRadiusKm;
@@ -69,6 +94,27 @@ numbers from wikipedia
 			std::cout << "Period: " << period_hours << " hours" << std::endl;
 			std::cout << "Period: " << period_minutes << " minutes" << std::endl;
 			std::cout << "Period: " << period_seconds << " seconds" << std::endl;
+
+			double m1 = kPlutoMassKg;
+			double m2 = kCharonMassKg;
+			double m = m1 + m2;
+			double r = kSeparationKm;
+			double r1 = r * m2 / m;
+			double r2 = r * m1 / m;
+			double G = kBigGM3pKgpS / 1e9; /// units
+			double g1 = G * m2 / (r * r);
+			double g2 = G * m1 / (r * r);
+			double v1 = std::sqrt(g1 * r1);
+			double v2 = std::sqrt(g2 * r2);
+			double T1 = 2 * pi * r1 / v1;
+			double T2 = 2 * pi * r2 / v2;
+
+			std::cout << "r1: " << r1 << " km" << std::endl;
+			std::cout << "r2: " << r2 << " km" << std::endl;
+			std::cout << "v1: " << v1 << " km/s" << std::endl;
+			std::cout << "v2: " << v2 << " km/s" << std::endl;
+			std::cout << "T1: " << T1 << " s" << std::endl;
+			std::cout << "T2: " << T2 << " s" << std::endl;
 
 			std::cout << "Goodbye, World!" << std::endl;
         }
