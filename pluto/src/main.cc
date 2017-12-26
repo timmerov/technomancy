@@ -26,8 +26,8 @@ typedef double fp;
 /**
 configurations
 **/
-	const int kYears = 1;
-	const int kTimeIntervals = 10*1000*1000;
+	const int kYears = 100;
+	const int kTimeIntervals = 100*1000;
 
 /**
 numbers from wikipedia
@@ -200,9 +200,39 @@ update formulas:
 
 			for (int k = 0; k < kYears; ++k) {
 				for (int i = 0; i < kTimeIntervals; ++i) {
-					update_object(pluto_, dt);
-					update_object(charon_, dt);
-					update_gravity();
+					/**
+					move the objects forwards one time interval.
+					**/
+					Object p1, c1;
+					update_object(pluto_, p1, dt);
+					update_object(charon_, c1, dt);
+					update_gravity(p1, c1);
+
+
+					/**
+					move the objects backwards one time interval.
+					**/
+					Object p0, c0;
+					update_object(p1, p0, - dt);
+					update_object(c1, c0, - dt);
+
+					/**
+					the difference should be zero.
+					but it's not quite.
+					so split the difference.
+					**/
+					p1.pos_.x_ += 0.5*(pluto_.pos_.x_ - p0.pos_.x_);
+					p1.pos_.y_ += 0.5*(pluto_.pos_.y_ - p0.pos_.y_);
+					p1.vel_.x_ += 0.5*(pluto_.vel_.x_ - p0.vel_.x_);
+					p1.vel_.y_ += 0.5*(pluto_.vel_.y_ - p0.vel_.y_);
+					c1.pos_.x_ += 0.5*(charon_.pos_.x_ - c0.pos_.x_);
+					c1.pos_.y_ += 0.5*(charon_.pos_.y_ - c0.pos_.y_);
+					c1.vel_.x_ += 0.5*(charon_.vel_.x_ - c0.vel_.x_);
+					c1.vel_.y_ += 0.5*(charon_.vel_.y_ - c0.vel_.y_);
+					update_gravity(p1, c1);
+
+					pluto_ = p1;
+					charon_ = c1;
 				}
 
 				print_objects();
@@ -249,30 +279,36 @@ update formulas:
         }
 
         void update_object(
-			Object& obj,
+			const Object& obj0,
+			Object& obj1,
 			fp dt
 		) noexcept {
-			fp dvx = obj.acc_.x_*dt;
-			fp dvy = obj.acc_.y_*dt;
-            obj.pos_.x_ += (obj.vel_.x_ + 0.5*dvx) * dt;
-            obj.pos_.y_ += (obj.vel_.y_ + 0.5*dvy) * dt;
-            obj.vel_.x_ += dvx;
-            obj.vel_.y_ += dvy;
+			fp dvx = obj0.acc_.x_*dt;
+			fp dvy = obj0.acc_.y_*dt;
+            obj1.pos_.x_ = obj0.pos_.x_ + (obj0.vel_.x_ + 0.5*dvx) * dt;
+            obj1.pos_.y_ = obj0.pos_.y_ + (obj0.vel_.y_ + 0.5*dvy) * dt;
+            obj1.vel_.x_ = obj0.vel_.x_ + dvx;
+            obj1.vel_.y_ = obj0.vel_.y_ + dvy;
+            obj1.acc_ = obj0.acc_;
+            obj1.gm_ = obj0.gm_;
 		}
 
-		void update_gravity() noexcept {
-            fp dx = pluto_.pos_.x_ - charon_.pos_.x_;
-            fp dy = pluto_.pos_.y_ - charon_.pos_.y_;
+		void update_gravity(
+			Object& a,
+			Object& b
+		) noexcept {
+            fp dx = a.pos_.x_ - b.pos_.x_;
+            fp dy = a.pos_.y_ - b.pos_.y_;
             fp r2 = dx*dx + dy*dy;
 			fp r = std::sqrt(r2);
-            fp g1 = pluto_.gm_ / r2;
-            fp g2 = charon_.gm_ / r2;
+            fp g1 = a.gm_ / r2;
+            fp g2 = b.gm_ / r2;
             fp dxr = dx / r;
             fp dyr = dy / r;
-            pluto_.acc_.x_ = - g1 * dxr;
-            pluto_.acc_.y_ = - g1 * dyr;
-            charon_.acc_.x_ = g2 * dxr;
-            charon_.acc_.y_ = g2 * dyr;
+            a.acc_.x_ = - g1 * dxr;
+            a.acc_.y_ = - g1 * dyr;
+            b.acc_.x_ = g2 * dxr;
+            b.acc_.y_ = g2 * dyr;
 		}
     };
 }
