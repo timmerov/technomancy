@@ -208,31 +208,23 @@ update formulas:
 					update_object(charon_, c1, dt);
 					update_gravity(p1, c1);
 
-
 					/**
-					move the objects backwards one time interval.
+					the general idea:
+						move the objects backwards one time interval.
+						the difference should be zero.
+						but it's not quite.
+						so split the difference.
+					simplifying the above math boils down to using the
+					average acceleration of the two points.
+					we could iterate until the position doesn't change ...
 					**/
-					Object p0, c0;
-					update_object(p1, p0, - dt);
-					update_object(c1, c0, - dt);
-
-					/**
-					the difference should be zero.
-					but it's not quite.
-					so split the difference.
-					**/
-					p1.pos_.x_ += 0.5*(pluto_.pos_.x_ - p0.pos_.x_);
-					p1.pos_.y_ += 0.5*(pluto_.pos_.y_ - p0.pos_.y_);
-					p1.vel_.x_ += 0.5*(pluto_.vel_.x_ - p0.vel_.x_);
-					p1.vel_.y_ += 0.5*(pluto_.vel_.y_ - p0.vel_.y_);
-					c1.pos_.x_ += 0.5*(charon_.pos_.x_ - c0.pos_.x_);
-					c1.pos_.y_ += 0.5*(charon_.pos_.y_ - c0.pos_.y_);
-					c1.vel_.x_ += 0.5*(charon_.vel_.x_ - c0.vel_.x_);
-					c1.vel_.y_ += 0.5*(charon_.vel_.y_ - c0.vel_.y_);
-					update_gravity(p1, c1);
-
-					pluto_ = p1;
-					charon_ = c1;
+					pluto_.acc_.x_ = 0.5*(pluto_.acc_.x_ + p1.acc_.x_);
+					pluto_.acc_.y_ = 0.5*(pluto_.acc_.y_ + p1.acc_.y_);
+					charon_.acc_.x_ = 0.5*(charon_.acc_.x_ + c1.acc_.x_);
+					charon_.acc_.y_ = 0.5*(charon_.acc_.y_ + c1.acc_.y_);
+					update_object(pluto_, pluto_, dt);
+					update_object(charon_, charon_, dt);
+					update_gravity(pluto_, charon_);
 				}
 
 				print_objects();
