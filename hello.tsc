@@ -19,6 +19,16 @@ ms Message(1,2);
 m = msg;
 m = (3,4);
 
+/*
+untyped data
+*/
+ms Message;
+ms = (1,2);
+// syntactic sugar
+msg Message(1,2);
+msg Message = (1,2);
+msg = Message(1,2);
+
 /**
 curly brackets are code.
 declarations outside of class definition.
@@ -33,7 +43,8 @@ Message.diff {
 }
 
 /**
-pointers
+pointers use prefix ^ for address operator
+and postfix for dereference operator.
 **/
 // msg is a pointer to a Message
 msg^ Message;
@@ -72,7 +83,7 @@ Passage:T(
     x T = 0;
     y T = 0;
 );
-Passage.offset:T(a T, b T) {
+Passage:T.offset(a T, b T) {
     x += a;
     y += b;
 }
@@ -80,8 +91,9 @@ Passage.offset:T(a T, b T) {
 /**
 type definitions
 **/
-type MessagePtr^ Message;
-type Msg MessagePtr^;
+typedef MessagePtr^ Message;
+typedef MessagePtr ^Message;
+typedef Msg MessagePtr^;
 
 /**
 type qualifiers
@@ -102,7 +114,7 @@ s = "hello" comma_space "world!" cr
 /**
 automatic type conversion
 **/
-x int 10;
+x int = 10;
 s string = x;
 
 /**
@@ -149,7 +161,7 @@ Message(
 include "message.h"
 Message+=(
     // private fields
-    y int = 0;
+    w int = 0;
     z int = 0;
 );
 // consumer file
@@ -171,7 +183,7 @@ foo(x int) {
     }
     return y;
 }
-bar (x int) {
+bar(x int) {
     y int;
     switch x {
         y = 99
@@ -185,25 +197,84 @@ bar (x int) {
 }
 
 /**
+for loops
+**/
+foo(x int) {
+    i = 0;
+    while i<x {
+        ++i;
+        continue;
+    }
+}
+bar(x int) {
+    for i=0; i<x; ++i {
+        break;
+    }
+}
+ney(x int) {
+    for i=0; i<x; ++i {
+        for k=0; k<x; ++k {
+            break 2;
+        }
+    }
+}
+
+/**
+goto (do not use)
+**/
+for(x int) {
+    if x=3 {
+        goto done;
+    }
+    std.out.print("Hello, World!\n");
+done:
+    std.out.print("Goodbye, World!\n");
+}
+
+/**
 exceptions are nigh invisible
 **/
 foo {
-    err try;
-    x = first;
+    /*
+    if first() throws an exception...
+    x,y,z,w are a initialized to default values based on type.
+    usually some form of 0.
+    */
+    x = first();
     y = second(x);
     z = third(x,y);
     w = fourth(x,y,z);
-    if err {
-        std.err err;
-        throw;
+    if std.exception {
+        std.err.print(std.exception);
+        if w {
+            std.exception.throw();
+        } else {
+            std.exception.clear();
+        }
     }
 }
 first {
     if pi==3 {
-        throw "pi=" pi;
+        std.exception.throw("pi=" pi);
     }
     return pi;
 }
 // possible output to std error:
 srcfile:203:first: pi=3
 srcfile:192:foo:
+
+/**
+# operator syntactic sugar
+**/
+x = 42;
+std.out.print(#x);
+std.out.print(x.log());
+// prints:
+x=42
+Message.log {
+    return string();
+}
+msg Message(1,2);
+std.out.print(#msg);
+// prints:
+msg={x=1, y=2}
