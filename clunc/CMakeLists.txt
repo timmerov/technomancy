@@ -17,27 +17,27 @@ file(GLOB_RECURSE THIS_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc)
 file(GLOB_RECURSE THIS_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
 
 # gather the bison and flex files.
-#set(THIS_PARSERS
-#    src/pb2cc.y
-#    src/pb2cc.l
-#)
+set(THIS_PARSERS
+    src/clunc.y
+    src/clunc.l
+)
 
 # gather the bison and flex files.
-#bison_target(PB2CC_PARSER
-#    ${CMAKE_CURRENT_SOURCE_DIR}/src/pb2cc.y
-#    ${CMAKE_CURRENT_BINARY_DIR}/pb2cc.tab.c)
-#flex_target(PB2CC_LEXER
-#    ${CMAKE_CURRENT_SOURCE_DIR}/src/pb2cc.l
-#    ${CMAKE_CURRENT_BINARY_DIR}/pb2cc.flex.c)
-#add_flex_bison_dependency(PB2CC_LEXER PB2CC_PARSER)
+bison_target(PB2CC_PARSER
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/clunc.y
+    ${CMAKE_CURRENT_BINARY_DIR}/clunc.tab.c)
+flex_target(PB2CC_LEXER
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/clunc.l
+    ${CMAKE_CURRENT_BINARY_DIR}/clunc.flex.c)
+add_flex_bison_dependency(PB2CC_LEXER PB2CC_PARSER)
 
 # add the executable with source and includes in separate groups
 add_executable(${THIS_TARGET_NAME}
 	${THIS_SOURCE}
 	${THIS_HEADERS}
-#    ${BISON_PB2CC_PARSER_OUTPUTS}
-#    ${FLEX_PB2CC_LEXER_OUTPUTS}
-#    ${THIS_PARSERS}
+    ${BISON_PB2CC_PARSER_OUTPUTS}
+    ${FLEX_PB2CC_LEXER_OUTPUTS}
+    ${THIS_PARSERS}
 )
 
 # add _d to the debug target name
@@ -49,8 +49,9 @@ target_compile_definitions(${THIS_TARGET_NAME} PRIVATE AGM_TARGET=${THIS_TARGET_
 # add the include directories
 set(INCS
     ${CMAKE_SOURCE_DIR}/agm/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-include_directories(${INCS})
+target_include_directories(${THIS_TARGET_NAME} PUBLIC ${INCS})
 
 # add the libraries
 set(LIBS
