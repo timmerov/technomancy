@@ -16,11 +16,9 @@ clunc_node *clunc_alloc(
 	clunc_node *cn = (clunc_node *) calloc(1, sizeof(clunc_node));
 	cn->next = nullptr;
 	cn->what = what;
-	cn->type1 = nullptr;  /// type, vector, map
-	cn->type2 = nullptr;  /// map
-	cn->name = nullptr;   /// include, namespace, class, enum, type, vector, map, union
-	cn->value = nullptr;  /// enum
-	cn->list = nullptr;   /// class, enum, union
+	cn->child1 = nullptr;
+	cn->token1 = nullptr;
+	cn->token2 = nullptr;
 	return cn;
 }
 
@@ -31,13 +29,9 @@ void clunc_free(
 	if (cn == nullptr) {
 		return;
 	}
-
-	clunc_free(cn->next);
-	free((void *) cn->type1);
-	free((void *) cn->type2);
-	free((void *) cn->name);
-	free((void *) cn->value);
-	clunc_free(cn->list);
+	clunc_free(cn->child1);
+	free((void *) cn->token1);
+	free((void *) cn->token2);
 	free(cn);
 }
 

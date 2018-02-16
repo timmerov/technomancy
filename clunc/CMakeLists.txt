@@ -16,6 +16,9 @@ file(GLOB_RECURSE THIS_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc)
 # gather the header files.
 file(GLOB_RECURSE THIS_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
 
+# gather data files
+file(GLOB_RECURSE THIS_DATA ${CMAKE_CURRENT_SOURCE_DIR}/data/*)
+
 # gather the bison and flex files.
 set(THIS_PARSERS
     src/clunc.y
@@ -35,9 +38,10 @@ add_flex_bison_dependency(PB2CC_LEXER PB2CC_PARSER)
 add_executable(${THIS_TARGET_NAME}
 	${THIS_SOURCE}
 	${THIS_HEADERS}
+	${THIS_DATA}
+    ${THIS_PARSERS}
     ${BISON_PB2CC_PARSER_OUTPUTS}
     ${FLEX_PB2CC_LEXER_OUTPUTS}
-    ${THIS_PARSERS}
 )
 
 # add _d to the debug target name

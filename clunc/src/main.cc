@@ -1,14 +1,44 @@
 /*
-Copyright (C) 2012-2017 tim cotter. All rights reserved.
+Copyright (C) 2018 tim cotter. All rights reserved.
 */
 
 /**
-hello world example.
 **/
+
+#include "clunc.h"
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
 
+namespace {
+static const char kTestString[] = R"(
+main int { }
+foo string { }
+)";
+
+	std::string cluncToString(
+		clunc_node *cn
+	) noexcept {
+		std::string s;
+        if (cn == nullptr) {
+			return s;
+		}
+		switch (cn->what) {
+		case kCluncFunction:
+			s += "[Fn]:\n";
+			s += cluncToString(cn->child1);
+			s += " {\n";
+			s += "}\n";
+			break;
+		case kCluncDeclaration:
+			s += cn->token1;
+			s += " ";
+			s += cn->token2;
+			break;
+		}
+		return s;
+	}
+}
 
 int main(
     int argc, char *argv[]
@@ -19,6 +49,17 @@ int main(
     agm::log::init(AGM_TARGET_NAME ".log");
 
     LOG("Hello, World!");
+    LOG(kTestString);
+
+    auto cn = clunc_load_string(kTestString);
+
+	for (auto it = cn; it; it = it->next) {
+		auto str = cluncToString(it);
+		LOG(str);
+	}
+
+	clunc_free(cn);
+
     LOG("Goodbye, World!");
 
     return 0;

@@ -15,15 +15,8 @@ extern "C" {
 #endif // __cplusplus
 
 enum {
-	kCluncInclude,
-	kCluncNamespace,
-	kCluncClass,
-	kCluncEnum,
-	kCluncType,
-	kCluncVector,
-	kCluncMap,
-	kCluncUnion,
-	kCluncValue,
+	kCluncFunction,
+	kCluncDeclaration,
 };
 
 struct clunc_node;
@@ -31,11 +24,9 @@ typedef struct clunc_node clunc_node;
 struct clunc_node {
 	clunc_node *next;
 	int what;
-	const char *type1;  /// type, vector, map
-	const char *type2;  /// map
-	const char *name;   /// include, namespace, class, enum, type, vector, map, union, value
-	const char *value;  /// value
-	clunc_node *list;   /// class, enum, union
+	clunc_node *child1;
+	const char *token1;
+	const char *token2;
 };
 
 /** public api **/

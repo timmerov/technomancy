@@ -27,14 +27,8 @@ static char *unescape(char *s);
 [ \t\r\n]+              TSC_PRINT(stdout, "flex whitespace '%s'\n", yytext);  /* nothing */
 
     /* keywords */
-"syntax"                TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return SYNTAX;
-"import"                TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return IMPORT;
-"package"               TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return PACKAGE;
-"message"               TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return MESSAGE;
-"enum"                  TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return ENUM;
-"repeated"              TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return REPEATED;
-"oneof"                 TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return ONEOF;
-"map"                   TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return MAP;
+"int"                   TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return KEY_INT;
+"string"                TSC_PRINT(stdout, "flex keyword '%s'\n", yytext);  return KEY_STRING;
 
 	/* number */
 [0-9]+                  TSC_PRINT(stdout, "flex number '%s'\n", yytext);   yylval.s = strdup(yytext);    return NUMBER;
@@ -47,7 +41,7 @@ static char *unescape(char *s);
 [']([^']|(\\.))*[']     TSC_PRINT(stdout, "flex string '%s'\n", yytext);   yylval.s = unescape(yytext);  return STRING;
 
     /* symbols */
-[;{}=<>,.]              TSC_PRINT(stdout, "flex symbol '%s'\n", yytext);                                 return yytext[0];
+[{}=]                   TSC_PRINT(stdout, "flex symbol '%s'\n", yytext);                                 return yytext[0];
 
 %%
 
