@@ -8,7 +8,7 @@ lexical analyzer for clunc.
 %{
 #include "clunc.h"
 
-//#define TSC_PRINT fprintf
+#define TSC_PRINT fprintf
 #if !defined(TSC_PRINT)
 #define TSC_PRINT(...)
 #endif
@@ -41,7 +41,7 @@ static char *unescape(char *s);
 [']([^']|(\\.))*[']     TSC_PRINT(stdout, "flex string '%s'\n", yytext);   yylval.s = unescape(yytext);  return STRING;
 
     /* symbols */
-[{}=]                   TSC_PRINT(stdout, "flex symbol '%s'\n", yytext);                                 return yytext[0];
+[{}=;]                  TSC_PRINT(stdout, "flex symbol '%s'\n", yytext);                                 return yytext[0];
 
 %%
 

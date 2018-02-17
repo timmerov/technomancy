@@ -17,6 +17,7 @@ extern "C" {
 enum {
 	kCluncFunction,
 	kCluncDeclaration,
+	kCluncStatement,
 };
 
 struct clunc_node;
@@ -25,6 +26,7 @@ struct clunc_node {
 	clunc_node *next;
 	int what;
 	clunc_node *child1;
+	clunc_node *child2;
 	const char *token1;
 	const char *token2;
 };

@@ -12,8 +12,17 @@ Copyright (C) 2018 tim cotter. All rights reserved.
 
 namespace {
 static const char kTestString[] = R"(
-main int { }
-foo string { }
+///////////////////////////////
+/**
+clunc test sequences
+**/
+main int {
+	x int = 1;
+	s string = "hello";
+	y int = x;
+}
+// end of file comment
+///////////////////////////////
 )";
 
 	std::string cluncToString(
@@ -28,12 +37,23 @@ foo string { }
 			s += "[Fn]:\n";
 			s += cluncToString(cn->child1);
 			s += " {\n";
+			for (auto it = cn->child2; it; it = it->next) {
+				s += cluncToString(it);
+			}
 			s += "}\n";
 			break;
 		case kCluncDeclaration:
 			s += cn->token1;
 			s += " ";
 			s += cn->token2;
+			break;
+		case kCluncStatement:
+			s += "\t";
+			s += cluncToString(cn->child1);
+			s += " = ";
+			s += cn->token1;
+			s += ";\n";
+			LOG(s);
 			break;
 		}
 		return s;
@@ -48,7 +68,6 @@ int main(
 
     agm::log::init(AGM_TARGET_NAME ".log");
 
-    LOG("Hello, World!");
     LOG(kTestString);
 
     auto cn = clunc_load_string(kTestString);
@@ -59,8 +78,6 @@ int main(
 	}
 
 	clunc_free(cn);
-
-    LOG("Goodbye, World!");
 
     return 0;
 }

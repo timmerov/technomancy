@@ -17,6 +17,7 @@ clunc_node *clunc_alloc(
 	cn->next = nullptr;
 	cn->what = what;
 	cn->child1 = nullptr;
+	cn->child2 = nullptr;
 	cn->token1 = nullptr;
 	cn->token2 = nullptr;
 	return cn;
@@ -30,6 +31,7 @@ void clunc_free(
 		return;
 	}
 	clunc_free(cn->child1);
+	clunc_free(cn->child2);
 	free((void *) cn->token1);
 	free((void *) cn->token2);
 	free(cn);
