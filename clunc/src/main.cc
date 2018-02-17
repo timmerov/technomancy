@@ -16,6 +16,7 @@ static const char kTestString[] = R"(
 /**
 clunc test sequences
 **/
+imanerror
 main int {
 	x int = 1;
 	s string = "hello";
@@ -53,7 +54,6 @@ main int {
 			s += " = ";
 			s += cn->token1;
 			s += ";\n";
-			LOG(s);
 			break;
 		}
 		return s;

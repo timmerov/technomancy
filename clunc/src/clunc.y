@@ -13,7 +13,7 @@ grammar for clunc.
 #include <stdlib.h>
 #include <string.h>
 
-#define TSC_PRINT fprintf
+//#define TSC_PRINT fprintf
 #if !defined(TSC_PRINT)
 #define TSC_PRINT(...)
 #endif
@@ -125,11 +125,23 @@ expression :
 
 %%
 
-static void clunc_yyerror(clunc_node **pb, const char *s) {
-	fprintf(stderr, "clunc:error: %s\n", s);
+extern int g_start_line;
+extern int g_start_column;
+extern int g_end_line;
+extern int g_end_column;
+extern char *g_last_token;
+
+static void clunc_yyerror(
+	clunc_node **cn,
+	const char *s
+) {
+	fprintf(stderr, "clunc:error:%d:%d:%d:%d %s near %s\n",
+		g_start_line, g_start_column, g_end_line, g_end_column, s, g_last_token);
 }
 
-clunc_node *clunc_load_string(const char *str) {
+clunc_node *clunc_load_string(
+	const char *str
+) {
     //yydebug = 1;
     clunc_node *cn = 0;
     clunc_scan_string(str);
