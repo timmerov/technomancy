@@ -28,7 +28,7 @@ void track(char *cmt, char *s);
 {REX_SL_ST_CMT}     track("/*comment*/", yytext); /* nothing */
 
     /* white space */
-{REX_WHITE}         track("whitespace", yytext); /* nothing */
+{REX_WHITE}         track(NULL, yytext); /* nothing */
 
     /* keywords */
 "int"               track("keyword:int",    yytext); return KEY_INT;
@@ -184,7 +184,7 @@ void track(
         }
 	}
 
-	if (1) {
+	if (1 && cmt) {
 		char *t;
 		t = translate_string(sin);
 		fprintf(stderr, "flex start=%d:%d end=%d:%d: %s: %s\n",

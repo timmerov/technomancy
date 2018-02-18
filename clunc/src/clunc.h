@@ -15,33 +15,24 @@ extern "C" {
 #endif // __cplusplus
 
 enum {
-	kCluncFunction,
-	kCluncDeclaration,
-	kCluncStatement,
+	kCluncUndefined,
+	kCluncClassDeclaration,
 };
 
 struct clunc_node;
 typedef struct clunc_node clunc_node;
-struct clunc_node {
-	clunc_node *next;
-	int what;
-	clunc_node *child1;
-	clunc_node *child2;
-	const char *token1;
-	const char *token2;
-};
 
 /** public api **/
-clunc_node *clunc_load_file(const char *filename);
 clunc_node *clunc_load_string(const char *str);
-void clunc_free(clunc_node *clunc);
 
 /** api for bison and flex **/
 int clunc_yylex(void);
 void clunc_scan_string(const char *s);
 
-/** internal api **/
-clunc_node *clunc_alloc(int what);
+/** grammar api **/
+void start(clunc_node **proot, clunc_node *cn);
+clunc_node *translation_units(clunc_node *head, clunc_node *tail);
+clunc_node *class_declaration(const char *id, clunc_node *fields);
 
 #ifdef __cplusplus
 } /* extern C */
@@ -49,18 +40,18 @@ clunc_node *clunc_alloc(int what);
 
 #ifdef __cplusplus
 /** public api **/
-class Clunc {
-public:
-	Clunc() = default;
-	Clunc(const Clunc&) = delete;
-	~Clunc() = default;
+clunc_node *clunc_load_file(const char *filename) noexcept;
+void clunc_print(clunc_node *cn) noexcept;
 
-	std::string proto_fname_;
-	std::string inc_fname_;
-	std::string header_fname_;
-	std::string source_fname_;
-	std::string custom_fname_;
+struct clunc_node {
+	clunc_node(int what) noexcept;
+	~clunc_node() noexcept;
 
-	int convert_proto_to_hh_cc() noexcept;
+	clunc_node *next_ = nullptr;
+	int what_ = kCluncUndefined;
+	clunc_node *child1_ = nullptr;
+	const char *token1_ = nullptr;
+
+	void print() noexcept;
 };
 #endif

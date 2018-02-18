@@ -4,7 +4,7 @@ grammar for clunc.
 
 %defines
 %define api.prefix {clunc_yy}
-%parse-param { clunc_node **pcn }
+%parse-param { clunc_node **proot }
 %debug
 
 %{
@@ -27,31 +27,37 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 	clunc_node *cn;
 }
 
-%token <s> KEY_INT
-%token <s> KEY_STRING
+%token<s> KEY_INT
+%token<s> KEY_STRING
 
-%token <s> NUMBER
-%token <s> STRING
-%token <s> TOKEN
+%token<s> NUMBER
+%token<s> STRING
+%token<s> TOKEN
+
+%type <cn> translation_units
+%type <cn> translation_unit
+%type <cn> class_declaration
+
+%type <s> identifier
 
 %%
 
 start
-	: translation_units
+	: translation_units { start(proot, $1); }
 	;
 
 translation_units
-	: translation_unit translation_units
-	| { }
+	: translation_unit translation_units { $$ = translation_units($1, $2); }
+	| { $$ = NULL; }
 	;
 
 translation_unit
-	: class_declaration
-	| function_declaration
+	: class_declaration { $$ = $1; }
+	| function_declaration { $$ = NULL; }
 	;
 
 class_declaration
-	: identifier '(' field_declarations ')'
+	: identifier '(' field_declarations ')' { $$ = class_declaration($1, NULL); }
 	;
 
 field_declarations
@@ -221,9 +227,9 @@ static void clunc_yyerror(
 clunc_node *clunc_load_string(
 	const char *str
 ) {
-    //yydebug = 1;
-    clunc_node *cn = 0;
-    clunc_scan_string(str);
-    clunc_yyparse(&cn);
-    return cn;
+	//yydebug = 1;
+	clunc_node *cn = 0;
+	clunc_scan_string(str);
+	clunc_yyparse(&cn);
+	return cn;
 }

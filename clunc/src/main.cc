@@ -30,39 +30,6 @@ main int {
 // end of file comment
 ///////////////////////////////
 )";
-
-	std::string cluncToString(
-		clunc_node *cn
-	) noexcept {
-		std::string s;
-        if (cn == nullptr) {
-			return s;
-		}
-		switch (cn->what) {
-		case kCluncFunction:
-			s += "[Fn]:\n";
-			s += cluncToString(cn->child1);
-			s += " {\n";
-			for (auto it = cn->child2; it; it = it->next) {
-				s += cluncToString(it);
-			}
-			s += "}\n";
-			break;
-		case kCluncDeclaration:
-			s += cn->token1;
-			s += " ";
-			s += cn->token2;
-			break;
-		case kCluncStatement:
-			s += "\t";
-			s += cluncToString(cn->child1);
-			s += " = ";
-			s += cn->token1;
-			s += ";\n";
-			break;
-		}
-		return s;
-	}
 }
 
 int main(
@@ -77,12 +44,12 @@ int main(
 
     auto cn = clunc_load_string(kTestString);
 
-	for (auto it = cn; it; it = it->next) {
-		auto str = cluncToString(it);
-		LOG(str);
-	}
+	LOG("output:");
+	std::cout << "/***********************/" << std::endl;
+	clunc_print(cn);
+	std::cout << "/***********************/" << std::endl;
 
-	clunc_free(cn);
+	delete cn;
 
     return 0;
 }
