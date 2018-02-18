@@ -49,7 +49,7 @@ int main(
 	clunc_print(cn);
 	std::cout << "/***********************/" << std::endl;
 
-	delete cn;
+	//delete cn;
 
     return 0;
 }

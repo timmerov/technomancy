@@ -60,6 +60,7 @@ clunc_node::~clunc_node() noexcept {
 	delete next_;
 	delete child1_;
 	free((void *) token1_);
+	free((void *) token2_);
 }
 
 void clunc_node::print() noexcept {
@@ -68,7 +69,33 @@ void clunc_node::print() noexcept {
 		break;
 	case kCluncClassDeclaration:
 		std::cout << "class " << token1_ << " {" << std::endl;
+		clunc_print(child1_);
 		std::cout << "};" << std::endl;
+		break;
+	case kCluncFieldDeclaration:
+		std::cout << "    ";
+		child1_->print();
+		std::cout << " " << token1_;
+		if (token2_) {
+			std::cout << " = ";
+			if (child1_->what_ == kCluncStandardTypeSpecifier
+			&& child1_->value1_ == kCluncKeywordString) {
+				std::cout << "\"" << token2_ << "\"";
+			} else {
+				std::cout << token2_;
+			}
+		}
+		std::cout << ";" << std::endl;
+		break;
+	case kCluncStandardTypeSpecifier:
+		switch (value1_) {
+		case kCluncKeywordInt:
+			std::cout << "int";
+			break;
+		case kCluncKeywordString:
+			std::cout << "std::string";
+			break;
+		}
 		break;
 	}
 }
@@ -83,7 +110,7 @@ void start(
 }
 
 extern "C"
-clunc_node *translation_units(
+clunc_node *build_list(
 	clunc_node *head,
 	clunc_node *tail
 ) {
@@ -105,5 +132,29 @@ clunc_node *class_declaration(
 	auto cn = new(std::nothrow) clunc_node(kCluncClassDeclaration);
     cn->token1_ = id;
     cn->child1_ = fields;
+	return cn;
+}
+
+extern "C"
+clunc_node *field_declaration(
+	const char *id,
+	clunc_node *type,
+	const char *value
+) {
+	//LOG(id);
+	auto cn = new(std::nothrow) clunc_node(kCluncFieldDeclaration);
+    cn->token1_ = id;
+    cn->child1_ = type;
+    cn->token2_ = value;
+	return cn;
+}
+
+extern "C"
+clunc_node *standard_type_specifier(
+	int type
+) {
+	//LOG(id);
+	auto cn = new(std::nothrow) clunc_node(kCluncStandardTypeSpecifier);
+	cn->value1_ = type;
 	return cn;
 }

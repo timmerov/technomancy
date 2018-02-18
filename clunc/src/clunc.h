@@ -16,7 +16,13 @@ extern "C" {
 
 enum {
 	kCluncUndefined,
+
 	kCluncClassDeclaration,
+	kCluncFieldDeclaration,
+	kCluncStandardTypeSpecifier,
+
+	kCluncKeywordInt,
+	kCluncKeywordString,
 };
 
 struct clunc_node;
@@ -31,8 +37,10 @@ void clunc_scan_string(const char *s);
 
 /** grammar api **/
 void start(clunc_node **proot, clunc_node *cn);
-clunc_node *translation_units(clunc_node *head, clunc_node *tail);
+clunc_node *build_list(clunc_node *head, clunc_node *tail);
 clunc_node *class_declaration(const char *id, clunc_node *fields);
+clunc_node *field_declaration(const char *id, clunc_node *type, const char *value);
+clunc_node *standard_type_specifier(int);
 
 #ifdef __cplusplus
 } /* extern C */
@@ -51,6 +59,8 @@ struct clunc_node {
 	int what_ = kCluncUndefined;
 	clunc_node *child1_ = nullptr;
 	const char *token1_ = nullptr;
+	const char *token2_ = nullptr;
+	int value1_ = 0;
 
 	void print() noexcept;
 };

@@ -31,8 +31,8 @@ void track(char *cmt, char *s);
 {REX_WHITE}         track(NULL, yytext); /* nothing */
 
     /* keywords */
-"int"               track("keyword:int",    yytext); return KEY_INT;
-"string"            track("keyword:string", yytext); return KEY_STRING;
+"int"               track("keyword:int",    yytext); yylval.i = kCluncKeywordInt;     return KEY_INT;
+"string"            track("keyword:string", yytext); yylval.i = kCluncKeywordString;  return KEY_STRING;
 
 	/* numbers tokens strings */
 {REX_INTEGER}       track("integer", yytext); yylval.s = strdup(yytext);   return NUMBER;
@@ -40,7 +40,7 @@ void track(char *cmt, char *s);
 {REX_STRING}        track("string",  yytext); yylval.s = unescape(yytext); return STRING;
 
     /* symbols */
-{REX_SYMBOLS}       track("symbol",  yytext); return yytext[0];
+{REX_SYMBOLS}       track("symbol",  yytext); yylval.i = yytext[0];  return yytext[0];
 
 %%
 

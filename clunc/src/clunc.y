@@ -23,12 +23,13 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %}
 
 %union {
+	int i;
 	const char *s;
 	clunc_node *cn;
 }
 
-%token<s> KEY_INT
-%token<s> KEY_STRING
+%token<i> KEY_INT
+%token<i> KEY_STRING
 
 %token<s> NUMBER
 %token<s> STRING
@@ -37,8 +38,13 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %type <cn> translation_units
 %type <cn> translation_unit
 %type <cn> class_declaration
+%type <cn> field_declarations
+%type <cn> field_declaration
+%type <cn> type_specifier
 
 %type <s> identifier
+%type <i> standard_type_specifier
+%type <s> const_expression
 
 %%
 
@@ -47,7 +53,7 @@ start
 	;
 
 translation_units
-	: translation_unit translation_units { $$ = translation_units($1, $2); }
+	: translation_unit translation_units { $$ = build_list($1, $2); }
 	| { $$ = NULL; }
 	;
 
@@ -57,17 +63,21 @@ translation_unit
 	;
 
 class_declaration
-	: identifier '(' field_declarations ')' { $$ = class_declaration($1, NULL); }
+	: identifier '(' field_declarations ')' { $$ = class_declaration($1, $3); }
 	;
 
 field_declarations
-	: field_declaration field_declarations
-	| { }
+	: field_declaration field_declarations { $$ = build_list($1, $2); }
+	| { $$ = NULL; }
 	;
 
 field_declaration
-	: identifier type_specifier '=' const_expression ';'
-	| identifier type_specifier ';'
+	: identifier type_specifier '=' const_expression ';' { $$ = field_declaration($1, $2, $4); }
+	| identifier type_specifier ';' { $$ = field_declaration($1, $2, NULL); }
+	;
+
+type_specifier
+	: standard_type_specifier { $$ = standard_type_specifier($1); }
 	;
 
 function_declaration
@@ -101,7 +111,7 @@ identifier
 	: TOKEN
 	;
 
-type_specifier
+standard_type_specifier
 	: KEY_INT
 	| KEY_STRING
 	;
