@@ -41,10 +41,15 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %type <cn> field_declarations
 %type <cn> field_declaration
 %type <cn> type_specifier
-%type <cn> const_expression
-
+%type <cn> function_declaration
+%type <cn> statements
+%type <cn> statement
+%type <cn> assignment
+%type <i> assignment_op
+%type <cn> expression
 %type <s> identifier
 %type <i> standard_type_specifier
+%type <cn> const_expression
 
 %%
 
@@ -59,7 +64,7 @@ translation_units
 
 translation_unit
 	: class_declaration { $$ = $1; }
-	| function_declaration { $$ = NULL; }
+	| function_declaration { $$ = $1; }
 	;
 
 class_declaration
@@ -81,12 +86,12 @@ type_specifier
 	;
 
 function_declaration
-	: identifier type_specifier '{' statements '}'
+	: identifier type_specifier '{' statements '}' { $$ = function_declaration($1, $2, $4); }
 	;
 
 statements
-	: statement statements
-	| { }
+	: statement statements { $$ = build_list($1, $2); }
+	| { $$ = NULL; }
 	;
 
 statement
@@ -94,16 +99,16 @@ statement
 	;
 
 assignment
-	: identifier type_specifier ';'
-	| identifier type_specifier assignment_op expression ';'
-	| identifier assignment_op expression ';'
+	: identifier type_specifier ';' { $$ = assignment($1, $2, 0, NULL); }
+	| identifier type_specifier assignment_op expression ';' { $$ = assignment($1, $2, $3, $4); }
+	| identifier assignment_op expression ';' { $$ = assignment($1, NULL, $2, $3); }
 	;
 
 assignment_op
-	: '='
+	: '=' { $$ = kCluncBinaryOpEquals; }
 	;
 
-expression /*tbd*/
+expression
 	: const_expression
 	;
 

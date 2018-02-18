@@ -123,6 +123,38 @@ std::string clunc_node::toString(
 		s += token1_;
 		s += "\"";
 		break;
+
+	case kCluncFunctionDeclaration:
+		s += toSpaces(tabs);
+		s += child1_->toString();
+		s += " ";
+		s += token1_;
+		s += "() noexcept {\n";
+		s += clunc_to_string(child2_, tabs+1);
+		s += toSpaces(tabs);
+		s += "}\n";
+		break;
+
+	case kCluncAssignment:
+		s += toSpaces(tabs);
+		if (child1_) {
+			auto s1 = child1_->toString();
+			if (s1.empty() == false) {
+				s += s1;
+				s += " ";
+			}
+		}
+		s += token1_;
+		if (child2_) {
+			switch (value1_) {
+			case kCluncBinaryOpEquals:
+				s += " = ";
+				break;
+			}
+			s += child2_->toString();
+		}
+		s += ";\n";
+		break;
 	}
 	return std::move(s);
 }
@@ -203,5 +235,35 @@ clunc_node *string_literal(
 	//LOG(str);
 	auto cn = new(std::nothrow) clunc_node(kCluncStringLiteral);
 	cn->token1_ = str;
+	return cn;
+}
+
+extern "C"
+clunc_node *function_declaration(
+	const char *id,
+	clunc_node *type,
+	clunc_node *statements
+) {
+	//LOG(id);
+	auto cn = new(std::nothrow) clunc_node(kCluncFunctionDeclaration);
+    cn->token1_ = id;
+    cn->child1_ = type;
+    cn->child2_ = statements;
+	return cn;
+}
+
+extern "C"
+clunc_node *assignment(
+	const char *id,
+	clunc_node *type,
+	int op,
+	clunc_node *rhs
+) {
+	//LOG(id);
+	auto cn = new(std::nothrow) clunc_node(kCluncAssignment);
+    cn->token1_ = id;
+    cn->child1_ = type;
+    cn->value1_ = op;
+    cn->child2_ = rhs;
 	return cn;
 }

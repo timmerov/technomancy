@@ -22,9 +22,13 @@ enum {
 	kCluncStandardTypeSpecifier,
 	kCluncIntLiteral,
 	kCluncStringLiteral,
+	kCluncFunctionDeclaration,
+	kCluncAssignment,
 
 	kCluncKeywordInt,
 	kCluncKeywordString,
+
+	kCluncBinaryOpEquals,
 };
 
 struct clunc_node;
@@ -45,6 +49,8 @@ clunc_node *field_declaration(const char *id, clunc_node *type, clunc_node *rhs)
 clunc_node *standard_type_specifier(int type);
 clunc_node *int_literal(int value);
 clunc_node *string_literal(const char *s);
+clunc_node *function_declaration(const char *id, clunc_node *type, clunc_node *statements);
+clunc_node *assignment(const char *id, clunc_node *type, int op, clunc_node *rhs);
 
 #ifdef __cplusplus
 } /* extern C */
