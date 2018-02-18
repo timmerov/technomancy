@@ -132,7 +132,7 @@ void start(
 	clunc_node **proot,
 	clunc_node *cn
 ) {
-	LOG("");
+	//LOG("");
 	*proot = cn;
 }
 
@@ -180,7 +180,7 @@ extern "C"
 clunc_node *standard_type_specifier(
 	int type
 ) {
-	//LOG(id);
+	//LOG(type);
 	auto cn = new(std::nothrow) clunc_node(kCluncStandardTypeSpecifier);
 	cn->value1_ = type;
 	return cn;
@@ -190,7 +190,7 @@ extern "C"
 clunc_node *int_literal(
 	int value
 ) {
-	//LOG(id);
+	//LOG(value);
 	auto cn = new(std::nothrow) clunc_node(kCluncIntLiteral);
 	cn->value1_ = value;
 	return cn;
@@ -200,7 +200,7 @@ extern "C"
 clunc_node *string_literal(
 	const char *str
 ) {
-	//LOG(id);
+	//LOG(str);
 	auto cn = new(std::nothrow) clunc_node(kCluncStringLiteral);
 	cn->token1_ = str;
 	return cn;

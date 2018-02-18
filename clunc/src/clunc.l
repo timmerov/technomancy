@@ -184,7 +184,7 @@ void track(
         }
 	}
 
-	if (1 && cmt) {
+	if (0 && cmt) {
 		char *t;
 		t = translate_string(sin);
 		fprintf(stderr, "flex start=%d:%d end=%d:%d: %s: %s\n",
