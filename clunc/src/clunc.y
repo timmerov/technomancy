@@ -34,15 +34,95 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %token <s> STRING
 %token <s> TOKEN
 
-%type <cn> functions
-%type <cn> function
-%type <cn> declaration
-%type <s> decltype
-%type <cn> statements
-%type <cn> statement
-%type <s> expression
+%%
+
+start
+	: translation_units
+	;
+
+translation_units
+	: translation_unit translation_units
+	| { }
+	;
+
+translation_unit
+	: class_declaration
+	| function_declaration
+	;
+
+class_declaration
+	: identifier '(' field_declarations ')'
+	;
+
+field_declarations
+	: field_declaration field_declarations
+	| { }
+	;
+
+field_declaration
+	: identifier type_specifier '=' const_expression ';'
+	| identifier type_specifier ';'
+	;
+
+function_declaration
+	: identifier type_specifier '{' statements '}'
+	;
+
+statements
+	: statement statements
+	| { }
+	;
+
+statement
+	: assignment
+	;
+
+assignment
+	: identifier type_specifier ';'
+	| identifier type_specifier assignment_op expression ';'
+	| identifier assignment_op expression ';'
+	;
+
+assignment_op
+	: '='
+	;
+
+expression /*tbd*/
+	: const_expression
+	;
+
+identifier
+	: TOKEN
+	;
+
+type_specifier
+	: KEY_INT
+	| KEY_STRING
+	;
+
+const_expression
+	: NUMBER
+	| STRING
+	;
 
 %%
+
+
+#if 0
+%type <s> translation_units
+%type <s> translation_unit
+%type <s> class_declaration
+%type <s> field_declarations
+%type <s> field_declaration
+%type <s> function_declaration
+%type <s> statements
+%type <s> statement
+%type <s> assignment
+%type <ch> assignment_op
+%type <s> expression
+%type <s> identifier
+%type <s> type_specifier
+%type <s> const_expression
 
 start :
 	functions {
@@ -122,8 +202,7 @@ expression :
         TSC_PRINT(stdout, "bison expression TOKEN\n");
         $$ = $1;
 	} ;
-
-%%
+#endif
 
 extern int g_start_line;
 extern int g_start_column;

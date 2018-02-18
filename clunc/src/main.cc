@@ -16,11 +16,16 @@ static const char kTestString[] = R"(
 /**
 clunc test sequences
 **/
-imanerror
+message (
+	x int = 0;
+	s string = "";
+)
+
 main int {
-	x int = 1;
+	x int;
+	y int = 1;
 	s string = "hello";
-	y int = x;
+	z = 2;
 }
 // end of file comment
 ///////////////////////////////

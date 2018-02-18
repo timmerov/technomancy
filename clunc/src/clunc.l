@@ -8,7 +8,7 @@ REX_WHITE       [ \t\r\n]+
 REX_INTEGER     [0-9]+
 REX_TOKEN       [_a-zA-Z][_a-zA-Z0-9]*
 REX_STRING      ["]([^"]|(\\.))*["]
-REX_SYMBOLS     [{}=;]
+REX_SYMBOLS     [{}()=;]
 
 %option noinput nounput noyywrap
 %option prefix="clunc_yy"
@@ -31,16 +31,12 @@ void track(char *cmt, char *s);
 {REX_WHITE}         track("whitespace", yytext); /* nothing */
 
     /* keywords */
-"int"               track("kw:int",    yytext); return KEY_INT;
-"string"            track("kw:string", yytext); return KEY_STRING;
+"int"               track("keyword:int",    yytext); return KEY_INT;
+"string"            track("keyword:string", yytext); return KEY_STRING;
 
-	/* number */
-{REX_INTEGER}       track("integer", yytext); yylval.s = strdup(yytext); return NUMBER;
-
-    /* tokens */
-{REX_TOKEN}         track("token",   yytext); yylval.s = strdup(yytext); return TOKEN;
-
-    /* strings */
+	/* numbers tokens strings */
+{REX_INTEGER}       track("integer", yytext); yylval.s = strdup(yytext);   return NUMBER;
+{REX_TOKEN}         track("token",   yytext); yylval.s = strdup(yytext);   return TOKEN;
 {REX_STRING}        track("string",  yytext); yylval.s = unescape(yytext); return STRING;
 
     /* symbols */
@@ -108,6 +104,67 @@ int g_end_line = 0;
 int g_end_column = 0;
 char *g_last_token = "";
 
+/**
+convert '\n' to '\\' 'n'
+convert '\t' to 1..4 spaces
+**/
+char *translate_string(
+	char *sin
+) {
+	char ch;
+	char *s;
+	char *t;
+	int len;
+	int i;
+	int j;
+
+	len = 1;
+	for (s = sin; ch = *s; ++s) {
+		switch (ch) {
+		case '\t':
+			len += 4;
+			break;
+		case '\n':
+			len += 2;
+			break;
+		default:
+			len += 1;
+			break;
+		}
+	}
+	t = malloc(len);
+	len = 0;
+	for (i = 0, j = 0; ; ++i) {
+		ch = sin[i];
+		t[j] = ch;
+		if (ch == 0) {
+			break;
+		}
+		switch (ch) {
+		case '\t':
+			switch (j % 4) {
+			case 0:
+				t[j++] = ' ';
+			case 3:
+				t[j++] = ' ';
+			case 2:
+				t[j++] = ' ';
+			case 1:
+				t[j++] = ' ';
+			}
+			break;
+		case '\n':
+			t[j++] = '\\';
+			t[j++] = 'n';
+			break;
+		default:
+			++j;
+			break;
+		}
+	}
+	return t;
+}
+
 void track(
 	char *cmt,
 	char *sin
@@ -117,8 +174,8 @@ void track(
 	g_start_column = g_end_column;
 
 	char ch;
-	char *s = sin;
-	while (ch = *s++) {
+	char *s;
+	for (s = sin; ch = *s; ++s) {
         if (ch == '\n') {
 			++g_end_line;
 			g_end_column = 0;
@@ -127,8 +184,11 @@ void track(
         }
 	}
 
-	/**/
-	fprintf(stderr, "flex start=%d:%d end=%d:%d: %s: %s\n",
-		g_start_line, g_start_column, g_end_line, g_end_column, cmt, sin);
-	/**/
+	if (1) {
+		char *t;
+		t = translate_string(sin);
+		fprintf(stderr, "flex start=%d:%d end=%d:%d: %s: %s\n",
+			g_start_line, g_start_column, g_end_line, g_end_column, cmt, t);
+		free((void *) t);
+	}
 }
