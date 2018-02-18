@@ -46,7 +46,8 @@ int main(
 
 	LOG("output:");
 	std::cout << "/***********************/" << std::endl;
-	clunc_print(cn);
+	auto s = clunc_to_string(cn);
+	std::cout << s;
 	std::cout << "/***********************/" << std::endl;
 
 	//delete cn;

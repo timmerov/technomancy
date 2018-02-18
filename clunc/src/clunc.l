@@ -35,7 +35,7 @@ void track(char *cmt, char *s);
 "string"            track("keyword:string", yytext); yylval.i = kCluncKeywordString;  return KEY_STRING;
 
 	/* numbers tokens strings */
-{REX_INTEGER}       track("integer", yytext); yylval.s = strdup(yytext);   return NUMBER;
+{REX_INTEGER}       track("integer", yytext); yylval.i = atoi(yytext);   return NUMBER;
 {REX_TOKEN}         track("token",   yytext); yylval.s = strdup(yytext);   return TOKEN;
 {REX_STRING}        track("string",  yytext); yylval.s = unescape(yytext); return STRING;
 

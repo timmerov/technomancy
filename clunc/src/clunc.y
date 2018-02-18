@@ -31,7 +31,7 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %token<i> KEY_INT
 %token<i> KEY_STRING
 
-%token<s> NUMBER
+%token<i> NUMBER
 %token<s> STRING
 %token<s> TOKEN
 
@@ -41,10 +41,10 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %type <cn> field_declarations
 %type <cn> field_declaration
 %type <cn> type_specifier
+%type <cn> const_expression
 
 %type <s> identifier
 %type <i> standard_type_specifier
-%type <s> const_expression
 
 %%
 
@@ -117,8 +117,8 @@ standard_type_specifier
 	;
 
 const_expression
-	: NUMBER
-	| STRING
+	: NUMBER { $$ = int_literal($1); }
+	| STRING { $$ = string_literal($1); }
 	;
 
 %%

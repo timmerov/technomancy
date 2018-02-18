@@ -9,6 +9,12 @@ implement clunc programming language.
 #include <iostream>
 
 namespace {
+	std::string toSpaces(
+		int tabs
+	) noexcept {
+		std::string s(2*tabs, ' ');
+		return std::move(s);
+	}
 } // namespace
 
 clunc_node *clunc_load_file(
@@ -41,12 +47,15 @@ clunc_node *clunc_load_file(
 	return cn;
 }
 
-void clunc_print(
-	clunc_node *cn
+std::string clunc_to_string(
+	clunc_node *cn,
+	int tabs
 ) noexcept {
+	std::string s;
 	for (; cn; cn = cn->next_) {
-		cn->print();
+		s += cn->toString(tabs);
 	}
+	return std::move(s);
 }
 
 clunc_node::clunc_node(
@@ -59,45 +68,63 @@ clunc_node::clunc_node(
 clunc_node::~clunc_node() noexcept {
 	delete next_;
 	delete child1_;
+	delete child2_;
 	free((void *) token1_);
-	free((void *) token2_);
 }
 
-void clunc_node::print() noexcept {
+std::string clunc_node::toString(
+	int tabs
+) noexcept {
+	std::string s;
 	switch (what_) {
 	case kCluncUndefined:
 		break;
+
 	case kCluncClassDeclaration:
-		std::cout << "class " << token1_ << " {" << std::endl;
-		clunc_print(child1_);
-		std::cout << "};" << std::endl;
+		s += toSpaces(tabs);
+		s += "class ";
+		s += token1_;
+		s += " {\n";
+		s += clunc_to_string(child1_, tabs+1);
+		s += toSpaces(tabs);
+		s += "};\n";
 		break;
+
 	case kCluncFieldDeclaration:
-		std::cout << "    ";
-		child1_->print();
-		std::cout << " " << token1_;
-		if (token2_) {
-			std::cout << " = ";
-			if (child1_->what_ == kCluncStandardTypeSpecifier
-			&& child1_->value1_ == kCluncKeywordString) {
-				std::cout << "\"" << token2_ << "\"";
-			} else {
-				std::cout << token2_;
-			}
+		s += toSpaces(tabs);
+		s += child1_->toString();
+		s += " ";
+		s += token1_;
+		if (child2_) {
+			s += " = ";
+			s += child2_->toString();
 		}
-		std::cout << ";" << std::endl;
+		s += ";\n";
 		break;
+
 	case kCluncStandardTypeSpecifier:
 		switch (value1_) {
 		case kCluncKeywordInt:
-			std::cout << "int";
+			s = "int";
 			break;
 		case kCluncKeywordString:
-			std::cout << "std::string";
+			s = "std::string";
 			break;
 		}
 		break;
+
+	case kCluncIntLiteral:
+		s += std::to_string(value1_);
+		break;
+
+	case kCluncStringLiteral:
+		s += "\"";
+		/// tk tsc todo: escape tabs and crs.
+		s += token1_;
+		s += "\"";
+		break;
 	}
+	return std::move(s);
 }
 
 extern "C"
@@ -139,13 +166,13 @@ extern "C"
 clunc_node *field_declaration(
 	const char *id,
 	clunc_node *type,
-	const char *value
+	clunc_node *rhs
 ) {
 	//LOG(id);
 	auto cn = new(std::nothrow) clunc_node(kCluncFieldDeclaration);
     cn->token1_ = id;
     cn->child1_ = type;
-    cn->token2_ = value;
+    cn->child2_ = rhs;
 	return cn;
 }
 
@@ -156,5 +183,25 @@ clunc_node *standard_type_specifier(
 	//LOG(id);
 	auto cn = new(std::nothrow) clunc_node(kCluncStandardTypeSpecifier);
 	cn->value1_ = type;
+	return cn;
+}
+
+extern "C"
+clunc_node *int_literal(
+	int value
+) {
+	//LOG(id);
+	auto cn = new(std::nothrow) clunc_node(kCluncIntLiteral);
+	cn->value1_ = value;
+	return cn;
+}
+
+extern "C"
+clunc_node *string_literal(
+	const char *str
+) {
+	//LOG(id);
+	auto cn = new(std::nothrow) clunc_node(kCluncStringLiteral);
+	cn->token1_ = str;
 	return cn;
 }
