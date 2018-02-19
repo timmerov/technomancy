@@ -31,9 +31,9 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %token<i> KEY_INT
 %token<i> KEY_STRING
 
-%token<i> NUMBER
-%token<s> STRING
-%token<s> TOKEN
+%token<i> CONSTANT
+%token<s> LITERAL
+%token<s> IDENTIFIER
 
 %type <cn> translation_units
 %type <cn> translation_unit
@@ -47,7 +47,6 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %type <cn> assignment
 %type <i> assignment_op
 %type <cn> expression
-%type <s> identifier
 %type <i> standard_type_specifier
 %type <cn> const_expression
 
@@ -68,7 +67,7 @@ translation_unit
 	;
 
 class_declaration
-	: identifier '(' field_declarations ')' { $$ = class_declaration($1, $3); }
+	: IDENTIFIER '(' field_declarations ')' { $$ = class_declaration($1, $3); }
 	;
 
 field_declarations
@@ -77,8 +76,8 @@ field_declarations
 	;
 
 field_declaration
-	: identifier type_specifier '=' const_expression ';' { $$ = field_declaration($1, $2, $4); }
-	| identifier type_specifier ';' { $$ = field_declaration($1, $2, NULL); }
+	: IDENTIFIER type_specifier '=' const_expression ';' { $$ = field_declaration($1, $2, $4); }
+	| IDENTIFIER type_specifier ';' { $$ = field_declaration($1, $2, NULL); }
 	;
 
 type_specifier
@@ -86,7 +85,7 @@ type_specifier
 	;
 
 function_declaration
-	: identifier type_specifier '{' statements '}' { $$ = function_declaration($1, $2, $4); }
+	: IDENTIFIER type_specifier '{' statements '}' { $$ = function_declaration($1, $2, $4); }
 	;
 
 statements
@@ -99,9 +98,9 @@ statement
 	;
 
 assignment
-	: identifier type_specifier ';' { $$ = assignment($1, $2, 0, NULL); }
-	| identifier type_specifier assignment_op expression ';' { $$ = assignment($1, $2, $3, $4); }
-	| identifier assignment_op expression ';' { $$ = assignment($1, NULL, $2, $3); }
+	: IDENTIFIER type_specifier ';' { $$ = assignment($1, $2, 0, NULL); }
+	| IDENTIFIER type_specifier assignment_op expression ';' { $$ = assignment($1, $2, $3, $4); }
+	| IDENTIFIER assignment_op expression ';' { $$ = assignment($1, NULL, $2, $3); }
 	;
 
 assignment_op
@@ -112,18 +111,14 @@ expression
 	: const_expression
 	;
 
-identifier
-	: TOKEN
-	;
-
 standard_type_specifier
 	: KEY_INT
 	| KEY_STRING
 	;
 
 const_expression
-	: NUMBER { $$ = int_literal($1); }
-	| STRING { $$ = string_literal($1); }
+	: CONSTANT { $$ = int_literal($1); }
+	| LITERAL  { $$ = string_literal($1); }
 	;
 
 %%

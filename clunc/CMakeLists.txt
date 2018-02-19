@@ -19,6 +19,9 @@ file(GLOB_RECURSE THIS_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
 # gather data files
 file(GLOB_RECURSE THIS_DATA ${CMAKE_CURRENT_SOURCE_DIR}/data/*)
 
+# gather other files
+file(GLOB_RECURSE THIS_OTHER ${CMAKE_CURRENT_SOURCE_DIR}/ansi-c/*)
+
 # gather the bison and flex files.
 set(THIS_PARSERS
     src/clunc.y
@@ -39,6 +42,7 @@ add_executable(${THIS_TARGET_NAME}
 	${THIS_SOURCE}
 	${THIS_HEADERS}
 	${THIS_DATA}
+	${THIS_OTHER}
     ${THIS_PARSERS}
     ${BISON_PB2CC_PARSER_OUTPUTS}
     ${FLEX_PB2CC_LEXER_OUTPUTS}

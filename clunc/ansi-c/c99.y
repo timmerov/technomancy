@@ -14,6 +14,9 @@
 %start translation_unit
 %%
 
+/**
+x 42 "hell0" (...)
+**/
 primary_expression
 	: IDENTIFIER
 	| CONSTANT
@@ -21,6 +24,11 @@ primary_expression
 	| '(' expression ')'
 	;
 
+/**
+x 42 "hell0" (...)
+x[...] x() x(...) x.a x->a x++ x--
+(int){...} ???
+**/
 postfix_expression
 	: primary_expression
 	| postfix_expression '[' expression ']'
@@ -34,11 +42,22 @@ postfix_expression
 	| '(' type_name ')' '{' initializer_list ',' '}'
 	;
 
+/**
+only used in postfix_expression x(...)
+argument_expression_list is a comma separated list of assignment_expression
+assignment_expression are expressions but excludes the comma operator
+(for obvious reasons)
+**/
 argument_expression_list
 	: assignment_expression
 	| argument_expression_list ',' assignment_expression
 	;
 
+/**
+only used within the expression tree
+x ++x --x +x -x sizeof(int)
+sizeof x
+**/
 unary_expression
 	: postfix_expression
 	| INC_OP unary_expression
@@ -48,6 +67,9 @@ unary_expression
 	| SIZEOF '(' type_name ')'
 	;
 
+/**
+only used within the expression tree
+**/
 unary_operator
 	: '&'
 	| '*'
@@ -57,11 +79,17 @@ unary_operator
 	| '!'
 	;
 
+/**
+only used within the expression tree
+**/
 cast_expression
 	: unary_expression
 	| '(' type_name ')' cast_expression
 	;
 
+/**
+only used within the expression tree
+**/
 multiplicative_expression
 	: cast_expression
 	| multiplicative_expression '*' cast_expression
@@ -69,18 +97,27 @@ multiplicative_expression
 	| multiplicative_expression '%' cast_expression
 	;
 
+/**
+only used within the expression tree
+**/
 additive_expression
 	: multiplicative_expression
 	| additive_expression '+' multiplicative_expression
 	| additive_expression '-' multiplicative_expression
 	;
 
+/**
+only used within the expression tree
+**/
 shift_expression
 	: additive_expression
 	| shift_expression LEFT_OP additive_expression
 	| shift_expression RIGHT_OP additive_expression
 	;
 
+/**
+only used within the expression tree
+**/
 relational_expression
 	: shift_expression
 	| relational_expression '<' shift_expression
@@ -89,47 +126,77 @@ relational_expression
 	| relational_expression GE_OP shift_expression
 	;
 
+/**
+only used within the expression tree
+**/
 equality_expression
 	: relational_expression
 	| equality_expression EQ_OP relational_expression
 	| equality_expression NE_OP relational_expression
 	;
 
+/**
+only used within the expression tree
+**/
 and_expression
 	: equality_expression
 	| and_expression '&' equality_expression
 	;
 
+/**
+only used within the expression tree
+**/
 exclusive_or_expression
 	: and_expression
 	| exclusive_or_expression '^' and_expression
 	;
 
+/**
+only used within the expression tree
+**/
 inclusive_or_expression
 	: exclusive_or_expression
 	| inclusive_or_expression '|' exclusive_or_expression
 	;
 
+/**
+only used within the expression tree
+**/
 logical_and_expression
 	: inclusive_or_expression
 	| logical_and_expression AND_OP inclusive_or_expression
 	;
 
+/**
+only used within the expression tree
+**/
 logical_or_expression
 	: logical_and_expression
 	| logical_or_expression OR_OP logical_and_expression
 	;
 
+/**
+only used within the expression tree
+**/
 conditional_expression
 	: logical_or_expression
 	| logical_or_expression '?' expression ':' conditional_expression
 	;
 
+/**
+part of, but not exclusive to, the expression tree
+used by expression, direct_declarator, direct_abstract_declarator,
+initializer, argument_expression_list
+all expressions except the comma operator.
+**/
 assignment_expression
 	: conditional_expression
 	| unary_expression assignment_operator assignment_expression
 	;
 
+/**
+only used within the expression tree
+**/
 assignment_operator
 	: '='
 	| MUL_ASSIGN
@@ -144,11 +211,17 @@ assignment_operator
 	| OR_ASSIGN
 	;
 
+/**
+assignment_expressions plus the comma operator
+**/
 expression
 	: assignment_expression
 	| expression ',' assignment_expression
 	;
 
+/**
+all expressions except assignments and comma operator.
+**/
 constant_expression
 	: conditional_expression
 	;

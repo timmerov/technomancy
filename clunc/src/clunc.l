@@ -2,12 +2,12 @@
 lexical analyzer for clunc.
 */
 
-REX_SL_SL_CMT   "//".*[\r\n]
-REX_SL_ST_CMT   "/*"([^/]*[^*/][^*]*)*[*]+"/"
+REX_COMMENT1    "//".*[\r\n]
+REX_COMMENT2   "/*"([^/]*[^*/][^*]*)*[*]+"/"
 REX_WHITE       [ \t\r\n]+
-REX_INTEGER     [0-9]+
-REX_TOKEN       [_a-zA-Z][_a-zA-Z0-9]*
-REX_STRING      ["]([^"]|(\\.))*["]
+REX_CONSTANT    [0-9]+
+REX_IDENTIFIER  [_a-zA-Z][_a-zA-Z0-9]*
+REX_LITERAL     ["]([^"]|(\\.))*["]
 REX_SYMBOLS     [{}()=;]
 
 %option noinput nounput noyywrap
@@ -24,8 +24,8 @@ void track(char *cmt, char *s);
 
 %%
     /* comments */
-{REX_SL_SL_CMT}     track("//comment",   yytext); /* nothing */
-{REX_SL_ST_CMT}     track("/*comment*/", yytext); /* nothing */
+{REX_COMMENT1}      track("//comment",   yytext); /* nothing */
+{REX_COMMENT2}      track("/*comment*/", yytext); /* nothing */
 
     /* white space */
 {REX_WHITE}         track(NULL, yytext); /* nothing */
@@ -35,9 +35,9 @@ void track(char *cmt, char *s);
 "string"            track("keyword:string", yytext); yylval.i = kCluncKeywordString;  return KEY_STRING;
 
 	/* numbers tokens strings */
-{REX_INTEGER}       track("integer", yytext); yylval.i = atoi(yytext);   return NUMBER;
-{REX_TOKEN}         track("token",   yytext); yylval.s = strdup(yytext);   return TOKEN;
-{REX_STRING}        track("string",  yytext); yylval.s = unescape(yytext); return STRING;
+{REX_CONSTANT}      track("integer", yytext); yylval.i = atoi(yytext);     return CONSTANT;
+{REX_IDENTIFIER}    track("token",   yytext); yylval.s = strdup(yytext);   return IDENTIFIER;
+{REX_LITERAL}       track("string",  yytext); yylval.s = unescape(yytext); return LITERAL;
 
     /* symbols */
 {REX_SYMBOLS}       track("symbol",  yytext); yylval.i = yytext[0];  return yytext[0];
