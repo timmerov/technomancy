@@ -8,7 +8,7 @@ REX_WHITE       [ \t\r\n]+
 REX_CONSTANT    [0-9]+
 REX_IDENTIFIER  [_a-zA-Z][_a-zA-Z0-9]*
 REX_LITERAL     ["]([^"]|(\\.))*["]
-REX_SYMBOLS     [{}()=;]
+REX_SYMBOLS     [{}();,]
 
 %option noinput nounput noyywrap
 %option prefix="clunc_yy"
@@ -38,6 +38,21 @@ void track(char *cmt, char *s);
 {REX_CONSTANT}      track("integer", yytext); yylval.i = atoi(yytext);     return CONSTANT;
 {REX_IDENTIFIER}    track("token",   yytext); yylval.s = strdup(yytext);   return IDENTIFIER;
 {REX_LITERAL}       track("string",  yytext); yylval.s = unescape(yytext); return LITERAL;
+
+	/* operators */
+"="                 track("=",   yytext); yylval.i = kCluncKeywordAssign;      return ASSIGN;
+"*="                track("*=",  yytext); yylval.i = kCluncKeywordMulAssign;   return MUL_ASSIGN;
+"/="                track("/=",  yytext); yylval.i = kCluncKeywordDivAssign;   return DIV_ASSIGN;
+"%="                track("%=",  yytext); yylval.i = kCluncKeywordModAssign;   return MOD_ASSIGN;
+"+="                track("+=",  yytext); yylval.i = kCluncKeywordAddAssign;   return ADD_ASSIGN;
+"-="                track("-=",  yytext); yylval.i = kCluncKeywordSubAssign;   return SUB_ASSIGN;
+"<<="               track("<<=", yytext); yylval.i = kCluncKeywordLeftAssign;  return LEFT_ASSIGN;
+">>="               track(">>=", yytext); yylval.i = kCluncKeywordRightAssign; return RIGHT_ASSIGN;
+"&="                track("&=",  yytext); yylval.i = kCluncKeywordAndAssign;   return AND_ASSIGN;
+"^="                track("^=",  yytext); yylval.i = kCluncKeywordXorAssign;   return XOR_ASSIGN;
+"|="                track("|=",  yytext); yylval.i = kCluncKeywordOrAssign;    return OR_ASSIGN;
+"||"                track("||",  yytext); yylval.i = kCluncKeywordLogOr;       return LOG_OR;
+"&&"                track("&&",  yytext); yylval.i = kCluncKeywordLogAnd;      return LOG_AND;
 
     /* symbols */
 {REX_SYMBOLS}       track("symbol",  yytext); yylval.i = yytext[0];  return yytext[0];

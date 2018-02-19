@@ -17,8 +17,8 @@ static const char kTestString[] = R"(
 clunc test sequences
 **/
 message (
-	x int = 0;
-	s string = "";
+	x int = 0,
+	s string = "",
 )
 
 main int {

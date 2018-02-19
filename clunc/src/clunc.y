@@ -32,8 +32,17 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %token<i> KEY_STRING
 
 %token<i> CONSTANT
-%token<s> LITERAL
+%token<s> STRING_LITERAL
 %token<s> IDENTIFIER
+
+%token<i> ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN SUB_ASSIGN
+%token<i> LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN
+%token<i> LOG_OR LOG_AND LOG_NOT
+%token<i> OR_OP XOR_OP AND_OP NOT_OP
+%token<i> EQ_OP NE_OP LT_OP GT_OP LE_OP GE_OP
+%token<i> LEFT_OP RIGHT_OP
+%token<i> ADD_OP SUB_OP MUL_OP DIV_OP MOD_OP
+%token<i> INC_OP DEC_OP
 
 %type <cn> translation_units
 %type <cn> translation_unit
@@ -44,40 +53,60 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 %type <cn> function_declaration
 %type <cn> statements
 %type <cn> statement
-%type <cn> assignment
-%type <i> assignment_op
 %type <cn> expression
-%type <i> standard_type_specifier
-%type <cn> const_expression
+%type <i> binary_operator
+%type <cn> unary_expression
+%type <i> unary_operator
+%type <cn> postfix_expression
+%type <i> postfix_operator
+%type <cn> primary_expression
 
 %%
 
+/**
+classes and functions
+**/
 start
 	: translation_units { start(proot, $1); }
 	;
 
+/**
+classes and functions
+**/
 translation_units
 	: translation_unit translation_units { $$ = build_list($1, $2); }
 	| { $$ = NULL; }
 	;
 
+/**
+classes and functions
+**/
 translation_unit
 	: class_declaration { $$ = $1; }
 	| function_declaration { $$ = $1; }
 	;
 
+/**
+message ( ... )
+**/
 class_declaration
 	: IDENTIFIER '(' field_declarations ')' { $$ = class_declaration($1, $3); }
 	;
 
+/**
+comma separated list of expressions.
+trailing comma is allowed.
+**/
 field_declarations
-	: field_declaration field_declarations { $$ = build_list($1, $2); }
+	: field_declaration { $$ = $1; }
+	| field_declaration ',' { $$ = $1; }
+	| field_declaration ',' field_declarations { $$ = build_list($1, $3); }
 	| { $$ = NULL; }
 	;
 
 field_declaration
-	: IDENTIFIER type_specifier '=' const_expression ';' { $$ = field_declaration($1, $2, $4); }
-	| IDENTIFIER type_specifier ';' { $$ = field_declaration($1, $2, NULL); }
+	: IDENTIFIER type_specifier '=' const_expression { $$ = field_declaration($1, $2, $4); }
+	| IDENTIFIER type_specifier { $$ = field_declaration($1, $2, NULL); }
 	;
 
 type_specifier
@@ -94,9 +123,83 @@ statements
 	;
 
 statement
-	: assignment
+	: expression ';'
+	/** if else for switch **/
 	;
 
+expression
+	: unary_expression
+	| unary_expression binary_operator expression
+	;
+
+binary_operator
+	: ASSIGN
+	| MUL_ASSIGN
+	| DIV_ASSIGN
+	| MOD_ASSIGN
+	| ADD_ASSIGN
+	| SUB_ASSIGN
+	| LEFT_ASSIGN
+	| RIGHT_ASSIGN
+	| AND_ASSIGN
+	| XOR_ASSIGN
+	| OR_ASSIGN
+	| LOG_OR
+	| LOG_AND
+	| OR_OP
+	| XOR_OP
+	| AND_OP
+	| EQ_OP
+	| NE_OP
+	| LT_OP
+	| GT_OP
+	| LE_OP
+	| GE_OP
+	| LEFT_OP
+	| RIGHT_OP
+	| ADD_OP
+	| SUB_OP
+	| MUL_OP
+	| DIV_OP
+	| MOD_OP
+	;
+
+unary_expression
+	: postfix_expression
+	| unary_operator unary_expression
+	/** sizeof **/
+	;
+
+unary_operator
+	: ADD_OP
+	| SUB_OP
+	| NOT_OP
+	| LOG_NOT
+	| INC_OP
+	| DEC_OP
+	;
+
+postfix_expression
+	: primary_expression
+	| postfix_expression postfix_operator
+	;
+
+postfix_operator
+	: INC_OP
+	| DEC_OP
+	;
+
+primary_expression
+	: IDENTIFIER
+	| CONSTANT { $$ = int_literal($1); }
+	| STRING_LITERAL { $$ = string_literal($1); }
+	| '(' expression ')' { $$ = $2 }
+	;
+
+%%
+
+
+#if 0
 assignment
 	: IDENTIFIER type_specifier ';' { $$ = assignment($1, $2, 0, NULL); }
 	| IDENTIFIER type_specifier assignment_op expression ';' { $$ = assignment($1, $2, $3, $4); }
@@ -105,10 +208,6 @@ assignment
 
 assignment_op
 	: '=' { $$ = kCluncBinaryOpEquals; }
-	;
-
-expression
-	: const_expression
 	;
 
 standard_type_specifier
@@ -121,10 +220,6 @@ const_expression
 	| LITERAL  { $$ = string_literal($1); }
 	;
 
-%%
-
-
-#if 0
 %type <s> translation_units
 %type <s> translation_unit
 %type <s> class_declaration
