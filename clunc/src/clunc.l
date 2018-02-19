@@ -37,7 +37,7 @@ void track(char *cmt, char *s);
 	/* numbers tokens strings */
 {REX_CONSTANT}      track("integer", yytext); yylval.i = atoi(yytext);     return CONSTANT;
 {REX_IDENTIFIER}    track("token",   yytext); yylval.s = strdup(yytext);   return IDENTIFIER;
-{REX_LITERAL}       track("string",  yytext); yylval.s = unescape(yytext); return LITERAL;
+{REX_LITERAL}       track("string",  yytext); yylval.s = unescape(yytext); return STRING_LITERAL;
 
 	/* operators */
 "="                 track("=",   yytext); yylval.i = kCluncKeywordAssign;      return ASSIGN;
@@ -199,7 +199,7 @@ void track(
         }
 	}
 
-	if (0 && cmt) {
+	if (1 && cmt) {
 		char *t;
 		t = translate_string(sin);
 		fprintf(stderr, "flex start=%d:%d end=%d:%d: %s: %s\n",

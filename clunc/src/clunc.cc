@@ -146,11 +146,7 @@ std::string clunc_node::toString(
 		}
 		s += token1_;
 		if (child2_) {
-			switch (value1_) {
-			case kCluncBinaryOpEquals:
-				s += " = ";
-				break;
-			}
+			s += " = ";
 			s += child2_->toString();
 		}
 		s += ";\n";

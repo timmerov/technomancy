@@ -46,10 +46,11 @@ static void clunc_yyerror(clunc_node **pcn, const char *s) ;
 
 %type <cn> translation_units
 %type <cn> translation_unit
-%type <cn> class_declaration
+/*%type <cn> class_declaration
 %type <cn> field_declarations
-%type <cn> field_declaration
+%type <cn> field_declaration*/
 %type <cn> type_specifier
+%type <i> standard_type_specifier
 %type <cn> function_declaration
 %type <cn> statements
 %type <cn> statement
@@ -82,22 +83,22 @@ translation_units
 classes and functions
 **/
 translation_unit
-	: class_declaration { $$ = $1; }
-	| function_declaration { $$ = $1; }
+	: /*class_declaration { $$ = $1; }
+	| */function_declaration { $$ = $1; }
 	;
 
 /**
 message ( ... )
 **/
-class_declaration
+/*class_declaration
 	: IDENTIFIER '(' field_declarations ')' { $$ = class_declaration($1, $3); }
-	;
+	;*/
 
 /**
 comma separated list of expressions.
 trailing comma is allowed.
 **/
-field_declarations
+/*field_declarations
 	: field_declaration { $$ = $1; }
 	| field_declaration ',' { $$ = $1; }
 	| field_declaration ',' field_declarations { $$ = build_list($1, $3); }
@@ -107,11 +108,7 @@ field_declarations
 field_declaration
 	: IDENTIFIER type_specifier '=' const_expression { $$ = field_declaration($1, $2, $4); }
 	| IDENTIFIER type_specifier { $$ = field_declaration($1, $2, NULL); }
-	;
-
-type_specifier
-	: standard_type_specifier { $$ = standard_type_specifier($1); }
-	;
+	;*/
 
 function_declaration
 	: IDENTIFIER type_specifier '{' statements '}' { $$ = function_declaration($1, $2, $4); }
@@ -166,7 +163,7 @@ binary_operator
 
 unary_expression
 	: postfix_expression
-	| unary_operator unary_expression
+	| unary_operator unary_expression { $$ = $2; }
 	/** sizeof **/
 	;
 
@@ -190,10 +187,20 @@ postfix_operator
 	;
 
 primary_expression
-	: IDENTIFIER
+	: IDENTIFIER { $$ = NULL; }
+	| IDENTIFIER type_specifier { $$ = NULL; }
 	| CONSTANT { $$ = int_literal($1); }
 	| STRING_LITERAL { $$ = string_literal($1); }
-	| '(' expression ')' { $$ = $2 }
+	| '(' expression ')' { $$ = $2; }
+	;
+
+type_specifier
+	: standard_type_specifier { $$ = standard_type_specifier($1); }
+	;
+
+standard_type_specifier
+	: KEY_INT
+	| KEY_STRING
 	;
 
 %%
@@ -208,11 +215,6 @@ assignment
 
 assignment_op
 	: '=' { $$ = kCluncBinaryOpEquals; }
-	;
-
-standard_type_specifier
-	: KEY_INT
-	| KEY_STRING
 	;
 
 const_expression

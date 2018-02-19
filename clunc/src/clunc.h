@@ -28,7 +28,19 @@ enum {
 	kCluncKeywordInt,
 	kCluncKeywordString,
 
-	kCluncBinaryOpEquals,
+	kCluncKeywordAssign,
+	kCluncKeywordMulAssign,
+	kCluncKeywordDivAssign,
+	kCluncKeywordModAssign,
+	kCluncKeywordAddAssign,
+	kCluncKeywordSubAssign,
+	kCluncKeywordLeftAssign,
+	kCluncKeywordRightAssign,
+	kCluncKeywordAndAssign,
+	kCluncKeywordXorAssign,
+	kCluncKeywordOrAssign,
+	kCluncKeywordLogOr,
+	kCluncKeywordLogAnd,
 };
 
 struct clunc_node;
