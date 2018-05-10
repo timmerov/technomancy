@@ -183,13 +183,16 @@ foo(x int) {
     }
     return y;
 }
-bar(x int) {
+switch(x int) {
     y int;
-    switch x {
+    if x {
+		// default clause.
+		// executed if all of the following
+		// comparison clauses fail.
         y = 99
-    } 3 {
+    } ==3 {
         y = 0
-    } 4 {
+    } ==4 {
         y = 1
     } <0 {
         y = -1
