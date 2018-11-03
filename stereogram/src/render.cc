@@ -29,8 +29,8 @@ stereogram example.
 namespace {
     const int kNumSegments = 12;
     //const char kWorldTextureFilename[] = "nightcube-sharp50.png";
-    //const char kWorldTextureFilename[] = "cube-sharp50.png";
-    const char kWorldTextureFilename[] = "jupiter-cube-sharp50.png";
+    const char kWorldTextureFilename[] = "cube-sharp50.png";
+    //const char kWorldTextureFilename[] = "jupiter-cube-sharp50.png";
     const char kStarTextureFilename[] = "stars.png";
 
     auto g_vertex_source =R"shader_code(
@@ -92,6 +92,7 @@ namespace {
         float angle_ = 0.0f;
         glm::mat4 rotxz_;
         int frame_count_ = 0;
+        int update_frame_ = 0;
 
         virtual void init(
             int width,
@@ -305,14 +306,20 @@ namespace {
             glClearColor(0.2f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+			/// redraw the left eye the same as last frame.
+			drawWorld(update_frame_);
+
             float pi = (float) acos(-1.0f);
             angle_ += 2.0f*pi/60.0f/24.0f;  // 24 hours in 24 seconds.
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
             }
-            for (int x = 0; x < 2; ++x) {
-                drawWorld(x);
-            }
+
+			//drawWorld(update_frame_);
+
+			/// draw the right eye with new position.
+			update_frame_ = 1 - update_frame_;
+			drawWorld(update_frame_);
 
             drawStars();
 

@@ -38,7 +38,7 @@ namespace {
                 if (is_done) {
                     break;
                 }
-                //agm::sleep::milliseconds(kFrameTimeMS);
+                agm::sleep::milliseconds(kFrameTimeMS);
                 window_->run();
             }
         }
