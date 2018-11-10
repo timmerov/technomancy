@@ -28,6 +28,7 @@ ms = (1,2);
 msg Message(1,2);
 msg Message = (1,2);
 msg = Message(1,2);
+msg(1,2) Message;
 
 /**
 curly brackets are code.
@@ -47,9 +48,9 @@ pointers use prefix ^ for address operator
 and postfix for dereference operator.
 **/
 // msg is a pointer to a Message
-msg^ Message;
-// msg has value nullptr
-msg = nullptr;
+msg ^Message;
+// msg has value null
+msg = null;
 m12 = Message(1,2);
 m34 = m12.offset(2,2);
 // mp is a pointer to a message, mp has value address of m12
@@ -87,13 +88,16 @@ Passage:T.offset(a T, b T) {
     x += a;
     y += b;
 }
+psg(1,2) Passage:int;
+pst(3.0, 4.0) Passage:float;
 
 /**
 type definitions
+the ^ operator binds to the type.
+which is after.
 **/
-typedef MessagePtr^ Message;
-typedef MessagePtr ^Message;
-typedef Msg MessagePtr^;
+alias MessagePtr ^Message;
+alias Msg MessagePtr^;
 
 /**
 type qualifiers
@@ -185,7 +189,7 @@ foo(x int) {
 }
 switch(x int) {
     y int;
-    if x {
+    switch x {
 		// default clause.
 		// executed if all of the following
 		// comparison clauses fail.
@@ -267,6 +271,17 @@ srcfile:203:first: pi=3
 srcfile:192:foo:
 
 /**
+unary operator #
+**/
+operator#(x std:arg) string {
+	returns x.name "=" x.value;
+}
+foo int = 42;
+std.out.print(#foo);
+// prints:
+foo=42
+
+/**
 # operator syntactic sugar
 **/
 x = 42;
@@ -281,3 +296,34 @@ msg Message(1,2);
 std.out.print(#msg);
 // prints:
 msg={x=1, y=2}
+
+/**
+virtual functions
+**/
+BaseStyle(
+	x int = 0;
+	y int = 0;
+);
+BaseStyle.print virtual {
+	std.out.print(#x ", " #y);
+}
+BracketStyle BaseStyle();
+BracketStyle.print virtual {
+	std.out.print("{" BaseStyle.print() "}");
+}
+BraceStyle BraceStyle();
+BraceStyle.print virtual {
+	std.out.print("[" BaseStyle.print() "");
+}
+JsonStyle BaseStyle();
+JsonStyle.print virtual {
+	std.out.print("{\"x\":" x ", \"y\":" y "}");
+}
+
+reserved keywords:
+int float string?
+if else switch for while goto?
+null
+namespace std?
+virtual
+new? delete?
