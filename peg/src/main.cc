@@ -4,8 +4,7 @@ Copyright (C) 2012-2017 tim cotter. All rights reserved.
 
 /**
 Parsing Expression Grammar (peg) testing.
-https://github.com/taocpp/PEGTL
-yum install PEGTL-devel.x86_64
+https://github.com/yhirose/cpp-peglib
 **/
 
 #include <aggiornamento/aggiornamento.h>
