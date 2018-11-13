@@ -21,38 +21,99 @@ namespace {
         ~Peg() = default;
 
         void run() noexcept {
-            peg::parser parser(R"(
-                EXPRESSION       <-  TERM (TERM_OPERATOR TERM)*
-                TERM             <-  FACTOR (FACTOR_OPERATOR FACTOR)*
-                FACTOR           <-  NUMBER / '(' EXPRESSION ')'
+            peg::parser parser(R"grammar(
+                statements <- statement*
+                statement  <-
+                    "syntax" '=' STRING ';' /
+                    "import" STRING ';' /
+                    "package" TOKEN ';' /
+                    message_statement /
+                    enum_statement
 
-                TERM_OPERATOR    <-  < [-+] >
-                FACTOR_OPERATOR  <-  < [/*] >
-                NUMBER           <-  < [0-9]+ >
+                message_statement <- "message" TOKEN '{' field* '}'
+                field <-
+                    type_decl /
+                    "repeated" type TOKEN '=' NUMBER ';' /
+                    "oneof" TOKEN '{' type_decl* '}' /
+                    "map" '<' type ',' type '>' TOKEN '=' NUMBER ';' /
+                    message_statement /
+                    enum_statement
 
-                %whitespace      <-  [ \t\r\n]*
-            )");
+                type_decl <- type TOKEN '=' NUMBER ';'
+                type <- TOKEN ('.' TOKEN)*
 
-            parser["EXPRESSION"]      = reduce;
-            parser["TERM"]            = reduce;
-            parser["TERM_OPERATOR"]   = toChar;
-            parser["FACTOR_OPERATOR"] = toChar;
-            parser["NUMBER"]          = toInt;
+                enum_statement <- "enum" TOKEN '{' enum_decl* '}'
+                enum_decl <- TOKEN '=' NUMBER ';'
 
-            const char expr[] = "1+2*3";
-            int val = 0;
+                STRING <- < '"' (!["] .)* '"' >
+                TOKEN  <- < [a-zA-Z_][a-zA-Z0-9_]* >
+                NUMBER <- < [0-9]+ >
+
+                %whitespace <- [ \t\r\n]*
+            )grammar");
+
+            parser["statements"] = nop;
+            parser["statement"] = nop;
+            parser["message_statement"] = nop;
+            parser["field"] = nop;
+            parser["type_decl"] = nop;
+            parser["type"] = nop;
+            parser["enum_statement"] = nop;
+            parser["enum_decl"] = nop;
+            parser["STRING"] = nop;
+            parser["TOKEN"] = nop;
+            parser["NUMBER"] = nop;
+
+            const char expr[] = R"expr(
+                syntax = "proto3";
+                import "path/to/some/file";
+                package cerebras;
+                message CigarConfig {
+                    int x = 1;
+                    double y = 2;
+                    google.protobuf.any z = 3;
+                    repeated int.int.int a = 4;
+                    oneof fred {
+                        int b = 5;
+                        double c = 6;
+                    }
+                    map<string, string> d = 7;
+                    message sub {
+                        int x = 8;
+                    }
+                    enum Wilma {
+                        f = 0;
+                        g = 1;
+                    }
+                }
+                enum Fred {
+                    d = 0;
+                    e = 1;
+                }
+            )expr";
+
+            std::string val;
             bool result = parser.parse(expr, val);
             if (result) {
-                LOG(expr<<" = "<<val);
+                LOG("success!");
+                LOG("val="<<val);
             } else {
                 LOG("syntax error");
             }
         }
 
+        static std::string nop(
+            const peg::SemanticValues& sv
+        ) {
+            (void) sv;
+            std::string str("w00t!");
+            return std::move(str);
+        }
+
         static char toChar(
             const peg::SemanticValues& sv
         ) {
-            return static_cast<char>(*sv.c_str());
+            return sv.str()[0];
         }
 
         static int toInt(
