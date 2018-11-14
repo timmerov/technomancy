@@ -21,35 +21,79 @@ namespace {
         ~Peg() = default;
 
         void run() noexcept {
+			/**
+			peg quick start.
+
+			rule <- first / second / third / fourth
+				if the first rule matches, the second will never be tried.
+				order is important.
+
+			single and double quotes.
+				there's no difference as far as the peg parser is concerned.
+				i use single quotes for characters.
+				and double quotes for strings.
+
+			rule <- < token >
+				the angle brackets indicate leaf surrounded by white space.
+
+			%whitespace
+				special rule to define whitespace.
+				this example include c++ style comments.
+
+			%word
+				it's a bit strange to have to define this.
+				it prevents run-on tokens.
+					int x = 1; // good
+					intx = 1; // parses fine without %word
+				strange but true.
+
+			regular expression syntax
+				it's regex-like.
+				these work as expected: . * + () []
+				* is greedy.
+
+			!pattern
+				the input stream does not match the pattern.
+				does not consume the input.
+				hence this construct for quoted strings:
+					string <- '"' (!["] .)* '"'
+			**/
             peg::parser parser(R"grammar(
                 statements <- statement*
                 statement  <-
-                    "syntax" '=' STRING ';' /
-                    "import" STRING ';' /
-                    "package" TOKEN ';' /
+                    "syntax" '=' string ';' /
+                    "import" string ';' /
+                    "package" token ';' /
                     message_statement /
                     enum_statement
 
-                message_statement <- "message" TOKEN '{' field* '}'
+                message_statement <- "message" token '{' field* '}'
                 field <-
                     type_decl /
-                    "repeated" type TOKEN '=' NUMBER ';' /
-                    "oneof" TOKEN '{' type_decl* '}' /
-                    "map" '<' type ',' type '>' TOKEN '=' NUMBER ';' /
+                    "repeated" type token '=' number ';' /
+                    "oneof" token '{' type_decl* '}' /
+                    "map" '<' type ',' type '>' token '=' number ';' /
                     message_statement /
                     enum_statement
 
-                type_decl <- type TOKEN '=' NUMBER ';'
-                type <- TOKEN ('.' TOKEN)*
+                type_decl <- type token '=' number ';'
+                type <- token ('.' token)*
 
-                enum_statement <- "enum" TOKEN '{' enum_decl* '}'
-                enum_decl <- TOKEN '=' NUMBER ';'
+                enum_statement <- "enum" token '{' enum_decl* '}'
+                enum_decl <- token '=' number ';'
 
-                STRING <- < '"' (!["] .)* '"' >
-                TOKEN  <- < [a-zA-Z_][a-zA-Z0-9_]* >
-                NUMBER <- < [0-9]+ >
+                %word <- string / token / number
+                string <- < '"' (!["] .)* '"' >
+                token  <- < [a-zA-Z_][a-zA-Z0-9_]* >
+                number <- < [0-9]+ >
 
-                %whitespace <- [ \t\r\n]*
+                %whitespace <- ([ \t\r\n] / comment)*
+                comment <-
+					"//" (!end_of_comment .)* end_of_comment /
+					"/*" (!"*/" .)* "*/"
+				end_of_comment <- end_of_line / end_of_file
+				end_of_line <- '\r\n' / '\r' / '\n'
+				end_of_file <- !.
             )grammar");
 
             parser["statements"] = nop;
@@ -60,11 +104,17 @@ namespace {
             parser["type"] = nop;
             parser["enum_statement"] = nop;
             parser["enum_decl"] = nop;
-            parser["STRING"] = nop;
-            parser["TOKEN"] = nop;
-            parser["NUMBER"] = nop;
+            parser["string"] = nop;
+            parser["token"] = nop;
+            parser["number"] = nop;
 
             const char expr[] = R"expr(
+				// comment one
+				/* comment two */
+				/*
+				multi-line comment
+				*/
+				/** tricky comment **/
                 syntax = "proto3";
                 import "path/to/some/file";
                 package cerebras;
@@ -90,7 +140,7 @@ namespace {
                     d = 0;
                     e = 1;
                 }
-            )expr";
+            // comment at end of file)expr";
 
             std::string val;
             bool result = parser.parse(expr, val);
