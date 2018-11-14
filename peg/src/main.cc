@@ -7,20 +7,22 @@ Parsing Expression Grammar (peg) testing.
 https://github.com/yhirose/cpp-peglib
 **/
 
-#include <aggiornamento/aggiornamento.h>
-#include <aggiornamento/log.h>
-#include <aggiornamento/master.h>
-
 #include "peglib.h"
 
-namespace {
-    class Peg {
-    public:
-        Peg() = default;
-        Peg(const Peg &) = default;
-        ~Peg() = default;
+#include <aggiornamento/aggiornamento.h>
+#include <aggiornamento/log.h>
 
-        void run() noexcept {
+#include <cstdlib>
+
+
+namespace {
+	class Peg {
+	public:
+		Peg() = default;
+		Peg(const Peg &) = default;
+		~Peg() = default;
+
+		void run() noexcept {
 			/**
 			peg quick start.
 
@@ -57,173 +59,144 @@ namespace {
 				does not consume the input.
 				hence this construct for quoted strings:
 					string <- '"' (!'"' .)* '"'
+
+			stupidity alert
+				the ast method does not seem to record which rule was matched.
+				the workaround is to define explicit rules for every sub-rule.
+				after optimize(), the name of the rule may be in ast.original_name.
+				seems to be the case when the sub-rule has one token.
 			**/
 			char grammar[] =
 			/** protobuf statements **/
 			R"(
-                statements <- statement*
-                statement  <-
-                    "syntax" '=' string ';' /
-                    "import" string ';' /
-                    "package" token ';' /
-                    enum_statement /
-                    message_statement
+				statements <- (
+					syntax_statement /
+					import_statement /
+					package_statement /
+					enum_statement /
+					message_statement
+				)*
+				syntax_statement <- "syntax" '=' string ';'
+				import_statement <- "import" string ';'
+				package_statement <- "package" token ';'
 			)"
 			/** protobuf enum **/
 			R"(
-                enum_statement <- "enum" token '{' enum_decl* '}'
-                enum_decl <- token '=' number ';'
+				enum_statement <- "enum" token '{' enum_decl* '}'
+				enum_decl <- token '=' number ';'
 			)"
 			/** protobuf message **/
 			R"(
-                message_statement <- "message" token '{' field* '}'
-                field <-
-                    type_decl /
-                    "repeated" type token '=' number ';' /
-                    "oneof" token '{' type_decl* '}' /
-                    "map" '<' type ',' type '>' token '=' number ';' /
-                    message_statement /
-                    enum_statement
+				message_statement <- "message" token '{' field* '}'
+				field <-
+					type_decl /
+					repeated_decl /
+					oneof_decl /
+					map_decl /
+					message_statement /
+					enum_statement
 
-                type_decl <- type token '=' number ';'
-                type <- token ('.' token)*
+				type_decl <- type token '=' number ';'
+				type <- token ('.' token)*
+
+				repeated_decl <- "repeated" type token '=' number ';'
+				oneof_decl <- "oneof" token '{' type_decl* '}'
+				map_decl <- "map" '<' type ',' type '>' token '=' number ';'
+
 			)"
 			/** terminating symbols **/
 			R"(
-                %word <- token / number
-                string <- < '"' (!'"' .)* '"' >
-                token  <- < [a-zA-Z_][a-zA-Z0-9_]* >
-                number <- < [0-9]+ >
+				%word <- token / number
+				string <- < '"' (!'"' .)* '"' >
+				token  <- < [a-zA-Z_][a-zA-Z0-9_]* >
+				number <- < [0-9]+ >
 			)"
 			/** fold comments into whitespace **/
 			R"(
-                %whitespace <- (' ' / '\t' / end_of_line / comment)*
-                comment <-
+				%whitespace <- (' ' / '\t' / end_of_line / comment)*
+				comment <-
 					"//" (!end_of_comment .)* end_of_comment /
 					"/*" (!"*/" .)* "*/"
 				end_of_comment <- end_of_line / end_of_file
 				end_of_line <- '\r\n' / '\r' / '\n'
 				end_of_file <- !.
-            )";
+			)";
 
-            peg::parser parser(grammar);
-            parser["statements"] = nop;
-            parser["statement"] = nop;
-            parser["message_statement"] = nop;
-            parser["field"] = nop;
-            parser["type_decl"] = nop;
-            parser["type"] = nop;
-            parser["enum_statement"] = nop;
-            parser["enum_decl"] = nop;
-            parser["string"] = nop;
-            parser["token"] = nop;
-            parser["number"] = nop;
+			peg::parser parser(grammar);
+			parser.enable_ast();
 
-            const char proto[] = R"(
+			const char proto[] = R"(
 				// comment one
 				/* comment two */
 				/*
 				multi-line comment
 				*/
 				/** tricky comment **/
-                syntax = "proto3";
-                import "path/to/some/file";
-                package cerebras;
-                message CigarConfig {
-                    int x = 1;
-                    double y = 2;
-                    google.protobuf.any z = 3;
-                    repeated int.int.int a = 4;
-                    oneof fred {
-                        int b = 5;
-                        double c = 6;
-                    }
-                    map<string, string> d = 7;
-                    message sub {
-                        int x = 8;
-                    }
-                    enum Wilma {
-                        f = 0;
-                        g = 1;
-                    }
-                }
-                enum Fred {
-                    d = 0;
-                    e = 1;
-                }
+				syntax = "proto3";
+				import "path/to/some/file";
+				package cerebras;
+				message CigarConfig {
+					int x = 1;
+					double y = 2;
+					google.protobuf.any z = 3;
+					repeated int.int.int a = 4;
+					oneof fred {
+						int b = 5;
+						double c = 6;
+					}
+					map<string, string> d = 7;
+					message sub {
+						int x = 8;
+					}
+					enum Wilma {
+						f = 0;
+						g = 1;
+					}
+				}
+				enum Fred {
+					d = 0;
+					e = 1;
+				}
 				// comment at end of file)";
 
-            std::string val;
-            bool result = parser.parse(proto, val);
-            if (result) {
-                LOG("success!");
-                LOG("val="<<val);
-            } else {
-                LOG("syntax error");
-            }
-        }
+			std::shared_ptr<peg::Ast> ast;
+			bool result = parser.parse(proto, ast);
+			if (result) {
+				ast = peg::AstOptimizer(true).optimize(ast);
+				auto s = peg::ast_to_s(ast);
+				LOG(s);
+				compile(*ast);
+				LOG("success!");
+			} else {
+				LOG("syntax error");
+			}
+		}
 
-        static std::string nop(
-            const peg::SemanticValues& sv
-        ) {
-            (void) sv;
-            std::string str("w00t!");
-            return std::move(str);
-        }
+		void compile(
+			const peg::Ast& ast,
+			int indent = 0
+		) noexcept {
+			std::string spaces(indent, ' ');
+			indent += 2;
 
-        static char toChar(
-            const peg::SemanticValues& sv
-        ) {
-            return sv.str()[0];
-        }
-
-        static int toInt(
-            const peg::SemanticValues& sv
-        ) {
-            return atoi(sv.c_str());
-        }
-
-        static int reduce(
-            const peg::SemanticValues& sv
-        ) {
-            auto result = sv[0].get<int>();
-            int nsvs = sv.size();
-            for (int i = 1; i < nsvs; i += 2) {
-                char oper = sv[i].get<char>();
-                int num = sv[i + 1].get<int>();
-                switch (oper) {
-                case '+':
-                    result += num;
-                    break;
-
-                case '-':
-                    result -= num;
-                    break;
-
-                case '*':
-                    result *= num;
-                    break;
-
-                case '/':
-                    result /= num;
-                    break;
-                }
-            }
-            return result;
-        }
-    };
+			std::cout<<spaces<<"name="<<ast.name<<" org="<<ast.original_name<<" token="<<ast.token<<std::endl;
+			for (auto node : ast.nodes) {
+				compile(*node, indent);
+			}
+		}
+	};
 }
 
 int main(
-    int argc, char *argv[]
+	int argc, char *argv[]
 ) noexcept {
-    (void) argc;
-    (void) argv;
+	(void) argc;
+	(void) argv;
 
-    agm::log::init(AGM_TARGET_NAME ".log");
+	agm::log::init(AGM_TARGET_NAME ".log");
 
-    Peg peg;
-    peg.run();
+	Peg peg;
+	peg.run();
 
-    return 0;
+	return 0;
 }
