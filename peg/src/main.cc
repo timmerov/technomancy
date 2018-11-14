@@ -47,7 +47,7 @@ namespace {
 					intx = 1; // parses fine without %word
 				strange but true.
 
-			regular expression syntax
+			pattern matching
 				it's regex-like.
 				these work as expected: . * + () []
 				* is greedy.
@@ -56,7 +56,7 @@ namespace {
 				the input stream does not match the pattern.
 				does not consume the input.
 				hence this construct for quoted strings:
-					string <- '"' (!["] .)* '"'
+					string <- '"' (!'"' .)* '"'
 			**/
 			char grammar[] =
 			/** protobuf statements **/
@@ -66,8 +66,13 @@ namespace {
                     "syntax" '=' string ';' /
                     "import" string ';' /
                     "package" token ';' /
-                    message_statement /
-                    enum_statement
+                    enum_statement /
+                    message_statement
+			)"
+			/** protobuf enum **/
+			R"(
+                enum_statement <- "enum" token '{' enum_decl* '}'
+                enum_decl <- token '=' number ';'
 			)"
 			/** protobuf message **/
 			R"(
@@ -83,21 +88,16 @@ namespace {
                 type_decl <- type token '=' number ';'
                 type <- token ('.' token)*
 			)"
-			/** protobuf enum **/
-			R"(
-                enum_statement <- "enum" token '{' enum_decl* '}'
-                enum_decl <- token '=' number ';'
-			)"
 			/** terminating symbols **/
 			R"(
-                %word <- string / token / number
-                string <- < '"' (!["] .)* '"' >
+                %word <- token / number
+                string <- < '"' (!'"' .)* '"' >
                 token  <- < [a-zA-Z_][a-zA-Z0-9_]* >
                 number <- < [0-9]+ >
 			)"
 			/** fold comments into whitespace **/
 			R"(
-                %whitespace <- ([ \t\r\n] / comment)*
+                %whitespace <- (' ' / '\t' / end_of_line / comment)*
                 comment <-
 					"//" (!end_of_comment .)* end_of_comment /
 					"/*" (!"*/" .)* "*/"
@@ -119,7 +119,7 @@ namespace {
             parser["token"] = nop;
             parser["number"] = nop;
 
-            const char expr[] = R"expr(
+            const char proto[] = R"(
 				// comment one
 				/* comment two */
 				/*
@@ -151,10 +151,10 @@ namespace {
                     d = 0;
                     e = 1;
                 }
-            // comment at end of file)expr";
+				// comment at end of file)";
 
             std::string val;
-            bool result = parser.parse(expr, val);
+            bool result = parser.parse(proto, val);
             if (result) {
                 LOG("success!");
                 LOG("val="<<val);
