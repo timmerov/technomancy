@@ -58,7 +58,9 @@ namespace {
 				hence this construct for quoted strings:
 					string <- '"' (!["] .)* '"'
 			**/
-            peg::parser parser(R"grammar(
+			char grammar[] =
+			/** protobuf statements **/
+			R"(
                 statements <- statement*
                 statement  <-
                     "syntax" '=' string ';' /
@@ -66,7 +68,9 @@ namespace {
                     "package" token ';' /
                     message_statement /
                     enum_statement
-
+			)"
+			/** protobuf message **/
+			R"(
                 message_statement <- "message" token '{' field* '}'
                 field <-
                     type_decl /
@@ -78,15 +82,21 @@ namespace {
 
                 type_decl <- type token '=' number ';'
                 type <- token ('.' token)*
-
+			)"
+			/** protobuf enum **/
+			R"(
                 enum_statement <- "enum" token '{' enum_decl* '}'
                 enum_decl <- token '=' number ';'
-
+			)"
+			/** terminating symbols **/
+			R"(
                 %word <- string / token / number
                 string <- < '"' (!["] .)* '"' >
                 token  <- < [a-zA-Z_][a-zA-Z0-9_]* >
                 number <- < [0-9]+ >
-
+			)"
+			/** fold comments into whitespace **/
+			R"(
                 %whitespace <- ([ \t\r\n] / comment)*
                 comment <-
 					"//" (!end_of_comment .)* end_of_comment /
@@ -94,8 +104,9 @@ namespace {
 				end_of_comment <- end_of_line / end_of_file
 				end_of_line <- '\r\n' / '\r' / '\n'
 				end_of_file <- !.
-            )grammar");
+            )";
 
+            peg::parser parser(grammar);
             parser["statements"] = nop;
             parser["statement"] = nop;
             parser["message_statement"] = nop;
