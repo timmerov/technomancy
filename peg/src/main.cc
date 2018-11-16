@@ -59,26 +59,17 @@ namespace {
 				does not consume the input.
 				hence this construct for quoted strings:
 					string <- '"' (!'"' .)* '"'
-
-			stupidity alert
-				the ast method does not seem to record which rule was matched.
-				the workaround is to define explicit rules for every sub-rule.
-				after optimize(), the name of the rule may be in ast.original_name.
-				seems to be the case when the sub-rule has one token.
 			**/
 			char grammar[] =
 			/** protobuf statements **/
 			R"(
-				statements <- (
-					syntax_statement /
-					import_statement /
-					package_statement /
+				statements <- statement*
+				statement <-
+					"syntax" '=' string ';' /
+					"import" string ';' /
+					"package" token ';' /
 					enum_statement /
 					message_statement
-				)*
-				syntax_statement <- "syntax" '=' string ';'
-				import_statement <- "import" string ';'
-				package_statement <- "package" token ';'
 			)"
 			/** protobuf enum **/
 			R"(
@@ -90,19 +81,14 @@ namespace {
 				message_statement <- "message" token '{' field* '}'
 				field <-
 					type_decl /
-					repeated_decl /
-					oneof_decl /
-					map_decl /
+					"repeated" type token '=' number ';' /
+					"oneof" token '{' type_decl* '}' /
+					"map" '<' type ',' type '>' token '=' number ';' /
 					message_statement /
 					enum_statement
 
 				type_decl <- type token '=' number ';'
 				type <- token ('.' token)*
-
-				repeated_decl <- "repeated" type token '=' number ';'
-				oneof_decl <- "oneof" token '{' type_decl* '}'
-				map_decl <- "map" '<' type ',' type '>' token '=' number ';'
-
 			)"
 			/** terminating symbols **/
 			R"(
@@ -134,8 +120,8 @@ namespace {
 				/** tricky comment **/
 				syntax = "proto3";
 				import "path/to/some/file";
-				package cerebras;
-				message CigarConfig {
+				package timmerov;
+				message FooBar {
 					int x = 1;
 					double y = 2;
 					google.protobuf.any z = 3;
@@ -152,10 +138,6 @@ namespace {
 						f = 0;
 						g = 1;
 					}
-				}
-				enum Fred {
-					d = 0;
-					e = 1;
 				}
 				// comment at end of file)";
 
@@ -179,7 +161,7 @@ namespace {
 			std::string spaces(indent, ' ');
 			indent += 2;
 
-			std::cout<<spaces<<"name="<<ast.name<<" org="<<ast.original_name<<" token="<<ast.token<<std::endl;
+			std::cout<<spaces<<"name="<<ast.name<<" org="<<ast.original_name<<" token="<<ast.token<<" choice="<<ast.original_choice<<std::endl;
 			for (auto node : ast.nodes) {
 				compile(*node, indent);
 			}
