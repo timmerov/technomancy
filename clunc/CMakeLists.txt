@@ -22,30 +22,12 @@ file(GLOB_RECURSE THIS_DATA ${CMAKE_CURRENT_SOURCE_DIR}/data/*)
 # gather other files
 file(GLOB_RECURSE THIS_OTHER ${CMAKE_CURRENT_SOURCE_DIR}/ansi-c/*)
 
-# gather the bison and flex files.
-set(THIS_PARSERS
-    src/clunc.y
-    src/clunc.l
-)
-
-# gather the bison and flex files.
-bison_target(PB2CC_PARSER
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/clunc.y
-    ${CMAKE_CURRENT_BINARY_DIR}/clunc.tab.c)
-flex_target(PB2CC_LEXER
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/clunc.l
-    ${CMAKE_CURRENT_BINARY_DIR}/clunc.flex.c)
-add_flex_bison_dependency(PB2CC_LEXER PB2CC_PARSER)
-
 # add the executable with source and includes in separate groups
 add_executable(${THIS_TARGET_NAME}
 	${THIS_SOURCE}
 	${THIS_HEADERS}
 	${THIS_DATA}
 	${THIS_OTHER}
-    ${THIS_PARSERS}
-    ${BISON_PB2CC_PARSER_OUTPUTS}
-    ${FLEX_PB2CC_LEXER_OUTPUTS}
 )
 
 # add _d to the debug target name
@@ -57,12 +39,13 @@ target_compile_definitions(${THIS_TARGET_NAME} PRIVATE AGM_TARGET=${THIS_TARGET_
 # add the include directories
 set(INCS
     ${CMAKE_SOURCE_DIR}/agm/inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/thirdparty
 )
 target_include_directories(${THIS_TARGET_NAME} PUBLIC ${INCS})
 
 # add the libraries
 set(LIBS
     agm
+    pthread
 )
 target_link_libraries(${THIS_TARGET_NAME} ${LIBS})

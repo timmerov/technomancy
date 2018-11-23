@@ -28,7 +28,3 @@ set(CMAKE_CONFIGURATION_TYPES Debug Release CACHE TYPE INTERNAL FORCE)
 
 # include platform specific configs.
 include("${THIS_CMAKE_DIR}/platform/${PLATFORM_FILE}.txt")
-
-# use bison and flex.
-find_package(BISON)
-find_package(FLEX)

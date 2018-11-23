@@ -28,6 +28,7 @@ target_compile_definitions(${THIS_TARGET_NAME} PRIVATE AGM_TARGET=${THIS_TARGET_
 # add the include directories
 set(INCS
     ${CMAKE_SOURCE_DIR}/agm/inc
+    ${CMAKE_SOURCE_DIR}/thirdparty
 )
 include_directories(${INCS})
 

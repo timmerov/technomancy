@@ -18,20 +18,23 @@ disable symbols browser.
 #include <aggiornamento/aggiornamento.h>
 
 // c++ stl
-#include <iostream>
 #include <cstdarg>
+#include <iostream>
+#include <string>
 
 
 // handy macro for logging
-#define LOG(...) *agm::log::getStream() << agm::log::lock << \
-    __FUNCTION__ << " " << __VA_ARGS__ << std::endl << agm::log::unlock
+#define LOG(...) *agm::log::getStream()<<agm::log::lock<< \
+    agm::basename(__FILE__)<<":"<<__LINE__<<":"<<__FUNCTION__<<": " \
+    <<__VA_ARGS__<<std::endl \
+    <<agm::log::unlock
 
 // handy macro for logging once
 #define LOG_ONCE(...) { \
     static bool logged_once = false; \
     if (logged_once == false) { \
         logged_once = true; \
-        LOG("(once) " << __VA_ARGS__); \
+        LOG("(once) "<<__VA_ARGS__); \
     } \
 }
 
@@ -64,6 +67,8 @@ namespace agm {
         // log bytes in canonical form
         void bytes(const void *bytes, int size) noexcept;
     }
+
+    std::string basename(const std::string& path) noexcept;
 }
 
 /*

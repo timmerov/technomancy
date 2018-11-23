@@ -608,7 +608,7 @@ public:
     template <typename F, typename std::enable_if<std::is_same<F, std::nullptr_t>::value>::type*& = enabler>
     void operator=(F /*fn*/) {}
 
-    Action& operator=(const Action& rhs) = default;
+    Action& operator=(const Action& /*rhs*/) = default;
 
     operator bool() const {
         return bool(fn_);

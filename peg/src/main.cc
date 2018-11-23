@@ -7,10 +7,10 @@ Parsing Expression Grammar (peg) testing.
 https://github.com/yhirose/cpp-peglib
 **/
 
-#include "peglib.h"
-
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
+#include <peg/peglib.h>
+
 
 #include <cstdlib>
 

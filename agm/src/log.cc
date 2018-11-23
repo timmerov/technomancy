@@ -110,6 +110,14 @@ void agm::log::bytes(
     }
 }
 
+std::string agm::basename(
+	const std::string& path
+) noexcept {
+	int where = path.find_last_of("/\\");
+	auto file = path.substr(where+1);
+	return std::move(file);
+}
+
 std::ostream & operator<<(
     std::ostream &s,
     const agm::log::Lock &lock

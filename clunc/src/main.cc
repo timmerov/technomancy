@@ -10,23 +10,27 @@ Copyright (C) 2018 tim cotter. All rights reserved.
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
 
+
 namespace {
 static const char kTestString[] = R"(
 ///////////////////////////////
 /**
 clunc test sequences
 **/
+x int = 0;
+y string = 1;
+
 /*message (
 	x int = 0,
 	s string = "",
 )*/
 
-main int {
+/*main int {
 	x int;
 	y int = 1;
 	s string = "hello";
 	z = 2;
-}
+}*/
 // end of file comment
 ///////////////////////////////
 )";
@@ -40,17 +44,14 @@ int main(
 
     agm::log::init(AGM_TARGET_NAME ".log");
 
-    LOG(kTestString);
-
-    auto cn = clunc_load_string(kTestString);
+    auto cpp = clunc::compile(kTestString);
 
 	LOG("output:");
-	std::cout << "/***********************/" << std::endl;
-	auto s = clunc_to_string(cn);
-	std::cout << s;
-	std::cout << "/***********************/" << std::endl;
-
-	//delete cn;
+	std::cout<<"/***********************/"<<std::endl;
+	std::cout<<kTestString;
+	std::cout<<"/***********************/"<<std::endl;
+	std::cout<<cpp;
+	std::cout<<"/***********************/"<<std::endl;
 
     return 0;
 }
