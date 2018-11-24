@@ -17,20 +17,23 @@ static const char kTestString[] = R"(
 /**
 clunc test sequences
 **/
-x int = 0;
-y string = 1;
+/*x int = 0;
+y string = 1;*/
 
-/*message (
-	x int = 0,
-	s string = "",
-)*/
+message();
 
-/*main int {
+message (
+	x = 0;
+	y int = 0;
+	s string = "text";
+);
+
+main int {
 	x int;
 	y int = 1;
 	s string = "hello";
 	z = 2;
-}*/
+}
 // end of file comment
 ///////////////////////////////
 )";
