@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2017 CastAR, Inc. All rights reserved.
+Copyright (C) 2019-2019 tim cotter. All rights reserved.
 */
 
 #include <aggiornamento/aggiornamento.h>

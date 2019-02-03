@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012-2017 tim cotter. All rights reserved.
+# Copyright (C) 2012-2019 tim cotter. All rights reserved.
 #
 
 # search for "you need to"
@@ -24,6 +24,7 @@ add_subdirectory(jupiter)
 add_subdirectory(peg)
 add_subdirectory(pluto)
 add_subdirectory(polar2cube)
+add_subdirectory(prisoner)
 add_subdirectory(rubiks)
 add_subdirectory(spheregen)
 add_subdirectory(stereogram)
