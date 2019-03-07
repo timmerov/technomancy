@@ -42,8 +42,10 @@ and render them separately.
 
 namespace {
     const int kNumSegments = 12;
-    const char kDayTextureFilename[] = "cube-sharp50.png";
-    const char kNightTextureFilename[] = "nightcube-sharp50.png";
+    /*const char kDayTextureFilename[] = "cube-sharp50.png";
+    const char kNightTextureFilename[] = "nightcube-sharp50.png";*/
+    const char kDayTextureFilename[] = "mediancube-sharp50.png";
+    const char kNightTextureFilename[] = "intentionallynotfound.png";
 
     auto g_vertex_source =R"shader_code(
         #version 310 es
@@ -55,7 +57,7 @@ namespace {
         uniform mat4 model_mat;
         uniform mat4 proj_view_mat;
         void main() {
-            vec3 sun_dir = normalize(vec3(3.0f, 1.0f, 0.5f));
+            vec3 sun_dir = normalize(vec3(1.0f, 1.0f, 0.5f));
             vec4 world_pos = model_mat * vec4(vertex_pos_in, 1.0f);
             gl_Position = proj_view_mat * world_pos;
             texture_pos = texture_pos_in;
@@ -283,7 +285,7 @@ namespace {
             ));
 
             glm::mat4 view_mat = std::move(glm::lookAt(
-                glm::vec3(0.0f, 1.5f, 2.0f),  // camera location
+                glm::vec3(0.0f, 1.0f, 2.3f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
             ));
@@ -334,7 +336,7 @@ namespace {
             glDisableVertexAttribArray(0);
             glUseProgram(0);
 
-            //captureFrame();
+            captureFrame();
         }
 
         virtual void resize(
