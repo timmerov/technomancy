@@ -3,7 +3,7 @@ Copyright (C) 2012-2020 tim cotter. All rights reserved.
 */
 
 /**
-hello world example.
+process pictures of the moon.
 **/
 
 #include <aggiornamento/aggiornamento.h>

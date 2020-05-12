@@ -5,7 +5,7 @@
 # search for "you need to"
 
 # you need to set these:
-set(THIS_TARGET_NAME pluto)
+set(THIS_TARGET_NAME moon)
 
 # log it
 message("-- Adding executable ${THIS_TARGET_NAME}...")
@@ -28,7 +28,6 @@ target_compile_definitions(${THIS_TARGET_NAME} PRIVATE AGM_TARGET=${THIS_TARGET_
 # add the include directories
 set(INCS
     ${CMAKE_SOURCE_DIR}/agm/inc
-    ${CMAKE_SOURCE_DIR}/common/inc
 )
 include_directories(${INCS})
 

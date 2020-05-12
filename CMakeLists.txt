@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012-2019 tim cotter. All rights reserved.
+# Copyright (C) 2012-2020 tim cotter. All rights reserved.
 #
 
 # search for "you need to"
@@ -21,6 +21,7 @@ add_subdirectory(clunc)
 add_subdirectory(common)
 add_subdirectory(helloworld)
 add_subdirectory(jupiter)
+add_subdirectory(moon)
 add_subdirectory(peg)
 add_subdirectory(pluto)
 add_subdirectory(polar2cube)
