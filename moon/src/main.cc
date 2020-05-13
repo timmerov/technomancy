@@ -27,6 +27,7 @@ int main(
 
     LOG("Hello, World!");
 
+    /** load image **/
     LibRaw raw_image;
     raw_image.open_file(kFilename);
     int wd = raw_image.imgdata.sizes.width;
@@ -35,6 +36,8 @@ int main(
     LOG("ht="<<ht);
     raw_image.unpack();
     raw_image.raw2image();
+
+    /** analyze image **/
     int minr = 99999;
     int maxr = 0;
     int ming = 99999;
@@ -87,6 +90,17 @@ int main(
     LOG("avgr="<<avgr);
     LOG("avgg="<<avgg);
     LOG("avgb="<<avgb);
+
+    /** write as tiff **/
+    //raw_image.imgdata.params.use_auto_wb = 0;
+    //raw_image.imgdata.params.use_camera_wb = 1;
+    //raw_image.imgdata.params.use_camera_matrix = 1;
+    //raw_image.imgdata.params.no_auto_bright = 1;
+    //raw_image.imgdata.params.green_matching = 0;
+    //raw_image.imgdata.params.adjust_maximum_thr = 0;
+    raw_image.imgdata.params.output_tiff = 1;
+    raw_image.dcraw_process();
+    raw_image.dcraw_ppm_tiff_writer("moon.tiff");
     raw_image.recycle();
 
     LOG("Goodbye, World!");
