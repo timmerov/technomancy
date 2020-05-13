@@ -34,5 +34,6 @@ include_directories(${INCS})
 # add the libraries
 set(LIBS
     agm
+    raw
 )
 target_link_libraries(${THIS_TARGET_NAME} ${LIBS})
