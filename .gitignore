@@ -7,3 +7,4 @@ build-win64
 *.mp4
 *.lnk
 *.tiff
+*.ppm
