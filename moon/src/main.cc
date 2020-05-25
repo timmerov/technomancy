@@ -38,6 +38,23 @@ or do we interpolate rgb values for every component?
 probably easier.
 **/
 
+/**
+the moon is about 724 pixels wide.
+it's area is about 400k pixels.
+the image is 6000*4000
+so the moon is about 1.7% of the pixels.
+count pixels from brightest to get to 1%.
+above that threshold we're definitely in the moon.
+90% of the pixels are black sky pixels.
+count pixels from the darkest to get to 90%.
+below that threshold we're definitely in the black.
+average the two thresholds for moon/not-moon pixels.
+
+or...
+use joint index.
+where X% of the pixels consume 1-X% of the range.
+**/
+
 #include <libraw/libraw.h>
 
 #include <aggiornamento/aggiornamento.h>
