@@ -156,6 +156,10 @@ int main(
             int g1x = ((g1 - base) * factor + base) * 512/16384;
             int bx = b * 512/16384;
             int g2x = ((g2 - base) * factor + base) * 512/16384;
+            rx = std::max(std::min(rx, 511), 0);
+            g1x = std::max(std::min(g1x, 511), 0);
+            bx = std::max(std::min(bx, 511), 0);
+            g2x = std::max(std::min(g2x, 511), 0);
             histr[rx] += 1;
             histg1[g1x] += 1;
             histb[bx] += 1;
