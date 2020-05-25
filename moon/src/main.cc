@@ -50,6 +50,41 @@ namespace {
 
 const char *kFilename = "/home/timmer/Pictures/2020-05-12/moon/IMG_0393.CR2";
 
+const int kZero = 1900;
+
+unsigned short *get_pixel(
+    LibRaw& raw_image,
+    int x,
+    int y,
+    int cmp
+) {
+    int wd = raw_image.imgdata.sizes.width;
+    int ht = raw_image.imgdata.sizes.height;
+    x = std::max(x, 0);
+    y = std::max(y, 0);
+    x = std::min(x, wd-1);
+    y = std::min(y, ht-1);
+    int idx = x + wd*y;
+    auto pixel = &raw_image.imgdata.image[idx][cmp];
+    return pixel;
+}
+
+void interpolate1331(
+    LibRaw& raw_image,
+    int x,
+    int y,
+    int dx,
+    int dy,
+    int cmp
+) {
+    int p0 = *get_pixel(raw_image, x-3*dx, y-3*dy, cmp);
+    int p1 = *get_pixel(raw_image, x-1*dx, y-1*dy, cmp);
+    int p2 = *get_pixel(raw_image, x+1*dx, y+1*dy, cmp);
+    int p3 = *get_pixel(raw_image, x+3*dx, y+3*dy, cmp);
+    auto pixel = get_pixel(raw_image, x, y, cmp);
+    *pixel = (p0 + 3*p1 + 3*p2 + p3 - 8*kZero)/8 + kZero;
+}
+
 }
 
 int main(
@@ -170,23 +205,27 @@ int main(
 
     int wd2 = wd/2;
     int ht2 = ht/2;
+
+    /** interpolate by y **/
     for (int y = 0; y < ht2; ++y) {
         for (int x = 0; x < wd2; ++x) {
-            int idx = 2*x + 2*y*wd;
-            auto& pixel0 = raw_image.imgdata.image[idx];
-            auto& pixel1 = raw_image.imgdata.image[idx+1];
-            auto& pixel2 = raw_image.imgdata.image[idx+wd];
-            auto& pixel3 = raw_image.imgdata.image[idx+wd+1];
-            /*
-            int r0 = pixel0[0];
-            int g1 = pixel1[1];
-            int b0 = pixel3[2];
-            int g2 = pixel2[3];
-            */
-            pixel1[0] = pixel2[0] = pixel3[0] = pixel0[0];
-            pixel0[1] = pixel2[1] = pixel3[1] = pixel1[1];
-            pixel0[2] = pixel1[2] = pixel2[2] = pixel3[2];
-            pixel0[3] = pixel1[3] = pixel3[3] = pixel2[3];
+            interpolate1331(raw_image, 2*x, 2*y+1, 0, 1, 0);
+            interpolate1331(raw_image, 2*x+1, 2*y+1, 0, 1, 1);
+            interpolate1331(raw_image, 2*x+1, 2*y, 0, 1, 2);
+            interpolate1331(raw_image, 2*x, 2*y, 0, 1, 3);
+        }
+    }
+    /** interpolate by x **/
+    for (int y = 0; y < ht2; ++y) {
+        for (int x = 0; x < wd2; ++x) {
+            interpolate1331(raw_image, 2*x+1, 2*y, 1, 0, 0);
+            interpolate1331(raw_image, 2*x+1, 2*y+1, 1, 0, 0);
+            interpolate1331(raw_image, 2*x, 2*y, 1, 0, 1);
+            interpolate1331(raw_image, 2*x, 2*y+1, 1, 0, 1);
+            interpolate1331(raw_image, 2*x, 2*y, 1, 0, 2);
+            interpolate1331(raw_image, 2*x, 2*y+1, 1, 0, 2);
+            interpolate1331(raw_image, 2*x+1, 2*y, 1, 0, 3);
+            interpolate1331(raw_image, 2*x+1, 2*y+1, 1, 0, 3);
         }
     }
 
@@ -202,10 +241,9 @@ int main(
             int b0 = pixel3[2];
             int g2 = pixel2[3];
             */
-            int zero = 1900;
-            int r = (pixel[0] - zero) * 256 / 16384;
-            int g = (pixel[1] - zero + pixel[3] - zero) * 256 / 16384;
-            int b = (pixel[2] - zero) * 256 / 16384;
+            int r = (pixel[0] - kZero) * 256 / 16384;
+            int g = (pixel[1] - kZero + pixel[3] - kZero) * 256 / 16384;
+            int b = (pixel[2] - kZero) * 256 / 16384;
             r = std::max(0, std::min(255, r));
             g = std::max(0, std::min(255, g));
             b = std::max(0, std::min(255, b));
