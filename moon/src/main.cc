@@ -168,31 +168,44 @@ int main(
     }
     std::cout<<std::endl;
 
-    int wd2 = wd / 2;
-    int ht2 = ht / 2;
-    Png png;
-    png.init(wd2, ht2);
+    int wd2 = wd/2;
+    int ht2 = ht/2;
     for (int y = 0; y < ht2; ++y) {
         for (int x = 0; x < wd2; ++x) {
             int idx = 2*x + 2*y*wd;
-            auto pixel0 = raw_image.imgdata.image[idx];
-            auto pixel1 = raw_image.imgdata.image[idx+1];
-            auto pixel2 = raw_image.imgdata.image[idx+wd];
-            auto pixel3 = raw_image.imgdata.image[idx+wd+1];
+            auto& pixel0 = raw_image.imgdata.image[idx];
+            auto& pixel1 = raw_image.imgdata.image[idx+1];
+            auto& pixel2 = raw_image.imgdata.image[idx+wd];
+            auto& pixel3 = raw_image.imgdata.image[idx+wd+1];
             /*
-            int r0 = std::max(std::max(pixel0[0], pixel1[0]), std::max(pixel2[0], pixel3[0]));
-            int g1 = std::max(std::max(pixel0[1], pixel1[1]), std::max(pixel2[1], pixel3[1]));
-            int b0 = std::max(std::max(pixel0[2], pixel1[2]), std::max(pixel2[2], pixel3[2]));
-            int g2 = std::max(std::max(pixel0[3], pixel1[3]), std::max(pixel2[3], pixel3[3]));
-            */
             int r0 = pixel0[0];
             int g1 = pixel1[1];
             int b0 = pixel3[2];
             int g2 = pixel2[3];
+            */
+            pixel1[0] = pixel2[0] = pixel3[0] = pixel0[0];
+            pixel0[1] = pixel2[1] = pixel3[1] = pixel1[1];
+            pixel0[2] = pixel1[2] = pixel2[2] = pixel3[2];
+            pixel0[3] = pixel1[3] = pixel3[3] = pixel2[3];
+        }
+    }
+
+    Png png;
+    png.init(wd, ht);
+    for (int y = 0; y < ht; ++y) {
+        for (int x = 0; x < wd; ++x) {
+            int idx = x + y*wd;
+            auto pixel = raw_image.imgdata.image[idx];
+            /*
+            int r0 = pixel0[0];
+            int g1 = pixel1[1];
+            int b0 = pixel3[2];
+            int g2 = pixel2[3];
+            */
             int zero = 1900;
-            int r = (r0 - zero) * 256 / 16384;
-            int g = (g1 - zero + g2 - zero) * 256 / 16384;
-            int b = (b0 - zero) * 256 / 16384;
+            int r = (pixel[0] - zero) * 256 / 16384;
+            int g = (pixel[1] - zero + pixel[3] - zero) * 256 / 16384;
+            int b = (pixel[2] - zero) * 256 / 16384;
             r = std::max(0, std::min(255, r));
             g = std::max(0, std::min(255, g));
             b = std::max(0, std::min(255, b));
@@ -200,10 +213,6 @@ int main(
             png.data_[idx] = r;
             png.data_[idx+1] = g;
             png.data_[idx+2] = b;
-            (void) pixel0;
-            (void) pixel1;
-            (void) pixel2;
-            (void) pixel3;
         }
     }
     png.write("moon.png");
