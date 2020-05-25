@@ -160,10 +160,18 @@ int main(
             g1x = std::max(std::min(g1x, 511), 0);
             bx = std::max(std::min(bx, 511), 0);
             g2x = std::max(std::min(g2x, 511), 0);
-            histr[rx] += 1;
-            histg1[g1x] += 1;
-            histb[bx] += 1;
-            histg2[g2x] += 1;
+            if (r > 0) {
+                histr[rx] += 1;
+            }
+            if (g1 > 0) {
+                histg1[g1x] += 1;
+            }
+            if (b > 0) {
+                histb[bx] += 1;
+            }
+            if (g2 > 0) {
+                histg2[g2x] += 1;
+            }
             if (y % 200 == 101 && x % 300 == 151) {
                 int color = 2*r + g1 + g2 + 2*b - 4000;
                 std::cout<<color<<" ";
