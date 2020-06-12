@@ -1,0 +1,373 @@
+
+
+wanted features:
+
+- editor with built in debugger.
+lovely gui.
+
+- name first. optional type second.
+the type is strongly inferred when not explicit.
+
+x int;
+y int = x;
+z = x + y;
+
+- data classes are defined by parantheses.
+may use comma separated format or semicolon format.
+may be named or anonymous.
+class definitions end in semicolons.
+
+Foo(
+    x int;
+    y int;
+);
+Bar(x int, y int);
+
+- functions definitions have an anonymous class followed
+by code in curly brackets.
+function definitions do not end in a semicolon.
+
+hello_world() {
+    s = "Hello, World!";
+}
+
+hello(name string) {
+    s = "Hello, " + name + "!";
+}
+
+- functions declarations may be attached to a named class.
+function declarations must have an explicit return type.
+
+Foo.sum() int;
+
+- function definitions may be attached to a named class.
+the return type may be explicit or inferred.
+
+Foo.sum int {
+    return x + y;
+}
+
+Foo.div {
+    return x / y;
+}
+
+- class function declarations may be aggregated.
+
+Foo (
+    x int;
+    y int;
+)
+.sum() int {
+    return x + y;
+}
+.div() {
+    reutrn x / y;
+}
+.other()
+.same();
+
+- data classes always start with a capital letter.
+functions and variables always start with a lower case letter.
+otherwise these would be ambiguous.
+
+Foo(x int);
+foo(x int);
+
+- data classes should use upper mixed case.
+
+FooBarYo(x int; y int;);
+
+- function names may use lower mixed case or underscores.
+
+fooBarYo(x int, y int);
+foo_bar_yo(x int, y int);
+
+- variable names may use lower mixed case or underscores.
+
+fooBarYo string;
+foo_bar_yo int;
+
+- named class fields should end in underscore to differentiate
+them from local variables.
+
+Foo(
+    x_ int;
+    y_ int;
+);
+
+- calling class functions of class variables.
+
+f Foo;
+s = f.sum();
+
+- constant initialization of class variables.
+
+Foo (
+    x int = 0;
+    y int = 0;
+);
+
+- initialize class variables by initializer list.
+
+x(1,2) Foo;
+
+- constructor functions have the same name as the class.
+yes this breaks the naming convention rule.
+
+Foo.Foo(a int, b int) {
+    x = a;
+    y = b;
+};
+
+- destructor function is named ~.
+yes this breaks the naming convention rule.
+
+Foo.~() {
+    x = 0;
+    y = 0;
+}
+
+- class aliases.
+
+Yo Foo;
+
+- inheritance
+
+Bar Foo (
+    z int;
+    w int;
+);
+
+- multiple inheritance
+
+Zed (
+    a String;
+    b String;
+);
+
+Alpha Bar Zed;
+
+Beta Bar Zed (
+    c float;
+    d float;
+);
+
+- this is allowed and not recommended.
+except possibly for api declarations.
+
+Gamma (x int;) (y int;) (a string, b string) (c double; d double);
+
+- pointers and dereferencing use ^.
+
+Foo (
+    x int;
+    p^ int; /* the type of p dereferenced is int */
+    q ^int; /* the type of q is pointer to int */
+)
+.Foo() {
+    p = ^x;  /* p is the address of x */
+    p^ = 0;  /* contents of p (ie x) set to 0 */
+    q = new(0); /* allocate memory and with initializer list */
+}
+.~() {
+    delete q;
+}
+.sum() {
+    return x + p^ + q^;
+}
+
+- arrays use square brackets
+
+Foo (
+    x[2] int; /* array of 2 ints */
+)
+.stringify() {
+    s0 string = x[0];
+    s1 string = x[1];
+    s = s0 + "," + s1;
+}
+
+- built-in types:
+
+int
+char
+float double
+int8 int16 int32 int64
+float32 float128 etc
+
+- standard library types
+
+vector
+string
+
+- memory allocation
+
+x = new int[100];
+f = new Foo(-1,+1);
+x[0] = f^.x;
+x[1] = f^.y;
+x[2] = f^.sum();
+delete f;
+delete x;
+
+- type casting is construction.
+
+x int = 0;
+y = 1.0;
+y = float(x);
+
+- virtual functions
+
+Foo.cross() virtual {
+    return x * y;
+}
+
+Bar Foo;
+Bar.cross() override {
+    return x*x + y*y;
+}
+
+Bar b;
+cross_default = b.cross();
+cross_bar = b.Bar.cross();
+cross_foo = b.Foo.cross();
+
+
+- template clases.
+for example, the auto delete pointer class.
+this is a work in progress.
+note the type of p cannot be strongly inferred at the scope of the class.
+it's therefore a template.
+the type is strongly inferred when an AutoPtr object is constructed.
+
+AutoPtr (
+    p^ = nullptr;
+)
+.~() {
+    delete p;
+}
+.^() {
+    return p;
+}
+
+f AutoPtr(new Foo);
+s = f^.sum();
+
+
+- efficient compiling and linking.
+this is a work in progress.
+suppose the vector template is used often in a large project.
+100s of source files #include vector.hh.
+they all create vectors of int.
+we don't want to compile 100s of copies of the exact same code.
+we want the compiler to compile this header file once.
+so the first time the compiler compiles code that #include vector.hh...
+the compiler parses it to extract syntax.
+the first time the compiler instantiates a object of type vector int...
+it compiles vector.hh for int and stores that object code in its memory
+and saves it on disk.
+the second time it #includes vector.hh it either skips it entirely...
+or loads the pre-parsed data.
+the second time it instantiates an object of type vector int...
+it links to the already existing object code.
+c++ would recompile vector.h every single time it's #included.
+and discard N-1 identical copies. blech!
+
+Vector (
+    size int = 0;
+    capacity int = 0;
+    p^ = nullptr;
+)
+.~() {
+    delete p;
+}
+.[](x int) {
+    return p[x];
+}
+.size() {
+    return size;
+}
+.reserve(x int)
+.resize(x int)
+.clear();
+
+- note in the above Vector class...
+v[x] returns the the object at in v at location x.
+which is weird.
+and probably wrong.
+cause in this case:
+
+    v Vector int;
+    v[0] = 1;
+
+we want v[0] to be assigned the value 1.
+so v[0] is an lvalue. (i think).
+however, in this case..
+
+    y = v[0];
+
+we want y to be assigned the value stored at v[0].
+now it's an rvalue?
+
+so...
+i think the access operator [] should return the address of the element.
+
+.[](x int) {
+    return ^p[x];
+}
+
+and the compiler should figure out from context to fetch or store.
+
+
+- private implemenation of a class is completely hidden.
+only the api is visible.
+this is a work in progress.
+
+/** foo.imp **/
+impl Foo (
+    x int;
+) readonly (
+    y int;
+) private (
+    z int;
+) public;
+
+/** foo.clunc **/
+#include "foo.imp"
+Foo:sum int {
+    return x + y + z;
+}
+
+/** foo.api generated from foo.imp **/
+api Foo (
+x int readonly;
+y int;
+)
+
+/** main.clunc **/
+#include "foo.api"
+
+main int {
+    f Foo;
+    s = f.sum()
+}
+
+the compiler does not know the size of Foo.
+which means the linker must fill it in.
+
+
+- "templates"
+
+/* declaration */
+sum auto (x auto, y auto);
+sum(x, y)
+
+/* implementation */
+sum auto ( x auto; y auto; ) {
+    return x + y;
+}
+
+/* specialization */
+sum int ( x int; y int; ) {
+    return x + y;
+}
