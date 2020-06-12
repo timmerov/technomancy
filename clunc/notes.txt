@@ -318,6 +318,18 @@ i think the access operator [] should return the address of the element.
 
 and the compiler should figure out from context to fetch or store.
 
+so
+
+    x[10] int;
+    x[0] = 1; /* means store 1 at x+0 */
+    y = x[2]; /* means fetch value at x+2 */
+
+which i guess i no different from the . operator.
+
+    f Foo;
+    f.x = 0; /* means store 0 at f.x */
+    a = f.y; /* means fetch value at f.y */
+
 
 - private implemenation of a class is completely hidden.
 only the api is visible.
