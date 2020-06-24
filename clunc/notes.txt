@@ -8,8 +8,8 @@ lovely gui.
 - name first. optional type second.
 the type is strongly inferred when not explicit.
 
-x int;
-y int = x;
+x Int;
+y Int = x;
 z = x + y;
 
 - data classes are defined by parantheses.
@@ -18,12 +18,12 @@ may be named or anonymous.
 class definitions end in semicolons.
 
 Foo(
-    x int;
-    y int;
+    x Int;
+    y Int;
 );
-Bar(x int, y int);
+Bar(x Int, y Int);
 
-- functions definitions have an anonymous class followed
+- function definitions have an anonymous class followed
 by code in curly brackets.
 function definitions do not end in a semicolon.
 
@@ -31,19 +31,19 @@ hello_world() {
     s = "Hello, World!";
 }
 
-hello(name string) {
+hello(name String) {
     s = "Hello, " + name + "!";
 }
 
-- functions declarations may be attached to a named class.
+- function declarations may be attached to a named class.
 function declarations must have an explicit return type.
 
-Foo.sum() int;
+Foo.sum() Int;
 
 - function definitions may be attached to a named class.
 the return type may be explicit or inferred.
 
-Foo.sum int {
+Foo.sum Int {
     return x + y;
 }
 
@@ -51,13 +51,13 @@ Foo.div {
     return x / y;
 }
 
-- class function declarations may be aggregated.
+- class function definitions and declarations may be aggregated.
 
 Foo (
-    x int;
-    y int;
+    x Int;
+    y Int;
 )
-.sum() int {
+.sum() Int {
     return x + y;
 }
 .div() {
@@ -66,33 +66,33 @@ Foo (
 .other()
 .same();
 
-- data classes always start with a capital letter.
+- data class names use mixed capital case.
+ie they start with a capital letter, may use lower case letters,
+may not use underscores.
 functions and variables always start with a lower case letter.
 otherwise these would be ambiguous.
+functions and variable that start with underscores are reserved for the
+compiler and standard libraries.
 
-Foo(x int);
-foo(x int);
-
-- data classes should use upper mixed case.
-
-FooBarYo(x int; y int;);
+Foo(x Int);
+foo(x Int);
 
 - function names may use lower mixed case or underscores.
 
-fooBarYo(x int, y int);
-foo_bar_yo(x int, y int);
+fooBarYo(x Int, y Int);
+foo_bar_yo(x Int, y Int);
 
 - variable names may use lower mixed case or underscores.
 
-fooBarYo string;
-foo_bar_yo int;
+fooBarYo String;
+foo_bar_yo Int;
 
 - named class fields should end in underscore to differentiate
 them from local variables.
 
 Foo(
-    x_ int;
-    y_ int;
+    x_ Int;
+    y_ Int;
 );
 
 - calling class functions of class variables.
@@ -103,21 +103,38 @@ s = f.sum();
 - constant initialization of class variables.
 
 Foo (
-    x int = 0;
-    y int = 0;
+    x Int = 0;
+    y Int = 0;
 );
 
+- expression initialization of anonymouse classes.
+
+foo(
+    x Int = cos(pi),
+    y Int = sin(pi)
+) Int;
+
 - initialize class variables by initializer list.
+note: what happens when there are move fields in the class
+than in the initializer list?
 
 x(1,2) Foo;
 
 - constructor functions have the same name as the class.
 yes this breaks the naming convention rule.
 
-Foo.Foo(a int, b int) {
-    x = a;
-    y = b;
+Foo.Foo(a Int, b Int) {
+    x = b;
+    y = a;
 };
+
+- constructor functions have precedence over construction
+by initializer list.
+
+loc(1,2) Foo;
+
+loc is initialized by the Foo.Foo constructor.
+so loc.x=2 and loc.y=1.
 
 - destructor function is named ~.
 yes this breaks the naming convention rule.
@@ -134,8 +151,8 @@ Yo Foo;
 - inheritance
 
 Bar Foo (
-    z int;
-    w int;
+    z Int;
+    w Int;
 );
 
 - multiple inheritance
@@ -148,26 +165,26 @@ Zed (
 Alpha Bar Zed;
 
 Beta Bar Zed (
-    c float;
-    d float;
+    c Float;
+    d Float;
 );
 
 - this is allowed and not recommended.
 except possibly for api declarations.
 
-Gamma (x int;) (y int;) (a string, b string) (c double; d double);
+Gamma (x Int;) (y Int;) (a String, b String) (c Double; d Double);
 
 - pointers and dereferencing use ^.
 
 Foo (
-    x int;
-    p^ int; /* the type of p dereferenced is int */
-    q ^int; /* the type of q is pointer to int */
+    x Int;
+    p^ Int; /* the type of p dereferenced is Int */
+    q ^Int; /* the type of q is pointer to Int */
 )
 .Foo() {
     p = ^x;  /* p is the address of x */
     p^ = 0;  /* contents of p (ie x) set to 0 */
-    q = new(0); /* allocate memory and with initializer list */
+    q = new int(0); /* allocate memory with initializer list */
 }
 .~() {
     delete q;
@@ -179,30 +196,30 @@ Foo (
 - arrays use square brackets
 
 Foo (
-    x[2] int; /* array of 2 ints */
+    x[2] Int; /* array of 2 ints */
 )
 .stringify() {
-    s0 string = x[0];
-    s1 string = x[1];
+    s0 String = x[0];
+    s1 String = x[1];
     s = s0 + "," + s1;
 }
 
 - built-in types:
 
-int
-char
-float double
-int8 int16 int32 int64
-float32 float128 etc
+Int
+Char
+Float Double
+Int8 Int16 Int32 Int64
+Float32 Float128 etc
 
 - standard library types
 
-vector
-string
+Vector
+String
 
 - memory allocation
 
-x = new int[100];
+x = new Int[100];
 f = new Foo(-1,+1);
 x[0] = f^.x;
 x[1] = f^.y;
@@ -211,10 +228,11 @@ delete f;
 delete x;
 
 - type casting is construction.
+note: you may not declare a named class in an expression.
 
-x int = 0;
+x Int = 0;
 y = 1.0;
-y = float(x);
+y = Float(x);
 
 - virtual functions
 
@@ -256,48 +274,48 @@ s = f^.sum();
 
 - efficient compiling and linking.
 this is a work in progress.
-suppose the vector template is used often in a large project.
-100s of source files #include vector.hh.
-they all create vectors of int.
+suppose the Vector template is used often in a large project.
+100s of source files #include Vector.h.
+they all create vectors of Int.
 we don't want to compile 100s of copies of the exact same code.
 we want the compiler to compile this header file once.
-so the first time the compiler compiles code that #include vector.hh...
+so the first time the compiler compiles code that #include Vector.hh...
 the compiler parses it to extract syntax.
-the first time the compiler instantiates a object of type vector int...
-it compiles vector.hh for int and stores that object code in its memory
+the first time the compiler instantiates an object of type Vector Int...
+it compiles Vector.hh for Int and stores that object code in its memory
 and saves it on disk.
-the second time it #includes vector.hh it either skips it entirely...
+the second time it #includes Vector.hh it either skips it entirely...
 or loads the pre-parsed data.
-the second time it instantiates an object of type vector int...
+the second time it instantiates an object of type Vector Int...
 it links to the already existing object code.
-c++ would recompile vector.h every single time it's #included.
+c++ would recompile Vector.h every single time it's #included.
 and discard N-1 identical copies. blech!
 
 Vector (
-    size int = 0;
-    capacity int = 0;
+    size Int = 0;
+    capacity Int = 0;
     p^ = nullptr;
 )
 .~() {
     delete p;
 }
-.[](x int) {
+.[](x Int) {
     return p[x];
 }
 .size() {
     return size;
 }
-.reserve(x int)
-.resize(x int)
+.reserve(x Int)
+.resize(x Int)
 .clear();
 
 - note in the above Vector class...
-v[x] returns the the object at in v at location x.
+v[x] returns the the object in v at location x.
 which is weird.
 and probably wrong.
 cause in this case:
 
-    v Vector int;
+    v Vector Int;
     v[0] = 1;
 
 we want v[0] to be assigned the value 1.
@@ -312,7 +330,7 @@ now it's an rvalue?
 so...
 i think the access operator [] should return the address of the element.
 
-.[](x int) {
+.[](x Int) {
     return ^p[x];
 }
 
@@ -320,7 +338,7 @@ and the compiler should figure out from context to fetch or store.
 
 so
 
-    x[10] int;
+    x[10] Int;
     x[0] = 1; /* means store 1 at x+0 */
     y = x[2]; /* means fetch value at x+2 */
 
@@ -337,29 +355,29 @@ this is a work in progress.
 
 /** foo.imp **/
 impl Foo (
-    x int;
+    x Int;
 ) readonly (
-    y int;
+    y Int;
 ) private (
-    z int;
+    z Int;
 ) public;
 
 /** foo.clunc **/
 #include "foo.imp"
-Foo:sum int {
+Foo:sum Int {
     return x + y + z;
 }
 
 /** foo.api generated from foo.imp **/
 api Foo (
-x int readonly;
-y int;
+x Int readonly;
+y Int;
 )
 
 /** main.clunc **/
 #include "foo.api"
 
-main int {
+main Int {
     f Foo;
     s = f.sum()
 }
@@ -380,6 +398,6 @@ sum auto ( x auto; y auto; ) {
 }
 
 /* specialization */
-sum int ( x int; y int; ) {
+sum Int ( x Int; y Int; ) {
     return x + y;
 }
