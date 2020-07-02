@@ -26,7 +26,9 @@ specifically, this sudoku:
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
 
+#include <chrono>
 #include <iomanip>
+#include <random>
 #include <sstream>
 #include <vector>
 
@@ -44,18 +46,39 @@ class Sudoku {
 public:
     int board_[9][9];
     Moves moves_;
+    std::mt19937_64 rng_;
+    std::uniform_real_distribution<double> unif_;
 
     void run() noexcept {
         init();
         print_board();
-        float old_cost = evaluate();
-        for (int i = 0; i < 1000*1000; ++i) {
+
+        double best_cost = 1.0;
+        double old_cost = evaluate();
+        static const int kIterations = 1000*1000;
+        for (int i = 0; i < kIterations; ++i) {
             int move = choose_move();
             swap_move(move);
-            float new_cost = evaluate();
+            double new_cost = evaluate();
+            bool keep_it = false;
             if (new_cost < old_cost) {
+                keep_it = true;
+            } else {
+                double temp = 1.0 - double(i) / double(kIterations);
+                double delta = old_cost - new_cost;
+                double prob = std::exp(delta/temp);
+                //std::cout<<"=TSC= temp="<<temp<<" prob="<<prob<<" costs: "<<old_cost<<" "<<new_cost<<std::endl;
+                double r = unif_(rng_);
+                if (r < prob) {
+                    keep_it = true;
+                }
+            }
+            if (keep_it) {
                 old_cost = new_cost;
-                LOG("cost: "<<std::fixed<<std::setprecision(3)<<old_cost);
+                if (best_cost > old_cost) {
+                    best_cost = new_cost;
+                    LOG(i<<": cost: "<<std::fixed<<std::setprecision(3)<<best_cost);
+                }
                 if (old_cost == 0.0) {
                     break;
                 }
@@ -68,6 +91,13 @@ public:
 
     void init() noexcept {
         std::srand(std::time(nullptr));
+        auto now = std::chrono::high_resolution_clock::now();
+        std::uint64_t seed = now.time_since_epoch().count();
+        std::uint64_t seed_lo = seed & 0xFFFFFFFF;
+        std::uint64_t seed_hi = seed >> 32;
+        std::seed_seq ss{seed_lo, seed_hi};
+        rng_.seed(ss);
+        unif_ = std::uniform_real_distribution<double>(0, 1);
 
         init_board_moves();
 
@@ -173,7 +203,7 @@ public:
         std::cout<<std::endl;
     }
 
-    float evaluate() noexcept {
+    double evaluate() noexcept {
         int cost = 0;
         int count[10];
         count[0] = 0;
@@ -229,7 +259,7 @@ public:
         every block has cost 6.
         so 8*9 + 6*9 = 126
         **/
-        float scaled = float(cost) / 126.0;
+        double scaled = double(cost) / 126.0;
         return scaled;
     }
 
