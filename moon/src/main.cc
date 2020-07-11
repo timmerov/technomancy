@@ -65,7 +65,14 @@ where X% of the pixels consume 1-X% of the range.
 
 namespace {
 
-const char *kFilename = "/home/timmer/Pictures/2020-05-12/moon/IMG_0393.CR2";
+//const char *kInputFilename = "/home/timmer/Pictures/2020-05-12/moon/IMG_0393.CR2";
+//const char *kOutputFilename = "moon.png";
+
+const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0480.CR2";
+const char *kOutputFilename = "comet1.png";
+
+//const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0481.CR2";
+//const char *kOutputFilename = "comet2.png";
 
 const int kZero = 1900;
 
@@ -116,7 +123,7 @@ int main(
 
     /** load image **/
     LibRaw raw_image;
-    raw_image.open_file(kFilename);
+    raw_image.open_file(kInputFilename);
     int wd = raw_image.imgdata.sizes.width;
     int ht = raw_image.imgdata.sizes.height;
     LOG("wd="<<wd);
@@ -168,7 +175,7 @@ int main(
             sumb += b;
             sumg += g2;
             int rx = r * 512/16384;
-            int base = 1990;
+            int base = kZero;
             float factor = 1.9;
             int g1x = ((g1 - base) * factor + base) * 512/16384;
             int bx = b * 512/16384;
@@ -270,9 +277,13 @@ int main(
             int b0 = pixel3[2];
             int g2 = pixel2[3];
             */
-            int r = (pixel[0] - kZero) * 256 / 16384;
-            int g = (pixel[1] - kZero + pixel[3] - kZero) * 256 / 16384;
-            int b = (pixel[2] - kZero) * 256 / 16384;
+            //const int kDivisor = 16384;
+            const int kDivisor = 1500;
+            const int kBase = 2250;
+            const int kBaseGreen = 4300;
+            int r = (pixel[0] - kBase) * 256 / kDivisor;
+            int g = (pixel[1] + pixel[3] - kBaseGreen) * 256 / kDivisor;
+            int b = (pixel[2] - kBase) * 256 / kDivisor;
             r = std::max(0, std::min(255, r));
             g = std::max(0, std::min(255, g));
             b = std::max(0, std::min(255, b));
@@ -282,7 +293,7 @@ int main(
             png.data_[idx+2] = b;
         }
     }
-    png.write("moon.png");
+    png.write(kOutputFilename);
 
     /** write as ppm or tiff **/
     //raw_image.imgdata.params.use_auto_wb = 0;

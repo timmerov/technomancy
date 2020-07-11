@@ -53,6 +53,10 @@ public:
         init();
         print_board();
 
+        double max_diff = 0.0;
+        double sum_diff = 0.0;
+        int count_diffs = 0;
+
         double best_cost = 1.0;
         double old_cost = evaluate();
         static const int kIterations = 1000*1000;
@@ -64,7 +68,14 @@ public:
             if (new_cost < old_cost) {
                 keep_it = true;
             } else {
+                /**
+                the maximum possible difference is about 0.03.
+                temperatures higher than that are basically shuffling the board.
+                **/
                 double temp = 1.0 - double(i) / double(kIterations);
+                temp *= temp;
+                temp *= temp;
+                temp *= 0.03;
                 double delta = old_cost - new_cost;
                 double prob = std::exp(delta/temp);
                 //std::cout<<"=TSC= temp="<<temp<<" prob="<<prob<<" costs: "<<old_cost<<" "<<new_cost<<std::endl;
@@ -72,6 +83,13 @@ public:
                 if (r < prob) {
                     keep_it = true;
                 }
+
+                delta = std::abs(delta);
+                if (max_diff < delta) {
+                    max_diff = delta;
+                }
+                sum_diff += delta;
+                ++count_diffs;
             }
             if (keep_it) {
                 old_cost = new_cost;
@@ -87,6 +105,9 @@ public:
             }
         }
         print_board();
+
+        double avg_diff = sum_diff / double(count_diffs);
+        LOG("cost difference max: "<<max_diff<<" avg: "<<avg_diff);
     }
 
     void init() noexcept {
