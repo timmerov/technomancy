@@ -114,8 +114,14 @@ void interpolate1331(
 int main(
     int argc, char *argv[]
 ) noexcept {
-    (void) argc;
-    (void) argv;
+    const char *in_filename = kInputFilename;
+    const char *out_filename = kOutputFilename;
+    if (argc > 1) {
+        in_filename = argv[1];
+    }
+    if (argc > 2) {
+        out_filename = argv[2];
+    }
 
     agm::log::init(AGM_TARGET_NAME ".log");
 
@@ -123,11 +129,15 @@ int main(
 
     /** load image **/
     LibRaw raw_image;
-    raw_image.open_file(kInputFilename);
+    raw_image.open_file(in_filename);
     int wd = raw_image.imgdata.sizes.width;
     int ht = raw_image.imgdata.sizes.height;
     LOG("wd="<<wd);
     LOG("ht="<<ht);
+    if (wd <= 0 || ht <= 0) {
+        LOG("File not opened: "<<in_filename);
+        return 1;
+    }
     raw_image.unpack();
     raw_image.raw2image();
 
@@ -278,9 +288,9 @@ int main(
             int g2 = pixel2[3];
             */
             //const int kDivisor = 16384;
-            const int kDivisor = 1500;
-            const int kBase = 2250;
-            const int kBaseGreen = 4300;
+            const int kDivisor = 600;
+            const int kBase = 2200;
+            const int kBaseGreen = 4275;
             int r = (pixel[0] - kBase) * 256 / kDivisor;
             int g = (pixel[1] + pixel[3] - kBaseGreen) * 256 / kDivisor;
             int b = (pixel[2] - kBase) * 256 / kDivisor;
@@ -293,7 +303,7 @@ int main(
             png.data_[idx+2] = b;
         }
     }
-    png.write(kOutputFilename);
+    png.write(out_filename);
 
     /** write as ppm or tiff **/
     //raw_image.imgdata.params.use_auto_wb = 0;
