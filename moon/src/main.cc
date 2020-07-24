@@ -27,15 +27,33 @@ y+1: G2/3  B/2
 where the /# is the above color component index as per above.
 one assumes one is expected to interpolate rgb values for everywhere else.
 the rgb component values range from about 2k to 14k.
+it's not clear how to get these numbers from the imgdata.
 each r g1 b g2 component has its own slightly different black value.
 r and b seem to correlate very tightly.
 but g1 g2 seem to be out to lunch.
 they seem to need need to be scaled (after subracting black) by about 1.9.
 
 re interpolation...
-do we consider one r g1 b g2 block to be a single pixel?
-or do we interpolate rgb values for every component?
-probably easier.
+currently we interopolate rgbg values for every pixel.
+using a 1331 filter.
+there are probably other methods.
+
+note: there seems to be a black band top and left of some images.
+perhaps there's padding in the image data.
+
+note: there seem to be more r&b pixels than g pixels.
+strange. why?
+
+note: the base number seems to be consistent across shots.
+the factor number is not.
+some shots the g1 and g2 histograms are somewhat different.
+it almost looks like the greens need to be offset.
+maybe by the difference in the averages excluding the near blacks?
+
+note: where are the pixels with base values?
+are they near the borders?
+like maybe not illuminated?
+are they maybe literally camera noise?
 **/
 
 /**
@@ -65,11 +83,11 @@ where X% of the pixels consume 1-X% of the range.
 
 namespace {
 
-//const char *kInputFilename = "/home/timmer/Pictures/2020-05-12/moon/IMG_0393.CR2";
-//const char *kOutputFilename = "moon.png";
+const char *kInputFilename = "/home/timmer/Pictures/2020-05-12/moon/IMG_0393.CR2";
+const char *kOutputFilename = "moon.png";
 
-const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0480.CR2";
-const char *kOutputFilename = "comet1.png";
+//const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0480.CR2";
+//const char *kOutputFilename = "comet1.png";
 
 //const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0481.CR2";
 //const char *kOutputFilename = "comet2.png";
@@ -144,111 +162,148 @@ int main(
     /** analyze image **/
     int minr = 99999;
     int maxr = 0;
-    int ming = 99999;
-    int maxg = 0;
     int minb = 99999;
     int maxb = 0;
+    int ming1 = 99999;
+    int maxg1 = 0;
+    int ming2 = 99999;
+    int maxg2 = 0;
     std::int64_t sumr = 0;
-    std::int64_t sumg = 0;
     std::int64_t sumb = 0;
-    std::vector<int> histr(512,0);
-    std::vector<int> histg1(512,0);
-    std::vector<int> histb(512,0);
-    std::vector<int> histg2(512,0);
+    std::int64_t sumg1 = 0;
+    std::int64_t sumg2 = 0;
+    int npixelsr = 0;
+    int npixelsb = 0;
+    int npixelsg1 = 0;
+    int npixelsg2 = 0;
+    static const int kBins = 512;
+    static const int kRange = 16384;
+    std::vector<int> histr(kBins,0);
+    std::vector<int> histb(kBins,0);
+    std::vector<int> histg1(kBins,0);
+    std::vector<int> histg2(kBins,0);
+    std::vector<int> histg3(kBins,0);
+    std::vector<int> histg4(kBins,0);
+
+    /**
+    these hard coded numbers numbers come from pasting the histograms into a spreadsheet.
+    and tweaking until the rbgg graphs more/less line up.
+    how do we compute them automagically?
+    **/
+    static const int kBase = 64.0 * kRange / kBins; // =2048
+    static const float kFactor = 1.9;
+
     for (int y = 0; y < ht; ++y) {
         for (int x = 0; x < wd; ++x) {
             int idx = x + y*wd;
             auto pixel = raw_image.imgdata.image[idx];
             //LOG(y<<": r="<<pixel[0]<<" g1="<<pixel[1]<<" b="<<pixel[2]<<" g2="<<pixel[3]);
             int r = pixel[0];
-            int g1 = pixel[1];
             int b = pixel[2];
+            int g1 = pixel[1];
             int g2 = pixel[3];
+            int g3 = 0;
+            int g4 = 0;
             if (r > 0) {
                 minr = std::min(minr, r);
                 maxr = std::max(maxr, r);
-            }
-            if (g1 > 0) {
-                ming = std::min(ming, g1);
-                maxg = std::max(maxg, g1);
             }
             if (b > 0) {
                 minb = std::min(minb, b);
                 maxb = std::max(maxb, b);
             }
+            if (g1 > 0) {
+                ming1 = std::min(ming1, g1);
+                maxg1 = std::max(maxg1, g1);
+                g3 = (g1 - kBase) * kFactor + kBase;
+            }
             if (g2 > 0) {
-                ming = std::min(ming, g2);
-                maxg = std::max(maxg, g2);
+                ming2 = std::min(ming2, g2);
+                maxg2 = std::max(maxg2, g2);
+                g4 = (g2 - kBase) * kFactor + kBase;
             }
             sumr += r;
-            sumg += g1;
             sumb += b;
-            sumg += g2;
-            int rx = r * 512/16384;
-            int base = kZero;
-            float factor = 1.9;
-            int g1x = ((g1 - base) * factor + base) * 512/16384;
-            int bx = b * 512/16384;
-            int g2x = ((g2 - base) * factor + base) * 512/16384;
-            rx = std::max(std::min(rx, 511), 0);
-            g1x = std::max(std::min(g1x, 511), 0);
-            bx = std::max(std::min(bx, 511), 0);
-            g2x = std::max(std::min(g2x, 511), 0);
+            sumg1 += g1;
+            sumg2 += g2;
+            int rx = r * kBins/kRange;
+            int bx = b * kBins/kRange;
+            int g1x = g1 * kBins/kRange;
+            int g2x = g2 * kBins/kRange;
+            int g3x = g3 * kBins/kRange;
+            int g4x = g4 * kBins/kRange;
+            rx = std::max(std::min(rx, kBins-1), 0);
+            bx = std::max(std::min(bx, kBins-1), 0);
+            g1x = std::max(std::min(g1x, kBins-1), 0);
+            g2x = std::max(std::min(g2x, kBins-1), 0);
+            g3x = std::max(std::min(g3x, kBins-1), 0);
+            g4x = std::max(std::min(g4x, kBins-1), 0);
             if (r > 0) {
                 histr[rx] += 1;
-            }
-            if (g1 > 0) {
-                histg1[g1x] += 1;
+                ++npixelsr;
             }
             if (b > 0) {
                 histb[bx] += 1;
+                ++npixelsb;
+            }
+            if (g1 > 0) {
+                histg1[g1x] += 1;
+                ++npixelsg1;
             }
             if (g2 > 0) {
                 histg2[g2x] += 1;
+                ++npixelsg2;
             }
-            if (y % 200 == 101 && x % 300 == 151) {
-                int color = 2*r + g1 + g2 + 2*b - 4000;
-                std::cout<<color<<" ";
+            if (g3 > 0) {
+                histg3[g3x] += 1;
             }
-        }
-        if (y % 200 == 101) {
-            std::cout<<std::endl;
+            if (g4 > 0) {
+                histg4[g4x] += 1;
+            }
         }
     }
-    LOG("minr="<<minr);
-    LOG("maxr="<<maxr);
-    LOG("ming="<<ming);
-    LOG("maxg="<<maxg);
-    LOG("minb="<<minb);
-    LOG("maxb="<<maxb);
-    int npixels = wd * ht;
-    int avgr = sumr / npixels;
-    int avgg = sumg / (npixels * 2);
-    int avgb = sumb / npixels;
-    LOG("avgr="<<avgr);
-    LOG("avgg="<<avgg);
-    LOG("avgb="<<avgb);
+    int avgr = sumr / npixelsr;
+    int avgb = sumb / npixelsb;
+    int avgg1 = sumg1 / npixelsg1;
+    int avgg2 = sumg2 / npixelsg2;
+    LOG("npixels r/b/g1/g2="<<npixelsr<<"/"<<npixelsb<<"/"<<npixelsg1<<"/"<<npixelsg2);
+    LOG("min/avg/max r="<<minr<<"/"<<avgr<<"/"<<maxr);
+    LOG("min/avg/max b="<<minb<<"/"<<avgb<<"/"<<maxb);
+    LOG("min/avg/max g1="<<ming1<<"/"<<avgg1<<"/"<<maxg1);
+    LOG("min/avg/max g2="<<ming2<<"/"<<avgg2<<"/"<<maxg2);
     std::cout<<"histogram r:";
-    for (int i = 0; i < 512; ++i) {
+    for (int i = 0; i < kBins; ++i) {
         std::cout<<" "<<histr[i];
     }
     std::cout<<std::endl;
-    std::cout<<"histogram g1:";
-    for (int i = 0; i < 512; ++i) {
-        std::cout<<" "<<histg1[i];
-    }
-    std::cout<<std::endl;
     std::cout<<"histogram b:";
-    for (int i = 0; i < 512; ++i) {
+    for (int i = 0; i < kBins; ++i) {
         std::cout<<" "<<histb[i];
     }
     std::cout<<std::endl;
+    std::cout<<"histogram g1:";
+    for (int i = 0; i < kBins; ++i) {
+        std::cout<<" "<<histg1[i];
+    }
+    std::cout<<std::endl;
     std::cout<<"histogram g2:";
-    for (int i = 0; i < 512; ++i) {
+    for (int i = 0; i < kBins; ++i) {
         std::cout<<" "<<histg2[i];
     }
     std::cout<<std::endl;
+    std::cout<<"histogram g3:";
+    for (int i = 0; i < kBins; ++i) {
+        std::cout<<" "<<histg3[i];
+    }
+    std::cout<<std::endl;
+    std::cout<<"histogram g4:";
+    for (int i = 0; i < kBins; ++i) {
+        std::cout<<" "<<histg4[i];
+    }
+    std::cout<<std::endl;
 
+    (void) out_filename;
+#if 0
     int wd2 = wd/2;
     int ht2 = ht/2;
 
@@ -304,6 +359,7 @@ int main(
         }
     }
     png.write(out_filename);
+#endif
 
     /** write as ppm or tiff **/
     //raw_image.imgdata.params.use_auto_wb = 0;
