@@ -92,7 +92,37 @@ const char *kOutputFilename = "moon.png";
 //const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0481.CR2";
 //const char *kOutputFilename = "comet2.png";
 
-const int kZero = 1900;
+/**
+bins in histogram.
+**/
+static const int kBins = 512;
+
+/**
+these hard coded numbers numbers come from pasting the histograms into a spreadsheet.
+and tweaking until the rbgg graphs more/less line up.
+how do we compute them automagically?
+**/
+/**
+largest possible value recorded by camera.
+**/
+static const int kRange = 16384;
+/**
+"zero" for scaling.
+**/
+static const int kBase = 64.0 * kRange / kBins; // =2048
+/**
+kFactor scales greens by this amount.
+preserve "zero".
+**/
+static const float kFactor = 1.9;
+/**
+maps to 0.
+**/
+static const int kZero = kBase - 3*32;
+/**
+maps to 255.
+**/
+static const int kSaturation = 441.0 * kRange / kBins;
 
 unsigned short *get_pixel(
     LibRaw& raw_image,
@@ -125,6 +155,20 @@ void interpolate1331(
     int p3 = *get_pixel(raw_image, x+3*dx, y+3*dy, cmp);
     auto pixel = get_pixel(raw_image, x, y, cmp);
     *pixel = (p0 + 3*p1 + 3*p2 + p3 - 8*kZero)/8 + kZero;
+}
+
+int scale_to_255(
+    int c0,
+    int c1,
+    float factor
+) {
+    c0 = (c0 - kBase) * factor + kBase;
+    c1 = (c1 - kBase) * factor + kBase;
+    int c = c0 - kZero + c1 - kZero;
+    c *= 255;
+    c /= 2 * (kSaturation - kZero);
+    c = std::max(0, std::min(c, 255));
+    return c;
 }
 
 }
@@ -176,22 +220,12 @@ int main(
     int npixelsb = 0;
     int npixelsg1 = 0;
     int npixelsg2 = 0;
-    static const int kBins = 512;
-    static const int kRange = 16384;
     std::vector<int> histr(kBins,0);
     std::vector<int> histb(kBins,0);
     std::vector<int> histg1(kBins,0);
     std::vector<int> histg2(kBins,0);
     std::vector<int> histg3(kBins,0);
     std::vector<int> histg4(kBins,0);
-
-    /**
-    these hard coded numbers numbers come from pasting the histograms into a spreadsheet.
-    and tweaking until the rbgg graphs more/less line up.
-    how do we compute them automagically?
-    **/
-    static const int kBase = 64.0 * kRange / kBins; // =2048
-    static const float kFactor = 1.9;
 
     for (int y = 0; y < ht; ++y) {
         for (int x = 0; x < wd; ++x) {
@@ -302,8 +336,7 @@ int main(
     }
     std::cout<<std::endl;
 
-    (void) out_filename;
-#if 0
+#if 1
     int wd2 = wd/2;
     int ht2 = ht/2;
 
@@ -336,22 +369,13 @@ int main(
         for (int x = 0; x < wd; ++x) {
             int idx = x + y*wd;
             auto pixel = raw_image.imgdata.image[idx];
-            /*
-            int r0 = pixel0[0];
-            int g1 = pixel1[1];
-            int b0 = pixel3[2];
-            int g2 = pixel2[3];
-            */
-            //const int kDivisor = 16384;
-            const int kDivisor = 600;
-            const int kBase = 2200;
-            const int kBaseGreen = 4275;
-            int r = (pixel[0] - kBase) * 256 / kDivisor;
-            int g = (pixel[1] + pixel[3] - kBaseGreen) * 256 / kDivisor;
-            int b = (pixel[2] - kBase) * 256 / kDivisor;
-            r = std::max(0, std::min(255, r));
-            g = std::max(0, std::min(255, g));
-            b = std::max(0, std::min(255, b));
+            int r0 = pixel[0];
+            int b0 = pixel[2];
+            int g1 = pixel[1];
+            int g2 = pixel[3];
+            int r = scale_to_255(r0, r0, 1.0);
+            int b = scale_to_255(b0, b0, 1.0);
+            int g = scale_to_255(g1, g2, kFactor);
             idx = x * 3 + y * png.stride_;
             png.data_[idx] = r;
             png.data_[idx+1] = g;
@@ -359,18 +383,10 @@ int main(
         }
     }
     png.write(out_filename);
+#else
+    (void) out_filename;
 #endif
 
-    /** write as ppm or tiff **/
-    //raw_image.imgdata.params.use_auto_wb = 0;
-    //raw_image.imgdata.params.use_camera_wb = 1;
-    //raw_image.imgdata.params.use_camera_matrix = 1;
-    //raw_image.imgdata.params.no_auto_bright = 1;
-    //raw_image.imgdata.params.green_matching = 0;
-    //raw_image.imgdata.params.adjust_maximum_thr = 0;
-    /*raw_image.imgdata.params.output_tiff = 0;
-    raw_image.dcraw_process();
-    raw_image.dcraw_ppm_tiff_writer("moon.ppm");*/
     raw_image.recycle();
 
     LOG("Goodbye, World!");
