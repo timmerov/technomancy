@@ -13,22 +13,117 @@
 # lower_case identifiers such as spacing indicate white space.
 # white space is pruned from the ast tree.
 
+
 # production rules
-Root <- spacing Stmt* end_of_file
+Root <- spacing TopLevel* end_of_file
+TopLevel <- Class / Function / Variable
 
-Stmt <- FnStmt / VarDecl / ClassDecl
+Class <- CLASSNAME ClassDef SEMICOLON
+ClassDef <- LPAREN ElemList? RPAREN
+ElemList <- (VarDecl SEMICOLON)* / VarDecl (COMMA VarDecl)*
 
-FnStmt <- FnProto (SEMICOLON / Block)
+Variable <- VarDecl SEMICOLON
+VarDecl <- VARNAME Type (EQUAL Expr)
 
-FnProto <- FNIDENTIFIER LPAREN ParamDeclList RPAREN TypeExpr
+Function <- VARNAME ClassDef Type (SEMICOLON / Block)
+Block <- LBRACE Statement* RBRACE
+Statement <- AssignStmt / Block / Class / ForStmt / IfStmt / SwitchStmt / Variable
 
-ParamDeclList <- ParamDecl (COMMA ParamDecl)* / (ParamDecl SEMICOLON)*
+AssignStmt <- AssignExpr SEMICOLON
+AssignExpr <- Expr (AssignOp Expr)?
 
-ParamDecl <- VARIDENTIFIER TypeExpr
+ForStmt <- ???
 
-VarDecl <- VARIDENTIFIER TypeExpr SEMICOLON
+IfStmt <- IF Expr Block (ELSE Block)?
 
-Block <-
+SwitchStmt <- SWITCH ???
+
+Type <- INT / FLOAT / ???
+
+Expr         <- BoolOrExpr
+BoolOrExpr   <- BoolAndExpr  (OR BoolAndExpr)*
+BoolAndExpr  <- CompareExpr  (AND CompareExpr)*
+CompareExpr  <- BitwiseExpr  (CompareOp BitwiseExpr)?
+BitwiseExpr  <- BitShiftExpr (BitwiseOp BitShiftExpr)*
+BitShiftExpr <- AdditionExpr (BitShiftOp AdditionExpr)*
+AdditionExpr <- MultiplyExpr (AdditionOp MultiplyExpr)*
+MultiplyExpr <- PrefixExpr   (MultiplyOp PrefixExpr_*
+PrefixExpr   <- PrefixOp* PrimaryExpr
+
+AdditionOp   <- PLUS / MINUS
+AssignOp     <- ANDEQUAL / EQUAL / LEFTLEFTEQUAL / MINUSEQUAL / OREQUAL /
+  PERCENTEQUAL / PLUSEQUAL / RIGHTRIGHTEQUAL / SLASHEQUAL / STAREQUAL/ XOREQUAL
+
+BitShiftOp   <- LEFTLEFT / RIGHTRIGHT
+BitwiseOp    <- BITAND / BITOR / BITXOR
+CompareOp    <- EQUALEQUAL / GREATER / GREATEREQUAL / LESS / LESSEQUAL / NOTEQUAL
+MultiplyOp   <- PERCENT / SLASH / STAR
+PrefixOp     <- NOT / MINUS / TILDE
+
+PrimaryExpr  <- CHAR / FALSE / GroupExpr / VARNAME / FnCall / NULLPTR / STRING / TRUE / Type
+GroupExpr    <- LPAREN Expr RPAREN
+FnCall       <- VARNAME LPAREN ParamList? RPAREN
+ParamList    <- Expr (COMMA Expr)*
+
+# literals
+CHAR         <- ???
+STRING       <- ???
+
+# identifiers
+CLASSNAME    <- [A-Z][a-zA-Z0-9_]*  spacing
+VARNAME      <- [a-z][a-zA-Z0-9_]*  spacing
+
+
+# keywords
+ELSE         <- 'else'     spacing
+IF           <- 'if'       spacing
+INT          <- 'Int'      spacing
+FALSE        <- 'false'    spacing
+FLOAT        <- 'Float'    spacing
+NULLPTR      <- 'nullptr'  spacing
+SWITCH       <- 'switch'   spacing
+TRUE         <- 'true'     spacing
+
+
+# terminators
+ANDEQUAL        <- '&='          spacing
+BITAND          <- '&'    ![&=]  spacing
+BITOR           <- '|'    ![|=]  spacing
+BITXOR          <- '^'    ![=]   spacing
+COMMA           <- ','           spacing
+EQUALEQUAL      <- '=='          spacing
+EQUAL           <- '='    ![=]   spacing
+GREATER         <- '>'    ![=>]  spacing
+GREATEREQUAL    <- '>='          spacing
+LBRACE          <- '{'           spacing
+LEFTLEFT        <- '<<'   ![=]   spacing
+LEFTLEFTEQUAL   <- '<<='         spacing
+LESS            <- '<'    ![<=]  spacing
+LESSEQUAL       <- '<='          spacing
+LPAREN          <- '('           spacing
+MINUS           <- '-'    ![=]   spacing
+MINUSEQUAL      <- '-='          spacing
+NOT             <- '!'    ![=]   spacing
+NOTEQUAL        <- '!='          spacing
+OR              <- '||'          spacing
+OREQUAL         <- '|='          spacing
+PLUS            <- '+'    ![=]   spacing
+RBRACE          <- '}'           spacing
+RIGHTRIGHT      <- '>>'   ![=]   spacing
+RIGHTRIGHTEQUAL <- '>>='         spacing
+RPAREN          <- ')'           spacing
+PERCENT         <- '%'    ![=]   spacing
+PERCENTEQUAL    <- '%='          spacing
+PLUS            <- '+ '   ![=]   spacing
+PLUSEQUAL       <- '+='          spacing
+SEMICOLON       <- ';'           spacing
+SLASH           <- '/'    ![=]   spacing
+SLASHEQUAL      <- '/='          spacing
+STAR            <- '*'    ![=]   spacing
+STAREQUAL       <- '*='          spacing
+TILDE           <- '~'           spacing
+XOREQUAL        <- '^='          spacing
+
 
 # white space
 spacing <- (space / comment)*
