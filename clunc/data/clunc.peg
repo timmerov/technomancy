@@ -1,0 +1,42 @@
+#
+# clunc grammar
+#
+# the following conventions are used:
+#
+# MixedCase identifiers that start with an upper case character and contain
+# at least one lower case character indicate a production rule that generates
+# an Ast class.
+#
+# UPPERCASE identifiers indicate leaf nodes in the Ast tree.
+# the subtree is removed.
+#
+# lower_case identifiers such as spacing indicate white space.
+# white space is pruned from the ast tree.
+
+# production rules
+Root <- spacing Stmt* end_of_file
+
+Stmt <- FnStmt / VarDecl / ClassDecl
+
+FnStmt <- FnProto (SEMICOLON / Block)
+
+FnProto <- FNIDENTIFIER LPAREN ParamDeclList RPAREN TypeExpr
+
+ParamDeclList <- ParamDecl (COMMA ParamDecl)* / (ParamDecl SEMICOLON)*
+
+ParamDecl <- VARIDENTIFIER TypeExpr
+
+VarDecl <- VARIDENTIFIER TypeExpr SEMICOLON
+
+Block <-
+
+# white space
+spacing <- (space / comment)*
+comment
+  <- '//' (!end_of_line .)* end_of_line
+   / comment_start (!comment_end .)* comment_end
+comment_start <- '/*'
+comment_end   <- '*/'
+space         <- ' ' / '\t' / end_of_line
+end_of_line   <- '\r\n' / '\n' / '\r'
+end_of_file   <- !.

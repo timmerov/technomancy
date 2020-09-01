@@ -120,10 +120,10 @@ than in the initializer list?
 
 x(1,2) Foo;
 
-- constructor functions have the same name as the class.
+- constructor functions are named '.' (dot).
 yes this breaks the naming convention rule.
 
-Foo.Foo(a Int, b Int) {
+Foo..(a Int, b Int) {
     x = b;
     y = a;
 };
@@ -133,7 +133,7 @@ by initializer list.
 
 loc(1,2) Foo;
 
-loc is initialized by the Foo.Foo constructor.
+loc is initialized by the Foo.. constructor.
 so loc.x=2 and loc.y=1.
 
 - destructor function is named ~.
@@ -172,7 +172,7 @@ Beta Bar Zed (
 - this is allowed and not recommended.
 except possibly for api declarations.
 
-Gamma (x Int;) (y Int;) (a String, b String) (c Double; d Double);
+Gamma (x Int;) (y Int;) (a String, b String) (c Double; d Double;);
 
 - pointers and dereferencing use ^.
 
@@ -181,7 +181,7 @@ Foo (
     p^ Int; /* the type of p dereferenced is Int */
     q ^Int; /* the type of q is pointer to Int */
 )
-.Foo() {
+..() {
     p = ^x;  /* p is the address of x */
     p^ = 0;  /* contents of p (ie x) set to 0 */
     q = new int(0); /* allocate memory with initializer list */
