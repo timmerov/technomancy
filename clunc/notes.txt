@@ -71,7 +71,7 @@ ie they start with a capital letter, may use lower case letters,
 may not use underscores.
 functions and variables always start with a lower case letter.
 otherwise these would be ambiguous.
-functions and variable that start with underscores are reserved for the
+functions and variables that start with underscores are reserved for the
 compiler and standard libraries.
 
 Foo(x Int);
@@ -107,7 +107,7 @@ Foo (
     y Int = 0;
 );
 
-- expression initialization of anonymouse classes.
+- expression initialization of anonymous classes.
 
 foo(
     x Int = cos(pi),
@@ -115,7 +115,7 @@ foo(
 ) Int;
 
 - initialize class variables by initializer list.
-note: what happens when there are move fields in the class
+note: what happens when there are more fields in the class
 than in the initializer list?
 
 x(1,2) Foo;
