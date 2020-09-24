@@ -25,7 +25,7 @@ disable symbols browser.
 
 // handy macro for logging
 #define LOG(...) *agm::log::getStream()<<agm::log::lock<< \
-    agm::basename(__FILE__)<<":"<<__LINE__<<":"<<__FUNCTION__<<": " \
+    agm::log::getPrefix(agm::basename(__FILE__),__LINE__,__FUNCTION__) \
     <<__VA_ARGS__<<std::endl \
     <<agm::log::unlock
 
@@ -47,9 +47,14 @@ disable symbols browser.
 namespace agm {
     // standardize logging.
     namespace log {
-        void init(const char *filename) noexcept;
+        void init(const char *filename, bool prefix = true) noexcept;
         void exit() noexcept;
         std::ostream *getStream() noexcept;
+        std::string getPrefix(
+            const std::string& file,
+            int line,
+            const std::string& func
+        ) noexcept;
 
         // clever use of a lock to serialize logging.
         class Lock { public: };

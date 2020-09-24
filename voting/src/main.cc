@@ -43,16 +43,21 @@ public:
     ncandidates_ = candidates_.size();
     results_.resize(ncandidates_);
 
+    LOG("");
     LOG("ballots.size()="<<nballots_);
     LOG("candidates_.size()="<<ncandidates_);
-    LOG("Candidates:");
 
     show_candidates();
     first_past_post();
+    ranked_choice_voting();
     reverse_rank_order();
+
+    LOG("");
   }
 
   void show_candidates() noexcept {
+    LOG("");
+    LOG("Candidates:");
     init_results();
     for (int i = 1; i < ncandidates_; ++i) {
       results_[i].count_ = i;
@@ -69,11 +74,42 @@ public:
       ++result.count_;
     }
     sort_results();
+    LOG("");
     LOG("First Past the Post Results:");
     print_results();
+    auto& winner = results_[1];
+    LOG("Winner: "<<winner.who_);
+  }
+
+  void ranked_choice_voting() noexcept {
+    LOG("");
+    LOG("Ranked Choice Results:");
+    restore_ballots();
+    std::vector<int> in_race(ncandidates_, 1);
+    for (int rank = ncandidates_ - 2; rank > 0; --rank) {
+      init_results();
+      for (auto&& ballot : ballots_) {
+        int choice = ballot.choice_[0];
+        if (choice > 0) {
+          /** first place vote for one candidate. **/
+          auto& result = results_[choice];
+          ++result.count_;
+        }
+      }
+      sort_results();
+      /*LOG("Rank: "<<rank);
+      print_results();*/
+      auto& loser = results_[rank+1];
+      LOG(loser.who_<<" is eliminated.");
+      eliminate_from_ballots(loser.idx_);
+      in_race[loser.idx_] = 0;
+    }
+    auto& winner = results_[1];
+    LOG("Winner: "<<winner.who_);
   }
 
   void reverse_rank_order() noexcept {
+    LOG("");
     LOG("Reverse Rank Order Results:");
     restore_ballots();
     std::vector<int> in_race(ncandidates_, 1);
@@ -180,7 +216,7 @@ int main(
   (void) argc;
   (void) argv;
 
-  agm::log::init(AGM_TARGET_NAME ".log");
+  agm::log::init(AGM_TARGET_NAME ".log", false);
 
   Voting voting;
   voting.run();

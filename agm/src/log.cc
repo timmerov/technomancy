@@ -23,6 +23,7 @@ agm::log::Unlock agm::log::unlock;
 namespace {
     class LogStreams {
     public:
+        bool prefix_;
         std::ofstream file_;
         std::stringstream str_;
     };
@@ -74,8 +75,12 @@ namespace {
     }
 }
 
-void agm::log::init(const char *filename) noexcept {
+void agm::log::init(
+  const char *filename,
+  bool prefix
+) noexcept {
     auto ls = getLogStreams();
+    ls->prefix_ = prefix;
     if (ls->file_.is_open() == false) {
         ls->file_.open(filename, std::ios::out | std::ios::trunc);
     }
@@ -89,6 +94,19 @@ void agm::log::exit() noexcept {
 std::ostream *agm::log::getStream() noexcept {
     auto ls = getLogStreams();
     return &ls->str_;
+}
+
+std::string agm::log::getPrefix(
+    const std::string& file,
+    int line,
+    const std::string& func
+) noexcept {
+  std::string s;
+  auto ls = getLogStreams();
+  if (ls->prefix_) {
+    s += file + ":" + std::to_string(line) + ":" + func + ": ";
+  }
+  return std::move(s);
 }
 
 agm::log::AsHex::AsHex(
