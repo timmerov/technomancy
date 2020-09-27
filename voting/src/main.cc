@@ -49,6 +49,8 @@ public:
 
     show_candidates();
     first_past_post();
+    head_to_head();
+    head_to_head_elimination();
     ranked_choice_voting();
     reverse_rank_order();
 
@@ -79,6 +81,125 @@ public:
     print_results();
     auto& winner = results_[1];
     LOG("Winner: "<<winner.who_);
+  }
+
+  void head_to_head() noexcept {
+    LOG("");
+    LOG("Head to Head Results:");
+    restore_ballots();
+    init_results();
+    auto rankings = ballots_;
+    for (int i = 0; i < nballots_; ++i) {
+      auto& src = ballots_[i];
+      auto& dst = rankings[i];
+      for (int k = 0; k < ncandidates_-1; ++k) {
+        dst.choice_[k] = 0;
+      }
+      for (int k = 0; k < ncandidates_-1; ++k) {
+        int choice = src.choice_[k];
+        if (choice > 0) {
+          dst.choice_[choice-1] = k+1;
+        }
+      }
+    }
+    int max_wins = 0;
+    int winner = 0;
+    for (int i = 0; i < ncandidates_-1; ++i) {
+      int wins = 0;
+      for (int k = 0; k < ncandidates_-1; ++k) {
+        int fori = 0;
+        int fork = 0;
+        for (auto&& ranking : rankings) {
+          int ranki = ranking.choice_[i];
+          int rankk = ranking.choice_[k];
+          if (ranki > rankk) {
+            ++fori;
+          }
+          if (rankk > ranki) {
+            ++fork;
+          }
+        }
+        if (fori > fork) {
+          LOG(candidates_[i+1]<<" beat "<<candidates_[k+1]<<" "<<fori<<" to "<<fork<<".");
+          ++wins;
+        }
+      }
+      LOG(candidates_[i+1]<<" has "<<wins<<" wins.");
+      if (max_wins < wins) {
+        max_wins = wins;
+        winner = i + 1;
+      }
+    }
+    LOG("Winner: "<<candidates_[winner]);
+  }
+
+  void head_to_head_elimination() noexcept {
+    LOG("");
+    LOG("Head to Head Elimination Results:");
+    restore_ballots();
+    init_results();
+    std::vector<int> in_race(ncandidates_, 1);
+    for (int round = 1; round < ncandidates_-1; ++round) {
+      auto rankings = ballots_;
+      for (int i = 0; i < nballots_; ++i) {
+        auto& src = ballots_[i];
+        auto& dst = rankings[i];
+        for (int k = 0; k < ncandidates_-1; ++k) {
+          dst.choice_[k] = 0;
+        }
+        for (int k = 0; k < ncandidates_-1; ++k) {
+          int choice = src.choice_[k];
+          if (choice > 0) {
+            dst.choice_[choice-1] = k+1;
+          }
+        }
+      }
+      int min_wins = ncandidates_;
+      int loser = 0;
+      for (int i = 0; i < ncandidates_-1; ++i) {
+        if (in_race[i] == 0) {
+          continue;
+        }
+        int wins = 0;
+        for (int k = 0; k < ncandidates_-1; ++k) {
+          if (in_race[k] == 0) {
+            continue;
+          }
+          int fori = 0;
+          int fork = 0;
+          for (auto&& ranking : rankings) {
+            int ranki = ranking.choice_[i];
+            int rankk = ranking.choice_[k];
+            if (ranki > rankk) {
+              ++fori;
+            }
+            if (rankk > ranki) {
+              ++fork;
+            }
+          }
+          if (fori > fork) {
+            //LOG(i+1<<" beat "<<k+1<<" "<<fori<<" to "<<fork);
+            ++wins;
+          }
+        }
+        //LOG(i+1<<" has "<<wins<<" wins");
+        if (min_wins > wins) {
+          min_wins = wins;
+          loser = i;
+        }
+      }
+      LOG(candidates_[loser+1]<<" is eliminated.");
+      eliminate_from_ballots(loser+1);
+      in_race[loser] = 0;
+    }
+    int winner = -1;
+    for (int i = 0; i < ncandidates_-1; ++i) {
+      if (in_race[i]) {
+        winner = i + 1;
+        break;
+      }
+    }
+    LOG("Winner: "<<candidates_[winner]);
   }
 
   void ranked_choice_voting() noexcept {
