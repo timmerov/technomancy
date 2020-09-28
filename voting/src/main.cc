@@ -93,7 +93,7 @@ public:
       auto& src = ballots_[i];
       auto& dst = rankings[i];
       for (int k = 0; k < ncandidates_-1; ++k) {
-        dst.choice_[k] = 0;
+        dst.choice_[k] = ncandidates_;
       }
       for (int k = 0; k < ncandidates_-1; ++k) {
         int choice = src.choice_[k];
@@ -112,10 +112,10 @@ public:
         for (auto&& ranking : rankings) {
           int ranki = ranking.choice_[i];
           int rankk = ranking.choice_[k];
-          if (ranki > rankk) {
+          if (ranki < rankk) {
             ++fori;
           }
-          if (rankk > ranki) {
+          if (rankk < ranki) {
             ++fork;
           }
         }
@@ -145,7 +145,7 @@ public:
         auto& src = ballots_[i];
         auto& dst = rankings[i];
         for (int k = 0; k < ncandidates_-1; ++k) {
-          dst.choice_[k] = 0;
+          dst.choice_[k] = ncandidates_;
         }
         for (int k = 0; k < ncandidates_-1; ++k) {
           int choice = src.choice_[k];
@@ -170,10 +170,10 @@ public:
           for (auto&& ranking : rankings) {
             int ranki = ranking.choice_[i];
             int rankk = ranking.choice_[k];
-            if (ranki > rankk) {
+            if (ranki < rankk) {
               ++fori;
             }
-            if (rankk > ranki) {
+            if (rankk < ranki) {
               ++fork;
             }
           }
