@@ -48,10 +48,10 @@ public:
     LOG("candidates_.size()="<<ncandidates_);
 
     show_candidates();
-    first_past_post();
-    head_to_head();
-    head_to_head_elimination();
-    ranked_choice_voting();
+    //first_past_post();
+    //head_to_head();
+    //head_to_head_elimination();
+    //ranked_choice_voting();
     reverse_rank_order();
 
     LOG("");
@@ -236,23 +236,33 @@ public:
     std::vector<int> in_race(ncandidates_, 1);
     for (int rank = ncandidates_ - 2; rank > 0; --rank) {
       init_results();
+      int lcm = get_lcm(rank+1);
       for (auto&& ballot : ballots_) {
         int choice = ballot.choice_[rank];
         if (choice > 0) {
           /** last place vote for one candidate. **/
           auto& result = results_[choice];
-          ++result.count_;
+          result.count_ += lcm;
         } else {
-          /** last place votes for many candidates. **/
+          /**
+          last place votes for many candidates.
+          divide the lcm evenly between them.
+          **/
           auto is_last = in_race;
           for (int i = 0; i <= rank; ++i) {
             choice = ballot.choice_[i];
             is_last[choice] = 0;
           }
+          int nlasts = 0;
+          for (int i = 1; i < ncandidates_; ++i) {
+            if (is_last[i]) {
+              ++nlasts;
+            }
+          }
           for (int i = 1; i < ncandidates_; ++i) {
             if (is_last[i]) {
               auto& result = results_[i];
-              ++result.count_;
+              result.count_ += lcm / nlasts;
             }
           }
         }
@@ -267,6 +277,23 @@ public:
     }
     auto& winner = results_[2];
     LOG("Winner: "<<winner.who_);
+  }
+
+  int get_lcm(int max) noexcept {
+    static int g_table[] = {
+      0, 1, 2,
+      2*3,
+      1*3*4,
+      1*3*4*5,
+      2*1*1*5*6,
+      2*1*1*5*6*7,
+      1*3*1*5*3*7*8
+    };
+    if (max < 0 || max > 8) {
+      max = 0;
+    }
+    int lcm = g_table[max];
+    return lcm;
   }
 
   void eliminate_from_ballots(
