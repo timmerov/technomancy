@@ -48,10 +48,10 @@ public:
     LOG("candidates_.size()="<<ncandidates_);
 
     show_candidates();
-    //first_past_post();
-    //head_to_head();
-    //head_to_head_elimination();
-    //ranked_choice_voting();
+    first_past_post();
+    head_to_head();
+    head_to_head_elimination();
+    ranked_choice_voting();
     reverse_rank_order();
 
     LOG("");
