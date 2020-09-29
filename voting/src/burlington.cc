@@ -1,8 +1,30 @@
 /**
 voting data.
+
+results:
+  First Past the Post Results: Bob Kiss
+  Head to Head Results: Bob Kiss
+  Head to Head Elimination Results: Bob Kiss
+  Ranked Choice Results: Bob Kiss
+  Reverse Rank Order Results: Bob Kiss
 **/
 
 #include "data.h"
+
+namespace burlington {
+
+Candidates get_candidates() noexcept {
+  Candidates candidates = {
+    "n/a",
+    "Louie The Cowman Beaudin",
+    "Kevin J. Curley",
+    "Bob Kiss",
+    "Hinda Miller",
+    "Loyal Ploof",
+    "Write-ins",
+  };
+  return std::move(candidates);
+}
 
 Ballots get_voting_data() noexcept {
   Ballots ballots = {
@@ -9804,15 +9826,4 @@ Ballots get_voting_data() noexcept {
   return std::move(ballots);
 }
 
-Candidates get_candidates() noexcept {
-  Candidates candidates = {
-    "n/a",
-    "Louie The Cowman Beaudin",
-    "Kevin J. Curley",
-    "Bob Kiss",
-    "Hinda Miller",
-    "Loyal Ploof",
-    "Write-ins",
-  };
-  return std::move(candidates);
-}
+} // namespace burlington
