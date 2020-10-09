@@ -7,7 +7,6 @@ opengl utilities.
 **/
 
 #include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>

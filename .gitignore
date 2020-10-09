@@ -1,6 +1,6 @@
-build-unix64-debug
-build-unix64-release
-build-win64
+build-unix64-debug/
+build-unix64-release/
+build-win64/
 *.log
 *.obj
 *.png
@@ -9,3 +9,4 @@ build-win64
 *.tiff
 *.ppm
 *.out
+sandbox/

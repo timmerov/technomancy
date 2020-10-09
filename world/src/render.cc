@@ -29,7 +29,6 @@ and render them separately.
 #include <common/sphere.h>
 
 #include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
 
 /// sigh...
 #define GLM_FORCE_RADIANS

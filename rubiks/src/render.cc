@@ -18,7 +18,6 @@ cause it can never be seen.
 #include <common/png.h>
 
 #include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
 
 // sigh...
 #define GLM_FORCE_RADIANS
