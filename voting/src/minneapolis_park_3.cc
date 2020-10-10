@@ -2,11 +2,11 @@
 voting data.
 
 results:
-  First Past the Post Results: Chris Meyer
-  Head to Head Results: Chris Meyer
-  Head to Head Elimination Results: Chris Meyer
-  Ranked Choice Results: Chris Meyer
-  Reverse Rank Order Results: Chris Meyer
+  First Past the Post Results: AK Hassan
+  Head to Head Results: AK Hassan
+  Head to Head Elimination Results: AK Hassan
+  Ranked Choice Results: AK Hassan
+  Reverse Rank Order Results: AK Hassan
 **/
 
 #include "data.h"

@@ -29,3 +29,23 @@ namespace minneapolis_park_3 {
 Ballots get_voting_data() noexcept;
 Candidates get_candidates() noexcept;
 }
+
+namespace minneapolis_park_5 {
+Ballots get_voting_data() noexcept;
+Candidates get_candidates() noexcept;
+}
+
+namespace minneapolis_park_6 {
+Ballots get_voting_data() noexcept;
+Candidates get_candidates() noexcept;
+}
+
+namespace minneapolis_ward_1 {
+Ballots get_voting_data() noexcept;
+Candidates get_candidates() noexcept;
+}
+
+namespace minneapolis_ward_3 {
+Ballots get_voting_data() noexcept;
+Candidates get_candidates() noexcept;
+}

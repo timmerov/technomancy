@@ -16,7 +16,11 @@ reverse rank order voting.
 /** choose a data set. **/
 //using namespace burlington;
 //using namespace minneapolis_park_1;
-using namespace minneapolis_park_3;
+//using namespace minneapolis_park_3;
+//using namespace minneapolis_park_5;
+//using namespace minneapolis_park_6;
+//using namespace minneapolis_ward_1;
+using namespace minneapolis_ward_3;
 
 namespace {
 
@@ -53,9 +57,9 @@ public:
     LOG("candidates_.size()="<<ncandidates_);
 
     show_candidates();
-    first_past_post();
-    head_to_head();
-    head_to_head_elimination();
+    //first_past_post();
+    //head_to_head();
+    //head_to_head_elimination();
     ranked_choice_voting();
     reverse_rank_order();
 
@@ -223,8 +227,8 @@ public:
         }
       }
       sort_results();
-      /*LOG("Rank: "<<rank);
-      print_results();*/
+      LOG("Rank: "<<rank);
+      print_results();
       auto& loser = results_[rank+1];
       LOG(loser.who_<<" is eliminated.");
       eliminate_from_ballots(loser.idx_);
@@ -273,8 +277,8 @@ public:
         }
       }
       sort_results();
-      //LOG("Rank: "<<rank);
-      //print_results();
+      LOG("Rank: "<<rank);
+      print_results();
       auto& loser = results_[1];
       LOG(loser.who_<<" is eliminated.");
       eliminate_from_ballots(loser.idx_);
