@@ -15,7 +15,12 @@ public:
 };
 using Ballots = std::vector<Ballot>;
 
-namespace burlington {
+namespace burlington_2006 {
+Ballots get_voting_data() noexcept;
+Candidates get_candidates() noexcept;
+}
+
+namespace burlington_2009 {
 Ballots get_voting_data() noexcept;
 Candidates get_candidates() noexcept;
 }

@@ -11,7 +11,7 @@ results:
 
 #include "data.h"
 
-namespace burlington {
+namespace burlington_2006 {
 
 Candidates get_candidates() noexcept {
     Candidates candidates = {

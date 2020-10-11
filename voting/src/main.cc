@@ -13,6 +13,12 @@ allowing minority candidate: ginger to win first past the post.
 
 2. minneapolis_ward_4 same as 1.
 
+3. burlington_2009
+    First Past the Post Results: Kurt Wright
+    Head to Head Results: Andy Montroll
+    Ranked Choice Results: Bob Kiss
+    Reverse Rank Order Results: Andy Montroll
+
 **/
 
 #include "data.h"
@@ -23,7 +29,8 @@ allowing minority candidate: ginger to win first past the post.
 #include <algorithm>
 
 /** choose a data set. **/
-//using namespace burlington;
+//using namespace burlington_2006;
+using namespace burlington_2009;
 //using namespace minneapolis_park_1;
 //using namespace minneapolis_park_3;
 //using namespace minneapolis_park_5;
@@ -38,7 +45,7 @@ allowing minority candidate: ginger to win first past the post.
 //using namespace minneapolis_ward_9;
 //using namespace minneapolis_ward_10;
 //using namespace minneapolis_ward_11;
-using namespace minneapolis_ward_12;
+//using namespace minneapolis_ward_12;
 
 namespace {
 
@@ -245,8 +252,8 @@ public:
                 }
             }
             sort_results();
-            /*LOG("Rank: "<<rank);
-            print_results();*/
+            LOG("Rank: "<<rank);
+            print_results();
             auto& loser = results_[rank+1];
             LOG(loser.who_<<" is eliminated.");
             eliminate_from_ballots(loser.idx_);
@@ -295,8 +302,8 @@ public:
                 }
             }
             sort_results();
-            /*LOG("Rank: "<<rank);
-            print_results();*/
+            LOG("Rank: "<<rank);
+            print_results();
             auto& loser = results_[1];
             LOG(loser.who_<<" is eliminated.");
             eliminate_from_ballots(loser.idx_);
