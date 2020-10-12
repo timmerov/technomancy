@@ -19,6 +19,35 @@ allowing minority candidate: ginger to win first past the post.
     Ranked Choice Results: Bob Kiss
     Reverse Rank Order Results: Andy Montroll
 
+
+note: head-to-head is called condorcet.
+it may have cycles.
+
+todo:
+find data fro frome by-election south australia 2009.
+
+todo:
+do we satisfy monotonicity criteria?
+
+todo:
+which part of arrow's imposibility theorem do we violate?
+https://en.wikipedia.org/wiki/Arrow%27s_impossibility_theorem
+a. no dictator
+b. every individual is x>y then group is x>y.
+c. if every individual x>y is preserved, then changing individual's preference
+with respect to x,y,w,z,etc does not change the group's preference for x,y.
+
+todo:
+how resistant are we to tactical voting?
+
+todo:
+it's possible for a candidate to win 90% of first place votes and still lose.
+suppose 11 candidates.
+10% rank alice last.
+alice supporters evenly distribute their last place votes.
+each gets 9%.
+alice is eliminated.
+is this bad?
 **/
 
 #include "data.h"
@@ -46,6 +75,10 @@ using namespace burlington_2009;
 //using namespace minneapolis_ward_10;
 //using namespace minneapolis_ward_11;
 //using namespace minneapolis_ward_12;
+
+/** enable extra logging for forward and reverse ranked choice voting. **/
+#define EXTRA_LOGGING 0
+//#define EXTRA_LOGGING 1
 
 namespace {
 
@@ -252,8 +285,10 @@ public:
                 }
             }
             sort_results();
+#if EXTRA_LOGGING
             LOG("Rank: "<<rank);
             print_results();
+#endif
             auto& loser = results_[rank+1];
             LOG(loser.who_<<" is eliminated.");
             eliminate_from_ballots(loser.idx_);
@@ -302,8 +337,10 @@ public:
                 }
             }
             sort_results();
+#if EXTRA_LOGGING
             LOG("Rank: "<<rank);
             print_results();
+#endif
             auto& loser = results_[1];
             LOG(loser.who_<<" is eliminated.");
             eliminate_from_ballots(loser.idx_);
