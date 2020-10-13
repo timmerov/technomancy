@@ -48,6 +48,17 @@ alice supporters evenly distribute their last place votes.
 each gets 9%.
 alice is eliminated.
 is this bad?
+
+math notes:
+it would be desirable to translate rank order to a range value from 0 to 1.
+for N candidates the rank value would be k/(N+1) where k ranges from 1 to N.
+for N=2... the expectation values are 0.3333, 0.6666.
+for N=9... the expectation values are 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9.
+if several candidates are given the same rank...
+the expectaton of both is the average of the ranges they span.
+for example... 2 of 9 candidates are ranked #2.
+they would each have a range value of 0.25.
+
 **/
 
 #include "data.h"
