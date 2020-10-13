@@ -70,7 +70,7 @@ they would each have a range value of 0.25.
 
 /** choose a data set. **/
 //using namespace burlington_2006;
-using namespace burlington_2009;
+//using namespace burlington_2009;
 //using namespace minneapolis_park_1;
 //using namespace minneapolis_park_3;
 //using namespace minneapolis_park_5;
@@ -86,10 +86,12 @@ using namespace burlington_2009;
 //using namespace minneapolis_ward_10;
 //using namespace minneapolis_ward_11;
 //using namespace minneapolis_ward_12;
+//using namespace synthetic_1;
+using namespace synthetic_2;
 
 /** enable extra logging for forward and reverse ranked choice voting. **/
-#define EXTRA_LOGGING 0
-//#define EXTRA_LOGGING 1
+//#define EXTRA_LOGGING 0
+#define EXTRA_LOGGING 1
 
 namespace {
 
@@ -202,7 +204,8 @@ public:
                     ++wins;
                 }
             }
-            LOG(candidates_[i+1]<<" has "<<wins<<" wins.");
+            int losses = ncandidates_ - 2 - wins;
+            LOG(candidates_[i+1]<<" has "<<wins<<" wins and "<<losses<<" losses.");
             if (max_wins < wins) {
                 max_wins = wins;
                 winner = i + 1;
@@ -350,6 +353,10 @@ public:
             sort_results();
 #if EXTRA_LOGGING
             LOG("Rank: "<<rank);
+            for (int i = 1; i < ncandidates_; ++i) {
+                auto& result = results_[i];
+                result.count_ /= lcm;
+            }
             print_results();
 #endif
             auto& loser = results_[1];

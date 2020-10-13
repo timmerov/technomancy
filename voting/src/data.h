@@ -99,3 +99,13 @@ namespace minneapolis_ward_12 {
 Ballots get_voting_data() noexcept;
 Candidates get_candidates() noexcept;
 }
+
+namespace synthetic_1 {
+Ballots get_voting_data() noexcept;
+Candidates get_candidates() noexcept;
+}
+
+namespace synthetic_2 {
+Ballots get_voting_data() noexcept;
+Candidates get_candidates() noexcept;
+}
