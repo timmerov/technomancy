@@ -87,7 +87,8 @@ they would each have a range value of 0.25.
 //using namespace minneapolis_ward_11;
 //using namespace minneapolis_ward_12;
 //using namespace synthetic_1;
-using namespace synthetic_2;
+//using namespace synthetic_2;
+using namespace synthetic_3;
 
 /** enable extra logging for forward and reverse ranked choice voting. **/
 //#define EXTRA_LOGGING 0
