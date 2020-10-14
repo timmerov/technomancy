@@ -59,6 +59,9 @@ the expectaton of both is the average of the ranges they span.
 for example... 2 of 9 candidates are ranked #2.
 they would each have a range value of 0.25.
 
+a bad idea that seems like a good idea:
+complete incomplete ballots using the popular vote.
+apparently this system is quite sensitive to ranking of irrelevant alternates.
 **/
 
 #include "data.h"
@@ -70,7 +73,7 @@ they would each have a range value of 0.25.
 
 /** choose a data set. **/
 //using namespace burlington_2006;
-//using namespace burlington_2009;
+using namespace burlington_2009;
 //using namespace minneapolis_park_1;
 //using namespace minneapolis_park_3;
 //using namespace minneapolis_park_5;
@@ -88,11 +91,11 @@ they would each have a range value of 0.25.
 //using namespace minneapolis_ward_12;
 //using namespace synthetic_1;
 //using namespace synthetic_2;
-using namespace synthetic_3;
+//using namespace synthetic_3;
 
 /** enable extra logging for forward and reverse ranked choice voting. **/
-//#define EXTRA_LOGGING 0
-#define EXTRA_LOGGING 1
+#define EXTRA_LOGGING 0
+//#define EXTRA_LOGGING 1
 
 namespace {
 
@@ -129,9 +132,10 @@ public:
         LOG("candidates_.size()="<<ncandidates_);
 
         show_candidates();
+        show_stats();
         first_past_post();
         head_to_head();
-        head_to_head_elimination();
+        //head_to_head_elimination();
         ranked_choice_voting();
         reverse_rank_order();
 
@@ -146,6 +150,29 @@ public:
             results_[i].count_ = i;
         }
         print_results();
+    }
+
+    void show_stats() noexcept {
+        LOG("");
+        LOG("Statistics:");
+        restore_ballots();
+        std::vector<int> counts(ncandidates_, 0);
+        for (auto&& ballot : ballots_) {
+            for (int i = 0; i < ncandidates_ - 1; ++i) {
+                int choice = ballot.choice_[i];
+                if (choice > 0) {
+                    ++counts[i];
+                }
+            }
+        }
+        for (int i = 0; i < ncandidates_ - 2; ++i) {
+            counts[i] -= counts[i+1];
+        }
+        for (int i = 0; i < ncandidates_ - 1; ++i) {
+            double pct = double(counts[i]) / double(nballots_);
+            pct = int(pct * 10000.0) / 100.0;
+            LOG(pct<<"% voted for "<<i+1<<" candidates.");
+        }
     }
 
     void first_past_post() noexcept {
@@ -430,6 +457,12 @@ public:
         for (int i = 1; i < ncandidates_; ++i) {
             auto& result = results_[i];
             LOG(result.who_<<": "<<result.count_);
+        }
+    }
+
+    void print_all_ballots() {
+        for (auto&& ballot : ballots_) {
+            print_ballot(ballot);
         }
     }
 

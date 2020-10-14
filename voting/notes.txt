@@ -1,0 +1,201 @@
+
+arrow's impossibility theorem.
+
+an ordinal voting system (ie rank order) cannot satisfy all of these fairness requirements.
+
+1) no dictator.
+no single voter can determine the winner.
+
+2) produces a complete group ranking.
+
+3) deterministic.
+no coin tosses.
+
+4) independence of irrelevant alternatives.
+if A wins, then swapping ABC votes for ACB votes have no effect.
+
+5) monotonicity.
+voting for a candidate never harms them.
+you should never be able to win by asking your voters to vote for someone else.
+
+6) every group ranking is possible.
+
+7) unanimity - mathematically replaces 5,6.
+if everyone ranks A>B then the group ranking must also be A>B.
+
+
+
+real world considerations.
+
+1) vote splitting.
+2016 republican primary.
+trump got 40% of the vote.
+the majority was split between cruz, rubio, kasick.
+cruz and rubio beat trump head-to-head.
+no data on kasick.
+in other words, most people would have preferred anyone else.
+which is not to be confused with most people would have preferred *someone* else.
+
+2) partisanship.
+we assert without proof that when the choice is between two dominant polar extremes
+and a minority centrist...
+the centrist should win.
+because they are most everyone's second choice.
+
+3) strategic voting.
+many voters cast their vote for the candidate most likely to defeat their least favorite.
+
+
+current voting systems:
+
+first past the post.
+fails vote splitting.
+fails partisanship.
+fails strategic voting.
+people don't vote for their favorite candidate if they believe that candidate cannot win.
+
+
+experimental voting systems:
+
+ranked choice voting:
+passes vote splitting.
+fails partisanship.
+fails strategic voting.
+
+approval voting:
+passes vote splitting.
+passes partisanship for a sufficiently non-partisan electorate.
+fails partisanship for a partisan electorate.
+ie the centrist will get the fewest approval votes.
+mostly passes strategic voting.
+there's very little harm in voting for your actual favorite candidate and the candidate
+most likely to defeat your least favorite candidates.
+
+
+proposed solution: reverse rank order voting.
+
+voters rank all of the candidates.
+each round, the candidate with the MOST LAST PLACE votes is eliminated.
+not to be confused with ranked choice voting.
+where each round, the candidate with the LEASE FIRST PLACE votes is eliminated.
+
+passes vote splitting.
+passes partisanship.
+passes strategic voting when no candidate has a majority of first place votes.
+strategic voting comes into play when a candidate has a majority of first place votes
+and is simultaneously the least favorite candidate of everyone else.
+
+
+flaws:
+
+1) it's hard to implement.
+the ballot suite can be large.
+most voters really don't want to go to the effort of ranking them.
+
+2) it's theoretically possible to win 90% of the first place votes and still lose.
+it's extremely unlikely.
+
+
+modifications:
+
+1a) run an open primary using first-past-the-post.
+the top 3+ finishers advance to the general election.
+which uses reverse-rank-order-voting.
+
+1b) allow parties to distribute vote templates.
+
+1c) when a voter casts an incomplete rank order...
+complete it for them according to first-past-the-post results.
+in other words, the voter states they have no opinion on the rank order for a suset
+of the candidates.
+and they accept the public's preference.
+
+2) modify the rules so a candidate is declared the winner if the get a sufficiently large
+majority of the first place votes.
+55% feels about right.
+that puts them 10% ahead of the next nearest candidate.
+which is considered a landslide.
+on the other hand...
+if the majority number is too high, say 90%, then strategic voting becomes critical.
+if the majority number is too low, say 50%, then the public may have higher utility for
+the second place candidate.
+
+
+summary:
+
+1) run an open primary using first-past-the post.
+the top 3+ candidates with the most first place votes advance to the general election.
+select 3 when a large number of voters really need to be educated about the issues.
+and it's really not feasible to have meaningful debates with more than three candidates.
+like say president of the united states.
+select a larger number for smaller elections.
+
+2) one (maybe two) months later, hold a general election using reverse-rank-order voting.
+
+3) determine the popular rank order.
+rank candidates by the number of first place votes.
+resolve ties by number of second (third, fourth, etc) place votes.
+
+4) empty and invalid ballots are removed.
+an empty ballot is when the voter fails to select any candidates.
+an invalid ballot is when the voter ranks all candidates the same.
+
+5) apply the front runner rule.
+if a candidate has 55% or more of the first place votes they are declared the winner.
+in practice this should never matter.
+jurisdictions should be free to set this threshold to make the electorate happy.
+we want people to vote.
+they won't vote if they think the system is rigged.
+the purpose of the rule is to discourage strategic voting.
+which may be required when a candidate has a majority of the popular vote.
+and becomes more necessary with a large number of candidates.
+on the other hand, it's possible the electorate would be better served by the second
+place candidate.
+we want to allow this to happen.
+the art is to find the balance.
+
+NO! 6) undervotes are when a voter only assigns ranks to some of the candidates.
+also called an incomplete ballot.
+the missing rankings are filled in using the popular rank order.
+
+NO! 7) overvotes are when a voter assigns the same rank to multiple candidates.
+the ties are resolved using the popular rank order.
+
+8) each round, the candidate with the most last place votes is eliminated from the ballot.
+
+9) repeat until all but one candidate (the winner) have been eliminated.
+
+NO! note: after 7), every ballot is a complete and valid ranking.
+for a manual count, the counters find the last place candidate for every ballot.
+[in rounds after the first, counters must look at the last place rank (N), check if that
+candidate has been eliminated (should be marked) and continue to higher ranked candidates
+if necessary.]
+add the ballot to that candidate's pile.
+the candidate with the largest pile is eliminated.
+that candidate is so marked on every ballot.
+
+
+NO!
+it turns out...
+completing ballots by popular vote is a bad idea.
+in the burlington 2009 case, it changes the winner from Andy to Bob.
+which is bad cause Andy is the condorcet winner.
+
+
+problem cases:
+
+condorcet cycles.
+when is strategic voting relevant?
+there are three methods for handling incomplete ballots:
+- 1 vote for all N last place candidates.
+- 1/N votes when there are N last place candidates.
+- use the popular vote ordering.
+when does it matter?
+what is the manual vote complexity?
+
+
+experiments to run:
+
+for strategic voting:
+vary front-runner lead 51 to 99, popularity of second place, number of candidates.
+determine percent of front-runner voters that need to vote strategically.
