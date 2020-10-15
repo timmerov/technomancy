@@ -17,14 +17,39 @@ ignore for now:
 XXA XXB XXC
 
 generate a random distribution of the above rank orders.
-assume they are all equally likely.
+the shape of the distribution can be varied.
+N=0 use the expectation values: 0.75, 0.50, 0.25.
+N=1 uniform distribution.
+N>1 uniform distribution averaged over N samples.
 
 assign random utilities for a,b,c for each group.
 sort them from highest to lowest.
 
 compute the group utility for a,b,c.
-swap the pro
+sort the random distributions so a>b>c.
 
+run one trial and log the details.
+run many trials and log only the summary.
+
+results:
+
+10k trials, expectation utility:
+Condorcet           : A=84.45% B=8.86% C=6.69%
+First Past Post     : A=80.16% B=16.58% C=3.26%
+Ranked Choice Voting: A=85.61% B=13.07% C=1.32%
+Reverse Rank Order  : A=83.41% B=15.14% C=1.45%
+
+10k trials, bell-shaped utility N=3:
+Condorcet           : A=69.12% B=19.4% C=11.48%
+First Past Post     : A=68.87% B=23.19% C=7.94%
+Ranked Choice Voting: A=71.48% B=21.6% C=6.92%
+Reverse Rank Order  : A=70.2% B=22.68% C=7.12%
+
+10k trials, flat utility:
+Condorcet           : A=58.49% B=24.67% C=16.84%
+First Past Post     : A=59.06% B=27.26% C=13.68%
+Ranked Choice Voting: A=60.65% B=27.11% C=12.24%
+Reverse Rank Order  : A=59.59% B=27.97% C=12.44%
 **/
 
 #include "data.h"
@@ -47,8 +72,8 @@ constexpr int kNVoteTrials = 10*1000;
 
 /** uniform utilities or not. **/
 //constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
-//constexpr int kNUtilityTrials = 1;
-constexpr int kNUtilityTrials = 2;
+constexpr int kNUtilityTrials = 1;
+//constexpr int kNUtilityTrials = 2;
 //constexpr int kNUtilityTrials = 3;
 //constexpr int kNUtilityTrials = 10;
 //constexpr int kNUtilityTrials = 100;
