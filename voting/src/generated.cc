@@ -16,6 +16,15 @@ AXX BXX CXX
 ignore for now:
 XXA XXB XXC
 
+generate a random distribution of the above rank orders.
+assume they are all equally likely.
+
+assign random utilities for a,b,c for each group.
+sort them from highest to lowest.
+
+compute the group utility for a,b,c.
+swap the pro
+
 **/
 
 #include "data.h"
@@ -32,10 +41,15 @@ namespace {
 
 /** number of trials to run. **/
 //constexpr int kNVoteTrials = 1;
-constexpr int kNVoteTrials = 1000;
+//constexpr int kNVoteTrials = 1000;
+//constexpr int kNVoteTrials = 10*1000;
+constexpr int kNVoteTrials = 100*1000;
 
 /** uniform utilities or not. **/
+//constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
 constexpr int kNUtilityTrials = 1;
+//constexpr int kNUtilityTrials = 3;
+//constexpr int kNUtilityTrials = 10;
 //constexpr int kNUtilityTrials = 100;
 
 class Result {
@@ -62,7 +76,7 @@ public:
     VotingImpl(VotingImpl &&) = delete;
     ~VotingImpl() = default;
 
-    /** probability distributions 9 **/
+    /** probability distributions (9 of 12) **/
     double p_abc_ = 0.0;
     double p_acb_ = 0.0;
     double p_axx_ = 0.0;
@@ -73,7 +87,10 @@ public:
     double p_cba_ = 0.0;
     double p_cxx_ = 0.0;
 
-    /** generated utility values 24 **/
+    /**
+    generated utility values (24).
+    these are not valid after group_utility.
+    **/
     double u_abc_a_ = 0.0;
     double u_abc_b_ = 0.0;
     double u_abc_c_ = 0.0;
@@ -220,17 +237,23 @@ public:
     ) noexcept {
         std::vector<double> sum(3, 0.0);
         std::vector<double> v(3, 0.0);
-        for (int k = 0; k < kNUtilityTrials; ++k) {
-            for (int i = 0; i < 3; ++i) {
-                v[i] = random_number();
+        if (kNUtilityTrials <= 0) {
+            for (int k = 0; k < kNUtilityTrials; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    v[i] = random_number();
+                }
+                std::sort(v.begin(), v.end());
+                for (int i = 0; i < 3; ++i) {
+                    sum[i] += v[i];
+                }
             }
-            std::sort(v.begin(), v.end());
             for (int i = 0; i < 3; ++i) {
-                sum[i] += v[i];
+                v[i] = sum[i] / double(kNUtilityTrials);
             }
-        }
-        for (int i = 0; i < 3; ++i) {
-            v[i] = sum[i] / double(kNUtilityTrials);
+        } else {
+            v[0] = 0.25;
+            v[1] = 0.50;
+            v[2] = 0.75;
         }
 
         a = v[2];
@@ -257,7 +280,7 @@ public:
         u_b += p_bac_ * u_bac_b_ + p_bca_ * u_bca_b_ + p_bxx_ * u_bxx_b_;
         u_b += p_cab_ * u_cab_b_ + p_cba_ * u_cba_b_ + p_cxx_ * u_cxx_x_;
 
-        u_c += p_abc_ * u_abc_a_ + p_acb_ * u_acb_a_ + p_axx_ * u_axx_x_;
+        u_c += p_abc_ * u_abc_c_ + p_acb_ * u_acb_c_ + p_axx_ * u_axx_x_;
         u_c += p_bac_ * u_bac_c_ + p_bca_ * u_bca_c_ + p_bxx_ * u_bxx_x_;
         u_c += p_cab_ * u_cab_c_ + p_cba_ * u_cba_c_ + p_cxx_ * u_cxx_c_;
 
