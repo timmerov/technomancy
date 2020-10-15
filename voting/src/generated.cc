@@ -63,6 +63,9 @@ todo:
 
 todo:
 assign distributions based on closeness of the utilities.
+
+todo:
+model and/or estimate benefit from strategic voting.
 **/
 
 #include "data.h"
