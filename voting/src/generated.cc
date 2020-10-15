@@ -50,6 +50,19 @@ Condorcet           : A=58.49% B=24.67% C=16.84%
 First Past Post     : A=59.06% B=27.26% C=13.68%
 Ranked Choice Voting: A=60.65% B=27.11% C=12.24%
 Reverse Rank Order  : A=59.59% B=27.97% C=12.44%
+
+
+todo:
+model partisan, swing, and non- voters.
+
+todo:
+assign axx distribution based on closeness of the b,c utilities.
+
+todo:
+(anti-)correlate a's utility for b,c with not-a's utility for b,c.
+
+todo:
+assign distributions based on closeness of the utilities.
 **/
 
 #include "data.h"
