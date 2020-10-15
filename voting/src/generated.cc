@@ -42,12 +42,13 @@ namespace {
 /** number of trials to run. **/
 //constexpr int kNVoteTrials = 1;
 //constexpr int kNVoteTrials = 1000;
-//constexpr int kNVoteTrials = 10*1000;
-constexpr int kNVoteTrials = 100*1000;
+constexpr int kNVoteTrials = 10*1000;
+//constexpr int kNVoteTrials = 100*1000;
 
 /** uniform utilities or not. **/
-//constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
-constexpr int kNUtilityTrials = 1;
+constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
+//constexpr int kNUtilityTrials = 1;
+//constexpr int kNUtilityTrials = 2;
 //constexpr int kNUtilityTrials = 3;
 //constexpr int kNUtilityTrials = 10;
 //constexpr int kNUtilityTrials = 100;
@@ -125,6 +126,10 @@ public:
     int result_fpp_a = 0;
     int result_fpp_b = 0;
     int result_fpp_c = 0;
+    int ranked_choice_voting_ = 0;
+    int result_rcv_a = 0;
+    int result_rcv_b = 0;
+    int result_rcv_c = 0;
 
     /** random number generation **/
     std::mt19937_64 rng_;
@@ -139,6 +144,7 @@ public:
             group_utility();
             condorcet();
             first_past_post();
+            ranked_choice_voting();
             analyze();
         }
 
@@ -366,6 +372,41 @@ public:
         }
     }
 
+    void ranked_choice_voting() noexcept {
+        double a = p_abc_ + p_acb_ + p_axx_;
+        double b = p_bac_ + p_bca_ + p_bxx_;
+        double c = p_cab_ + p_cba_ + p_cxx_;
+        auto round1 = create_results(a, b, c);
+        int loser = round1[0].idx_;
+        if (loser == 2) {
+            /** C was eliminated **/
+            a += p_cab_;
+            b += p_cba_;
+            c = 0.0;
+        } else if (loser == 1) {
+            /** B was eliminated **/
+            a += p_bac_;
+            c += p_bca_;
+            b = 0.0;
+        } else {
+            /** A was eliminated **/
+            b += p_abc_;
+            c += p_acb_;
+            a = 0.0;
+        }
+        auto round2 = create_results(a, b, c);
+        ranked_choice_voting_ = round2[2].idx_;
+        if (kNVoteTrials == 1) {
+            LOG("Ranked Choice Voting Round 1:"
+                <<" "<<round1[2].name_<<"="<<round1[2].score_
+                <<" "<<round1[1].name_<<"="<<round1[1].score_
+                <<" "<<round1[0].name_<<"="<<round1[0].score_);
+            LOG("Ranked Choice Voting Winner:"
+                <<" "<<round2[2].name_<<"="<<round2[2].score_
+                <<" "<<round2[1].name_<<"="<<round2[1].score_);
+        }
+    }
+
     Results create_results(
         double a,
         double b,
@@ -402,17 +443,32 @@ public:
             ++result_fpp_c;
             break;
         }
+        switch (ranked_choice_voting_) {
+        case 0:
+            ++result_rcv_a;
+            break;
+        case 1:
+            ++result_rcv_b;
+            break;
+        case 2:
+            ++result_rcv_c;
+            break;
+        }
     }
 
     void summarize() noexcept {
         double pct_con_a = int(10000.0 * result_con_a / kNVoteTrials) / 100.0;
         double pct_con_b = int(10000.0 * result_con_b / kNVoteTrials) / 100.0;
         double pct_con_c = int(10000.0 * result_con_c / kNVoteTrials) / 100.0;
-        LOG("Condorcet: A="<<pct_con_a<<"% B="<<pct_con_b<<"% C="<<pct_con_c<<"%");
+        LOG("Condorcet           : A="<<pct_con_a<<"% B="<<pct_con_b<<"% C="<<pct_con_c<<"%");
         double pct_fpp_a = int(10000.0 * result_fpp_a / kNVoteTrials) / 100.0;
         double pct_fpp_b = int(10000.0 * result_fpp_b / kNVoteTrials) / 100.0;
         double pct_fpp_c = int(10000.0 * result_fpp_c / kNVoteTrials) / 100.0;
-        LOG("First Past Post: A="<<pct_fpp_a<<"% B="<<pct_fpp_b<<"% C="<<pct_fpp_c<<"%");
+        LOG("First Past Post     : A="<<pct_fpp_a<<"% B="<<pct_fpp_b<<"% C="<<pct_fpp_c<<"%");
+        double pct_rcv_a = int(10000.0 * result_rcv_a / kNVoteTrials) / 100.0;
+        double pct_rcv_b = int(10000.0 * result_rcv_b / kNVoteTrials) / 100.0;
+        double pct_rcv_c = int(10000.0 * result_rcv_c / kNVoteTrials) / 100.0;
+        LOG("Ranked Choice Voting: A="<<pct_rcv_a<<"% B="<<pct_rcv_b<<"% C="<<pct_rcv_c<<"%");
     }
 };
 
