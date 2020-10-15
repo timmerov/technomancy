@@ -237,7 +237,7 @@ public:
     ) noexcept {
         std::vector<double> sum(3, 0.0);
         std::vector<double> v(3, 0.0);
-        if (kNUtilityTrials <= 0) {
+        if (kNUtilityTrials > 0) {
             for (int k = 0; k < kNUtilityTrials; ++k) {
                 for (int i = 0; i < 3; ++i) {
                     v[i] = random_number();
