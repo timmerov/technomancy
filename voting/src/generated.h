@@ -5,13 +5,13 @@ Copyright (C) 2012-2020 tim cotter. All rights reserved.
 /**
 reverse rank order voting.
 
-use a selection of fixed data sets.
+generate data sets.
 **/
 
-class FixedDataVoting {
+class GeneratedDataVoting {
 public:
-    FixedDataVoting() noexcept;
-    ~FixedDataVoting() noexcept;
+    GeneratedDataVoting() noexcept;
+    ~GeneratedDataVoting() noexcept;
 
     void run() noexcept;
 

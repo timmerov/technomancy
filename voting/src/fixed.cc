@@ -482,16 +482,16 @@ public:
 
 } // anonymous namespace
 
-Voting::Voting() noexcept {
+FixedDataVoting::FixedDataVoting() noexcept {
     impl_ = (void *) new VotingImpl;
 }
 
-Voting::~Voting() noexcept {
+FixedDataVoting::~FixedDataVoting() noexcept {
     auto impl = (VotingImpl *) impl_;
     delete impl;
 }
 
-void Voting::run() noexcept {
+void FixedDataVoting::run() noexcept {
     auto impl = (VotingImpl *) impl_;
     impl->run();
 }

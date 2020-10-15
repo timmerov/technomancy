@@ -9,6 +9,7 @@ from fixed data sets for generated data sets.
 **/
 
 #include "fixed.h"
+#include "generated.h"
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
@@ -21,8 +22,11 @@ int main(
 
     agm::log::init(AGM_TARGET_NAME ".log", false);
 
-    Voting voting;
-    voting.run();
+    /*FixedDataVoting fixed;
+    fixed.run();*/
+
+    GeneratedDataVoting generated;
+    generated.run();
 
     return 0;
 }
