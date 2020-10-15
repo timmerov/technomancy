@@ -46,9 +46,9 @@ constexpr int kNVoteTrials = 10*1000;
 //constexpr int kNVoteTrials = 100*1000;
 
 /** uniform utilities or not. **/
-constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
+//constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
 //constexpr int kNUtilityTrials = 1;
-//constexpr int kNUtilityTrials = 2;
+constexpr int kNUtilityTrials = 2;
 //constexpr int kNUtilityTrials = 3;
 //constexpr int kNUtilityTrials = 10;
 //constexpr int kNUtilityTrials = 100;
@@ -130,6 +130,10 @@ public:
     int result_rcv_a = 0;
     int result_rcv_b = 0;
     int result_rcv_c = 0;
+    int reverse_rank_order_ = 0;
+    int result_rro_a = 0;
+    int result_rro_b = 0;
+    int result_rro_c = 0;
 
     /** random number generation **/
     std::mt19937_64 rng_;
@@ -145,6 +149,7 @@ public:
             condorcet();
             first_past_post();
             ranked_choice_voting();
+            reverse_rank_order();
             analyze();
         }
 
@@ -407,6 +412,38 @@ public:
         }
     }
 
+    void reverse_rank_order() noexcept {
+        double a = p_bca_ + p_cba_ + p_bxx_/2.0 + p_cxx_/2.0;
+        double b = p_acb_ + p_cab_ + p_axx_/2.0 + p_cxx_/2.0;
+        double c = p_bac_ + p_abc_ + p_axx_/2.0 + p_bxx_/2.0;
+        auto round1 = create_results(a, b, c);
+        int loser = round1[2].idx_;
+        a = p_abc_ + p_acb_ + p_axx_;
+        b = p_bac_ + p_bca_ + p_bxx_;
+        c = p_cab_ + p_cba_ + p_cxx_;
+        if (loser == 2) {
+            /** C was eliminated **/
+            c = 0.0;
+        } else if (loser == 1) {
+            /** B was eliminated **/
+            b = 0.0;
+        } else {
+            /** A was eliminated **/
+            a = 0.0;
+        }
+        auto round2 = create_results(a, b, c);
+        reverse_rank_order_ = round2[2].idx_;
+        if (kNVoteTrials == 1) {
+            LOG("Reverse Rank Order Round 1:"
+                <<" "<<round1[0].name_<<"="<<round1[0].score_
+                <<" "<<round1[1].name_<<"="<<round1[1].score_
+                <<" "<<round1[2].name_<<"="<<round1[2].score_);
+            LOG("Reverse Rank Order Winner:"
+                <<" "<<round2[2].name_<<"="<<round2[2].score_
+                <<" "<<round2[1].name_<<"="<<round2[1].score_);
+        }
+    }
+
     Results create_results(
         double a,
         double b,
@@ -454,6 +491,17 @@ public:
             ++result_rcv_c;
             break;
         }
+        switch (reverse_rank_order_) {
+        case 0:
+            ++result_rro_a;
+            break;
+        case 1:
+            ++result_rro_b;
+            break;
+        case 2:
+            ++result_rro_c;
+            break;
+        }
     }
 
     void summarize() noexcept {
@@ -469,6 +517,10 @@ public:
         double pct_rcv_b = int(10000.0 * result_rcv_b / kNVoteTrials) / 100.0;
         double pct_rcv_c = int(10000.0 * result_rcv_c / kNVoteTrials) / 100.0;
         LOG("Ranked Choice Voting: A="<<pct_rcv_a<<"% B="<<pct_rcv_b<<"% C="<<pct_rcv_c<<"%");
+        double pct_rro_a = int(10000.0 * result_rro_a / kNVoteTrials) / 100.0;
+        double pct_rro_b = int(10000.0 * result_rro_b / kNVoteTrials) / 100.0;
+        double pct_rro_c = int(10000.0 * result_rro_c / kNVoteTrials) / 100.0;
+        LOG("Reverse Rank Order  : A="<<pct_rro_a<<"% B="<<pct_rro_b<<"% C="<<pct_rro_c<<"%");
     }
 };
 
