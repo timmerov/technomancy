@@ -90,10 +90,7 @@ constexpr int kNVoteTrials = 10*1000;
 /** uniform utilities or not. **/
 //constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
 constexpr int kNUtilityTrials = 1;
-//constexpr int kNUtilityTrials = 2;
 //constexpr int kNUtilityTrials = 3;
-//constexpr int kNUtilityTrials = 10;
-//constexpr int kNUtilityTrials = 100;
 
 /** fixed seed or random seed **/
 constexpr bool kRandomSeed = true;
@@ -721,7 +718,6 @@ public:
     }
 
     void summarize() noexcept {
-        LOG("");
         LOG("Number of Trials    : "<<kNVoteTrials);
         LOG("Utility Distribution: "<<kNUtilityTrials);
         LOG("");
