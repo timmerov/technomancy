@@ -98,6 +98,16 @@ constexpr bool kRandomSeed = true;
 constexpr bool kVerbose = false;
 //constexpr bool kVerbose = true;
 
+/**
+add the front-runner rule to reverse rank order voting.
+if the front-runner gets this threshold of the votes they win.
+even if they are simultaneously the least popular candidate.
+**/
+constexpr double kRevFrontRunner = 1.0;
+//constexpr double kRevFrontRunner = 0.55;
+//constexpr double kRevFrontRunner = 0.50;
+
+
 class Result {
 public:
     double score_ = 0.0;
@@ -193,6 +203,11 @@ public:
     int result_nwinners_1_ = 0;
     int result_nwinners_2_ = 0;
     int result_nwinners_3_ = 0;
+    int result_rev_majority_lost_ = 0;
+    int result_rev_front_runner_ = 0;
+    double result_rev_majority_lost_max_ = 0.0;
+    double result_rev_majority_lost_first_sum_ = 0.0;
+    double result_rev_majority_lost_last_sum_ = 0.0;
 
     /** random number generation **/
     std::uint64_t trial_seed_;
@@ -657,40 +672,86 @@ public:
     }
 
     void reverse_rank_order() noexcept {
-        double a = p_bca_ + p_cba_ + p_bxx_/2.0 + p_cxx_/2.0;
-        double b = p_acb_ + p_cab_ + p_axx_/2.0 + p_cxx_/2.0;
-        double c = p_bac_ + p_abc_ + p_axx_/2.0 + p_bxx_/2.0;
-        auto round1 = create_results(a, b, c);
+        /** first place votes **/
+        double front_a = p_abc_ + p_acb_ + p_axx_;
+        double front_b = p_bac_ + p_bca_ + p_bxx_;
+        double front_c = p_cab_ + p_cba_ + p_cxx_;
+        auto front_results = create_results(front_a, front_b, front_c);
+        int front_winner = front_results[2].idx_;
+        double front_score = front_results[2].score_;
+
+        /** count last place votes **/
+        double last_a = p_bca_ + p_cba_ + p_bxx_/2.0 + p_cxx_/2.0;
+        double last_b = p_acb_ + p_cab_ + p_axx_/2.0 + p_cxx_/2.0;
+        double last_c = p_bac_ + p_abc_ + p_axx_/2.0 + p_bxx_/2.0;
+        auto round1 = create_results(last_a, last_b, last_c);
+        /** eliminate the candidate with the most last place votes. **/
         int loser = round1[2].idx_;
-        a = p_abc_ + p_acb_ + p_axx_;
-        b = p_bac_ + p_bca_ + p_bxx_;
-        c = p_cab_ + p_cba_ + p_cxx_;
+        double round2_a = p_abc_ + p_acb_ + p_axx_;
+        double round2_b = p_bac_ + p_bca_ + p_bxx_;
+        double round2_c = p_cab_ + p_cba_ + p_cxx_;
         if (loser == 2) {
             /** C was eliminated **/
-            a += p_cab_;
-            b += p_cba_;
-            c = 0.0;
+            round2_a += p_cab_;
+            round2_b += p_cba_;
+            round2_c = 0.0;
         } else if (loser == 1) {
             /** B was eliminated **/
-            a += p_bac_;
-            c += p_bca_;
-            b = 0.0;
+            round2_a += p_bac_;
+            round2_c += p_bca_;
+            round2_b = 0.0;
         } else {
             /** A was eliminated **/
-            b += p_abc_;
-            c += p_acb_;
-            a = 0.0;
+            round2_b += p_abc_;
+            round2_c += p_acb_;
+            round2_a = 0.0;
         }
-        auto round2 = create_results(a, b, c);
-        reverse_rank_order_ = round2[2].idx_;
-        if (kNVoteTrials == 1) {
-            LOG("Reverse Rank Order Round 1:"
-                <<" "<<round1[0].name_<<"="<<round1[0].score_
-                <<" "<<round1[1].name_<<"="<<round1[1].score_
-                <<" "<<round1[2].name_<<"="<<round1[2].score_);
-            LOG("Reverse Rank Order Winner:"
-                <<" "<<round2[2].name_<<"="<<round2[2].score_
-                <<" "<<round2[1].name_<<"="<<round2[1].score_);
+        auto round2 = create_results(round2_a, round2_b, round2_c);
+        int rev_winner = round2[2].idx_;
+
+        /** determine winner **/
+        if (front_score > kRevFrontRunner) {
+            reverse_rank_order_ = front_winner;
+            ++result_rev_front_runner_;
+            if (kNVoteTrials == 1) {
+                LOG("Reverse Rank Order Front-runner Wins: "
+                    <<front_results[2].name_<<" "<<front_score);
+            }
+        } else {
+            reverse_rank_order_ = rev_winner;
+            if (kNVoteTrials == 1) {
+                LOG("Reverse Rank Order Round 1:"
+                    <<" "<<round1[0].name_<<"="<<round1[0].score_
+                    <<" "<<round1[1].name_<<"="<<round1[1].score_
+                    <<" "<<round1[2].name_<<"="<<round1[2].score_);
+                LOG("Reverse Rank Order Winner:"
+                    <<" "<<round2[2].name_<<"="<<round2[2].score_
+                    <<" "<<round2[1].name_<<"="<<round2[1].score_);
+            }
+        }
+
+        if (front_score > 0.50 && front_winner != reverse_rank_order_) {
+            ++result_rev_majority_lost_;
+            switch (front_winner) {
+            case 0:
+                result_rev_majority_lost_max_ = std::max(result_rev_majority_lost_max_, front_a);
+                result_rev_majority_lost_first_sum_ += front_a;
+                result_rev_majority_lost_last_sum_ += last_a;
+                break;
+            case 1:
+                result_rev_majority_lost_max_ = std::max(result_rev_majority_lost_max_, front_b);
+                result_rev_majority_lost_first_sum_ += front_b;
+                result_rev_majority_lost_last_sum_ += last_b;
+                break;
+            case 2:
+                result_rev_majority_lost_max_ = std::max(result_rev_majority_lost_max_, front_c);
+                result_rev_majority_lost_first_sum_ += front_c;
+                result_rev_majority_lost_last_sum_ += last_b;
+                break;
+            }
+            if (kVerbose) {
+                LOG(front_results[2].name_<<" had "<<front_score<<" first place votes and lost.");
+            }
         }
     }
 
@@ -871,6 +932,18 @@ public:
         double pct_rcv_strategic = int(10000.0 * result_rcv_strategic_ / kNVoteTrials) / 100.0;
         double pct_rcv_alternate = int(10000.0 * result_rcv_alternate_ / kNVoteTrials) / 100.0;
         LOG("Ranked Choice Voting: "<<pct_rcv_strategic<<"% alternate: "<<pct_rcv_alternate<<"%");
+        LOG("");
+        LOG("Oddities:");
+        LOG("Ranked Choice Voting:");
+        double pct_rev_front_runner = int(10000.0 * result_rev_front_runner_ / kNVoteTrials) / 100.0;
+        LOG("Won by Front-Runner Rule: "<<pct_rev_front_runner<<"%");
+        double pct_rev_majority_lost = int(10000.0 * result_rev_majority_lost_ / kNVoteTrials) / 100.0;
+        double pct_rev_majority_lost_max = int(10000.0 * result_rev_majority_lost_max_) / 100.0;
+        double pct_rev_majority_lost_first = int(10000.0 * result_rev_majority_lost_first_sum_ / result_rev_majority_lost_) / 100.0;
+        double pct_rev_majority_lost_last = int(10000.0 * result_rev_majority_lost_last_sum_ / result_rev_majority_lost_) / 100.0;
+        LOG("Lost with Majority of Popular Vote: "<<pct_rev_majority_lost<<"%");
+        LOG("  max first place: "<<pct_rev_majority_lost_max<<"% average first place: "<<pct_rev_majority_lost_first
+            <<"% average last place: "<<pct_rev_majority_lost_last<<"%");
         LOG("");
     }
 };
