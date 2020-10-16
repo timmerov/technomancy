@@ -83,9 +83,7 @@ namespace {
 /** number of trials to run. **/
 //constexpr int kNVoteTrials = 1;
 //constexpr int kNVoteTrials = 100;
-//constexpr int kNVoteTrials = 1000;
 constexpr int kNVoteTrials = 10*1000;
-//constexpr int kNVoteTrials = 100*1000;
 
 /** uniform utilities or not. **/
 //constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
@@ -183,6 +181,7 @@ public:
     int result_rcv_c = 0;
     int result_rcv_con = 0;
     int result_rcv_fpp = 0;
+    int result_rcv_strategic_ = 0;
     int reverse_rank_order_ = 0;
     int result_rro_a = 0;
     int result_rro_b = 0;
@@ -226,14 +225,24 @@ public:
         if (kRandomSeed) {
             seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         } else {
+            /** standard seed **/
             //seed = 0x123456789ABCDEF0;
             /**
+            A is both the most popular and least popular.
             nwinners=2 CON=0 FPP=0 RCV=0 RRO=1
-            ABC=0.123253 ACB=0.185715 AXX=0.188619 A1=0.497587 ~A2=0.340093
-            BAC=0.0544597 BCA=0.185522 BXX=0.110022 B1=0.350003 ~B2=0.332875
-            CAB=0.0459297 CBA=0.0926401 CXX=0.0138403 C1=0.15241 ~C2=0.327032
+            ABC=0.123253 ACB=0.185715 AXX=0.188619 A1=0.497587 A3=0.340093
+            BAC=0.0544597 BCA=0.185522 BXX=0.110022 B1=0.350003 B3=0.332875
+            CAB=0.0459297 CBA=0.0926401 CXX=0.0138403 C1=0.15241 C3=0.327032
             **/
-            seed = 1602873873118686564;
+            //seed = 1602873873118686564;
+            /**
+            B wins first past post.
+            A wins cordocet A > B > C.
+            B voters have incentive to switch votes to CBA.
+            Ranked Choice Voting Round 1: B=0.379835 A=0.320321 C=0.299844
+            Ranked Choice Voting Winner: A=0.519308 B=0.475759
+            **/
+            seed = 1602879358922335402;
         }
         std::seed_seq ss{uint32_t(seed & 0xffffffff), uint32_t(seed>>32)};
         rng_.seed(ss);
@@ -458,7 +467,12 @@ public:
                 <<" "<<results[0].name_<<"="<<results[0].score_);
         }
 
-        /** strategic voting **/
+        /**
+        strategic voting for first past the post means...
+        voters for the candidate expected to finish last change their
+        votes to the their second place choice to avoid being stuck with
+        their last place choice.
+        **/
         int winner = results[2].idx_;
         int second = results[1].idx_;
         int loser = results[0].idx_;
@@ -525,23 +539,26 @@ public:
         double c = p_cab_ + p_cba_ + p_cxx_;
         auto round1 = create_results(a, b, c);
         int loser = round1[0].idx_;
+        double a_plus = a;
+        double b_plus = b;
+        double c_plus = c;
         if (loser == 2) {
             /** C was eliminated **/
-            a += p_cab_;
-            b += p_cba_;
-            c = 0.0;
+            a_plus += p_cab_;
+            b_plus += p_cba_;
+            c_plus = 0.0;
         } else if (loser == 1) {
             /** B was eliminated **/
-            a += p_bac_;
-            c += p_bca_;
-            b = 0.0;
+            a_plus += p_bac_;
+            c_plus += p_bca_;
+            b_plus = 0.0;
         } else {
             /** A was eliminated **/
-            b += p_abc_;
-            c += p_acb_;
-            a = 0.0;
+            b_plus += p_abc_;
+            c_plus += p_acb_;
+            a_plus = 0.0;
         }
-        auto round2 = create_results(a, b, c);
+        auto round2 = create_results(a_plus, b_plus, c_plus);
         ranked_choice_voting_ = round2[2].idx_;
         if (kNVoteTrials == 1) {
             LOG("Ranked Choice Voting Round 1:"
@@ -551,6 +568,71 @@ public:
             LOG("Ranked Choice Voting Winner:"
                 <<" "<<round2[2].name_<<"="<<round2[2].score_
                 <<" "<<round2[1].name_<<"="<<round2[1].score_);
+        }
+
+        /**
+        strategic voting for ranked choice voting is different from
+        strategic voting for first past the post.
+        voters for the last place candidate automatically have their
+        votes redirected to their second choice in the second round.
+        which is an improvement over first past the post.
+        voters can vote for their first choice without fear of being a spoiler.
+        nor of being stuck with their last choice.
+
+        however...
+        voters for the second place candidate might want to vote strategically.
+        for example: voter preference is A > B > C.
+        B voters have incentive to vote CBA.
+        it's risky because B may end up eliminated in the first round.
+        and because C may end up winning in the second round.
+        **/
+        int winner = round2[2].idx_;
+        int second = round2[1].idx_;
+        if (winner == 0 && second == 1 && loser == 2) {
+            check_rcv_strategic_voting("B", a, b, c, p_abc_, p_acb_);
+        }
+        if (winner == 0 && second == 2 && loser == 1) {
+            check_rcv_strategic_voting("C", a, c, b, p_acb_, p_abc_);
+        }
+        if (winner == 1 && second == 0 && loser == 2) {
+            check_rcv_strategic_voting("A", b, a, c, p_bac_, p_bca_);
+        }
+        if (winner == 1 && second == 2 && loser == 0) {
+            check_rcv_strategic_voting("C", b, c, a, p_bca_, p_bac_);
+        }
+        if (winner == 2 && second == 0 && loser == 1) {
+            check_rcv_strategic_voting("A", c, a, b, p_cab_, p_cba_);
+        }
+        if (winner == 2 && second == 1 && loser == 0) {
+            check_rcv_strategic_voting("B", c, b, a, p_cba_, p_cab_);
+        }
+    }
+
+    void check_rcv_strategic_voting(
+        const char *cls,
+        double a,
+        double b,
+        double c,
+        double ab,
+        double ac
+    ) noexcept {
+        /**
+        B might want to shift X votes to C.
+        want B - X > A so we are not eliminated.
+        want C + X > A so C is not eliminated.
+        also need B - X + ABC > C + X + ACB so we don't lose in the second round.
+        ergo X < B - A and X > A - C and X < (B + ABC - C - ACB) / 2.
+        **/
+        double bma = b - a;
+        double amc = a - c;
+        double bmc = (b + ab - c - ac) / 2.0;
+        double min_x = amc;
+        double max_x = std::min(bma, bmc);
+        if (min_x > 0.0 && min_x < max_x) {
+            ++result_rcv_strategic_;
+            if (kVerbose) {
+                LOG(cls<<" should vote strategically. min="<<min_x<<" max="<<max_x);
+            }
         }
     }
 
@@ -712,9 +794,9 @@ public:
         double last_a = p_bca_ + p_cba_ + p_bxx_/2.0 + p_cxx_/2.0;
         double last_b = p_acb_ + p_cab_ + p_axx_/2.0 + p_cxx_/2.0;
         double last_c = p_bac_ + p_abc_ + p_axx_/2.0 + p_bxx_/2.0;
-        LOG("  ABC="<<p_abc_<<" ACB="<<p_acb_<<" AXX="<<p_axx_<<" A1="<<first_a<<" ~A2="<<last_a);
-        LOG("  BAC="<<p_bac_<<" BCA="<<p_bca_<<" BXX="<<p_bxx_<<" B1="<<first_b<<" ~B2="<<last_b);
-        LOG("  CAB="<<p_cab_<<" CBA="<<p_cba_<<" CXX="<<p_cxx_<<" C1="<<first_c<<" ~C2="<<last_c);
+        LOG("  ABC="<<p_abc_<<" ACB="<<p_acb_<<" AXX="<<p_axx_<<" A1="<<first_a<<" A3="<<last_a);
+        LOG("  BAC="<<p_bac_<<" BCA="<<p_bca_<<" BXX="<<p_bxx_<<" B1="<<first_b<<" B3="<<last_b);
+        LOG("  CAB="<<p_cab_<<" CBA="<<p_cba_<<" CXX="<<p_cxx_<<" C1="<<first_c<<" C3="<<last_c);
     }
 
     void summarize() noexcept {
@@ -740,14 +822,13 @@ public:
         double pct_rro_c = int(10000.0 * result_rro_c / kNVoteTrials) / 100.0;
         LOG("Reverse Rank Order  : A="<<pct_rro_a<<"% B="<<pct_rro_b<<"% C="<<pct_rro_c<<"%");
         LOG("");
-        LOG("Agreements:");
         double pct_fpp_con = int(10000.0 * result_fpp_con / kNVoteTrials) / 100.0;
         double pct_rcv_con = int(10000.0 * result_rcv_con / kNVoteTrials) / 100.0;
         double pct_rro_con = int(10000.0 * result_rro_con / kNVoteTrials) / 100.0;
         double pct_rcv_fpp = int(10000.0 * result_rcv_fpp / kNVoteTrials) / 100.0;
         double pct_rro_fpp = int(10000.0 * result_rro_fpp / kNVoteTrials) / 100.0;
         double pct_rro_rcv = int(10000.0 * result_rro_rcv / kNVoteTrials) / 100.0;
-        LOG("                       FPP     RCV     RRO");
+        LOG("Agreements          :  FPP     RCV     RRO");
         LOG("Condorcet           : "<<pct_fpp_con<<"%  "<<pct_rcv_con<<"%  "<<pct_rro_con<<"%");
         LOG("First Past Post     :         "<<pct_rcv_fpp<<"%  "<<pct_rro_fpp<<"%");
         LOG("Ranked Choice Voting:                 "<<pct_rro_rcv<<"%");
@@ -760,7 +841,9 @@ public:
         LOG("Strategic Voting:");
         double pct_fpp_strategic = int(10000.0 * result_fpp_strategic_ / kNVoteTrials) / 100.0;
         double pct_fpp_counter = int(10000.0 * result_fpp_counter_ / kNVoteTrials) / 100.0;
-        LOG("First Past Post     : strategic="<<pct_fpp_strategic<<"% counter-strategic="<<pct_fpp_counter);
+        LOG("First Past Post     : "<<pct_fpp_strategic<<"% counter: "<<pct_fpp_counter<<"%");
+        double pct_rcv_strategic = int(10000.0 * result_rcv_strategic_ / kNVoteTrials) / 100.0;
+        LOG("Ranked Choice Voting: "<<pct_rcv_strategic<<"%");
         LOG("");
     }
 };
