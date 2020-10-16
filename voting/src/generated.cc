@@ -617,19 +617,19 @@ public:
         double pct_rro_b = int(10000.0 * result_rro_b / kNVoteTrials) / 100.0;
         double pct_rro_c = int(10000.0 * result_rro_c / kNVoteTrials) / 100.0;
         LOG("Reverse Rank Order  : A="<<pct_rro_a<<"% B="<<pct_rro_b<<"% C="<<pct_rro_c<<"%");
-
-        LOG("Agreement with Condorcet (includes cycles):");
-        double pct_fpp_con = int(10000.0 * result_fpp_con / kNVoteTrials) / 100.0;
-        double pct_rcv_con = int(10000.0 * result_rcv_con / kNVoteTrials) / 100.0;
-        double pct_rro_con = int(10000.0 * result_rro_con / kNVoteTrials) / 100.0;
-        LOG("First Past Post     : "<<pct_fpp_con);
-        LOG("Ranked Choice Voting: "<<pct_rcv_con);
-        LOG("Reverse Rank Order  : "<<pct_rro_con<<"%");
-
+        LOG("");
         double nwinners1 = int(10000.0 * result_nwinners_1_ / kNVoteTrials) / 100.0;
         double nwinners2 = int(10000.0 * result_nwinners_2_ / kNVoteTrials) / 100.0;
         double nwinners3 = int(10000.0 * result_nwinners_3_ / kNVoteTrials) / 100.0;
         LOG("Unique Winners      : 1:"<<nwinners1<<"% 2:"<<nwinners2<<"% 3:"<<nwinners3<<"%");
+        LOG("");
+        LOG("Agreement with Condorcet (includes cycles):");
+        double pct_fpp_con = int(10000.0 * result_fpp_con / kNVoteTrials) / 100.0;
+        double pct_rcv_con = int(10000.0 * result_rcv_con / kNVoteTrials) / 100.0;
+        double pct_rro_con = int(10000.0 * result_rro_con / kNVoteTrials) / 100.0;
+        LOG("First Past Post     : "<<pct_fpp_con<<"%");
+        LOG("Ranked Choice Voting: "<<pct_rcv_con<<"%");
+        LOG("Reverse Rank Order  : "<<pct_rro_con<<"%");
     }
 };
 
