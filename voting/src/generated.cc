@@ -82,17 +82,27 @@ namespace {
 
 /** number of trials to run. **/
 //constexpr int kNVoteTrials = 1;
+//constexpr int kNVoteTrials = 100;
 //constexpr int kNVoteTrials = 1000;
-constexpr int kNVoteTrials = 10*1000;
+//constexpr int kNVoteTrials = 10*1000;
 //constexpr int kNVoteTrials = 100*1000;
+constexpr int kNVoteTrials = 100;
 
 /** uniform utilities or not. **/
 //constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
-constexpr int kNUtilityTrials = 1;
+constexpr int kNUtilityTrials = 3;
 //constexpr int kNUtilityTrials = 2;
 //constexpr int kNUtilityTrials = 3;
 //constexpr int kNUtilityTrials = 10;
 //constexpr int kNUtilityTrials = 100;
+
+/** fixed seed or random seed **/
+//constexpr bool kRandomSeed = true;
+constexpr bool kRandomSeed = false;
+
+/** extra logging **/
+//constexpr bool kVerbose = false;
+constexpr bool kVerbose = true;
 
 class Result {
 public:
@@ -174,23 +184,31 @@ public:
     int result_rcv_b = 0;
     int result_rcv_c = 0;
     int result_rcv_con = 0;
+    int result_rcv_fpp = 0;
     int reverse_rank_order_ = 0;
     int result_rro_a = 0;
     int result_rro_b = 0;
     int result_rro_c = 0;
     int result_rro_con = 0;
+    int result_rro_fpp = 0;
+    int result_rro_rcv = 0;
     int result_nwinners_1_ = 0;
     int result_nwinners_2_ = 0;
     int result_nwinners_3_ = 0;
 
     /** random number generation **/
+    std::uint64_t seed_;
+    std::uint64_t trial_seed_;
     std::mt19937_64 rng_;
     std::uniform_real_distribution<double> unif_;
+
+    /** internal state **/
+    int trial_ = 0;
 
     void run() noexcept {
         init();
 
-        for (int i = 0; i < kNVoteTrials; ++i) {
+        for (trial_ = 0; trial_ < kNVoteTrials; ++trial_) {
             random_probabilities();
             random_utilities();
             group_utility();
@@ -207,9 +225,12 @@ public:
     }
 
     void init() noexcept {
-        std::uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-        //std::uint64_t seed = 0x123456789ABCDEF0;
-        std::seed_seq ss{uint32_t(seed & 0xffffffff), uint32_t(seed>>32)};
+        if (kRandomSeed) {
+            seed_ = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        } else {
+            seed_ = 0x123456789ABCDEF0;
+        }
+        std::seed_seq ss{uint32_t(seed_ & 0xffffffff), uint32_t(seed_>>32)};
         rng_.seed(ss);
         unif_ = std::uniform_real_distribution<double>(0.0, 1.0);
     }
@@ -574,6 +595,15 @@ public:
             ++result_rcv_con;
             ++result_rro_con;
         }
+        if (ranked_choice_voting_ == first_past_post_) {
+            ++result_rcv_fpp;
+        }
+        if (reverse_rank_order_ == first_past_post_) {
+            ++result_rro_fpp;
+        }
+        if (reverse_rank_order_ == ranked_choice_voting_) {
+            ++result_rro_rcv;
+        }
         std::vector<int> candidates(4, 0);
         ++candidates[condorcet_];
         ++candidates[first_past_post_];
@@ -596,9 +626,37 @@ public:
             ++result_nwinners_3_;
             break;
         }
+        if (kVerbose
+        &&  reverse_rank_order_ != first_past_post_
+        &&  reverse_rank_order_ != ranked_choice_voting_) {
+
+            LOG(trial_<<": nwinners="<<nwinners
+                <<" CON="<<condorcet_
+                <<" FPP="<<first_past_post_
+                <<" RCV="<<ranked_choice_voting_
+                <<" RRO="<<reverse_rank_order_);
+            print_electorate();
+        }
+    }
+
+    void print_electorate() noexcept {
+        double first_a = p_abc_ + p_acb_ + p_axx_;
+        double first_b = p_bac_ + p_bca_ + p_bxx_;
+        double first_c = p_cab_ + p_cba_ + p_cxx_;
+        double last_a = p_bca_ + p_cba_ + p_bxx_/2.0 + p_cxx_/2.0;
+        double last_b = p_acb_ + p_cab_ + p_axx_/2.0 + p_cxx_/2.0;
+        double last_c = p_bac_ + p_abc_ + p_axx_/2.0 + p_bxx_/2.0;
+        LOG("  ABC="<<p_abc_<<" ACB="<<p_acb_<<" AXX="<<p_axx_<<" A1="<<first_a<<" ~A2="<<last_a);
+        LOG("  BAC="<<p_bac_<<" BCA="<<p_bca_<<" BXX="<<p_bxx_<<" B1="<<first_b<<" ~B2="<<last_b);
+        LOG("  CAB="<<p_cab_<<" CBA="<<p_cba_<<" CXX="<<p_cxx_<<" C1="<<first_c<<" ~C2="<<last_c);
     }
 
     void summarize() noexcept {
+        LOG("");
+        LOG("Number of Trials    : "<<kNVoteTrials);
+        LOG("Utility Distribution: "<<kNUtilityTrials);
+        LOG("Random Seed         : "<<seed_);
+        LOG("");
         LOG("Agreement with Group Utility:");
         double pct_con_a = int(10000.0 * result_con_a / kNVoteTrials) / 100.0;
         double pct_con_b = int(10000.0 * result_con_b / kNVoteTrials) / 100.0;
@@ -630,6 +688,15 @@ public:
         LOG("First Past Post     : "<<pct_fpp_con<<"%");
         LOG("Ranked Choice Voting: "<<pct_rcv_con<<"%");
         LOG("Reverse Rank Order  : "<<pct_rro_con<<"%");
+        LOG("Agreement with First Past Post:");
+        double pct_rcv_fpp = int(10000.0 * result_rcv_fpp / kNVoteTrials) / 100.0;
+        double pct_rro_fpp = int(10000.0 * result_rro_fpp / kNVoteTrials) / 100.0;
+        LOG("Ranked Choice Voting: "<<pct_rcv_fpp<<"%");
+        LOG("Reverse Rank Order  : "<<pct_rro_fpp<<"%");
+        LOG("Agreement with Ranked Choice Voting:");
+        double pct_rro_rcv = int(10000.0 * result_rro_rcv / kNVoteTrials) / 100.0;
+        LOG("Reverse Rank Order  : "<<pct_rro_rcv<<"%");
+        LOG("");
     }
 };
 
