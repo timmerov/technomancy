@@ -179,6 +179,9 @@ public:
     int result_rro_b = 0;
     int result_rro_c = 0;
     int result_rro_con = 0;
+    int result_nwinners_1_ = 0;
+    int result_nwinners_2_ = 0;
+    int result_nwinners_3_ = 0;
 
     /** random number generation **/
     std::mt19937_64 rng_;
@@ -566,6 +569,33 @@ public:
         if (reverse_rank_order_ == condorcet_) {
             ++result_rro_con;
         }
+        if (condorcet_ == 3) {
+            ++result_fpp_con;
+            ++result_rcv_con;
+            ++result_rro_con;
+        }
+        std::vector<int> candidates(4, 0);
+        ++candidates[condorcet_];
+        ++candidates[first_past_post_];
+        ++candidates[ranked_choice_voting_];
+        ++candidates[reverse_rank_order_];
+        int nwinners = 0;
+        for (int i = 0; i < 3; ++i) {
+            if (candidates[i] > 0) {
+                ++nwinners;
+            }
+        }
+        switch (nwinners) {
+        case 1:
+            ++result_nwinners_1_;
+            break;
+        case 2:
+            ++result_nwinners_2_;
+            break;
+        case 3:
+            ++result_nwinners_3_;
+            break;
+        }
     }
 
     void summarize() noexcept {
@@ -587,13 +617,19 @@ public:
         double pct_rro_b = int(10000.0 * result_rro_b / kNVoteTrials) / 100.0;
         double pct_rro_c = int(10000.0 * result_rro_c / kNVoteTrials) / 100.0;
         LOG("Reverse Rank Order  : A="<<pct_rro_a<<"% B="<<pct_rro_b<<"% C="<<pct_rro_c<<"%");
-        LOG("Agreement with Condorcet:");
+
+        LOG("Agreement with Condorcet (includes cycles):");
         double pct_fpp_con = int(10000.0 * result_fpp_con / kNVoteTrials) / 100.0;
         double pct_rcv_con = int(10000.0 * result_rcv_con / kNVoteTrials) / 100.0;
         double pct_rro_con = int(10000.0 * result_rro_con / kNVoteTrials) / 100.0;
         LOG("First Past Post     : "<<pct_fpp_con);
         LOG("Ranked Choice Voting: "<<pct_rcv_con);
         LOG("Reverse Rank Order  : "<<pct_rro_con<<"%");
+
+        double nwinners1 = int(10000.0 * result_nwinners_1_ / kNVoteTrials) / 100.0;
+        double nwinners2 = int(10000.0 * result_nwinners_2_ / kNVoteTrials) / 100.0;
+        double nwinners3 = int(10000.0 * result_nwinners_3_ / kNVoteTrials) / 100.0;
+        LOG("Unique Winners      : 1:"<<nwinners1<<"% 2:"<<nwinners2<<"% 3:"<<nwinners3<<"%");
     }
 };
 
