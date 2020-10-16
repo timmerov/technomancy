@@ -184,12 +184,12 @@ public:
     int result_rcv_strategic_ = 0;
     int result_rcv_alternate_ = 0;
     int reverse_rank_order_ = 0;
-    int result_rro_a = 0;
-    int result_rro_b = 0;
-    int result_rro_c = 0;
-    int result_rro_con = 0;
-    int result_rro_fpp = 0;
-    int result_rro_rcv = 0;
+    int result_rev_a = 0;
+    int result_rev_b = 0;
+    int result_rev_c = 0;
+    int result_rev_con = 0;
+    int result_rev_fpp = 0;
+    int result_rev_rcv = 0;
     int result_nwinners_1_ = 0;
     int result_nwinners_2_ = 0;
     int result_nwinners_3_ = 0;
@@ -230,7 +230,7 @@ public:
             //seed = 0x123456789ABCDEF0;
             /**
             A is both the most popular and least popular.
-            nwinners=2 CON=0 FPP=0 RCV=0 RRO=1
+            nwinners=2 CON=0 FPP=0 RCV=0 REV=1
             ABC=0.123253 ACB=0.185715 AXX=0.188619 A1=0.497587 A3=0.340093
             BAC=0.0544597 BCA=0.185522 BXX=0.110022 B1=0.350003 B3=0.332875
             CAB=0.0459297 CBA=0.0926401 CXX=0.0138403 C1=0.15241 C3=0.327032
@@ -667,12 +667,18 @@ public:
         c = p_cab_ + p_cba_ + p_cxx_;
         if (loser == 2) {
             /** C was eliminated **/
+            a += p_cab_;
+            b += p_cba_;
             c = 0.0;
         } else if (loser == 1) {
             /** B was eliminated **/
+            a += p_bac_;
+            c += p_bca_;
             b = 0.0;
         } else {
             /** A was eliminated **/
+            b += p_abc_;
+            c += p_acb_;
             a = 0.0;
         }
         auto round2 = create_results(a, b, c);
@@ -740,13 +746,13 @@ public:
         }
         switch (reverse_rank_order_) {
         case 0:
-            ++result_rro_a;
+            ++result_rev_a;
             break;
         case 1:
-            ++result_rro_b;
+            ++result_rev_b;
             break;
         case 2:
-            ++result_rro_c;
+            ++result_rev_c;
             break;
         }
         if (first_past_post_ == condorcet_) {
@@ -756,21 +762,21 @@ public:
             ++result_rcv_con;
         }
         if (reverse_rank_order_ == condorcet_) {
-            ++result_rro_con;
+            ++result_rev_con;
         }
         if (condorcet_ == 3) {
             ++result_fpp_con;
             ++result_rcv_con;
-            ++result_rro_con;
+            ++result_rev_con;
         }
         if (ranked_choice_voting_ == first_past_post_) {
             ++result_rcv_fpp;
         }
         if (reverse_rank_order_ == first_past_post_) {
-            ++result_rro_fpp;
+            ++result_rev_fpp;
         }
         if (reverse_rank_order_ == ranked_choice_voting_) {
-            ++result_rro_rcv;
+            ++result_rev_rcv;
         }
         std::vector<int> candidates(4, 0);
         ++candidates[condorcet_];
@@ -802,7 +808,7 @@ public:
                 <<" CON="<<condorcet_
                 <<" FPP="<<first_past_post_
                 <<" RCV="<<ranked_choice_voting_
-                <<" RRO="<<reverse_rank_order_);
+                <<" REV="<<reverse_rank_order_);
             print_electorate();
         }
     }
@@ -837,21 +843,21 @@ public:
         double pct_rcv_b = int(10000.0 * result_rcv_b / kNVoteTrials) / 100.0;
         double pct_rcv_c = int(10000.0 * result_rcv_c / kNVoteTrials) / 100.0;
         LOG("Ranked Choice Voting: A="<<pct_rcv_a<<"% B="<<pct_rcv_b<<"% C="<<pct_rcv_c<<"%");
-        double pct_rro_a = int(10000.0 * result_rro_a / kNVoteTrials) / 100.0;
-        double pct_rro_b = int(10000.0 * result_rro_b / kNVoteTrials) / 100.0;
-        double pct_rro_c = int(10000.0 * result_rro_c / kNVoteTrials) / 100.0;
-        LOG("Reverse Rank Order  : A="<<pct_rro_a<<"% B="<<pct_rro_b<<"% C="<<pct_rro_c<<"%");
+        double pct_rev_a = int(10000.0 * result_rev_a / kNVoteTrials) / 100.0;
+        double pct_rev_b = int(10000.0 * result_rev_b / kNVoteTrials) / 100.0;
+        double pct_rev_c = int(10000.0 * result_rev_c / kNVoteTrials) / 100.0;
+        LOG("Reverse Rank Order  : A="<<pct_rev_a<<"% B="<<pct_rev_b<<"% C="<<pct_rev_c<<"%");
         LOG("");
         double pct_fpp_con = int(10000.0 * result_fpp_con / kNVoteTrials) / 100.0;
         double pct_rcv_con = int(10000.0 * result_rcv_con / kNVoteTrials) / 100.0;
-        double pct_rro_con = int(10000.0 * result_rro_con / kNVoteTrials) / 100.0;
+        double pct_rev_con = int(10000.0 * result_rev_con / kNVoteTrials) / 100.0;
         double pct_rcv_fpp = int(10000.0 * result_rcv_fpp / kNVoteTrials) / 100.0;
-        double pct_rro_fpp = int(10000.0 * result_rro_fpp / kNVoteTrials) / 100.0;
-        double pct_rro_rcv = int(10000.0 * result_rro_rcv / kNVoteTrials) / 100.0;
-        LOG("Agreements          :  FPP     RCV     RRO");
-        LOG("Condorcet           : "<<pct_fpp_con<<"%  "<<pct_rcv_con<<"%  "<<pct_rro_con<<"%");
-        LOG("First Past Post     :         "<<pct_rcv_fpp<<"%  "<<pct_rro_fpp<<"%");
-        LOG("Ranked Choice Voting:                 "<<pct_rro_rcv<<"%");
+        double pct_rev_fpp = int(10000.0 * result_rev_fpp / kNVoteTrials) / 100.0;
+        double pct_rev_rcv = int(10000.0 * result_rev_rcv / kNVoteTrials) / 100.0;
+        LOG("Agreements          :  FPP     RCV     REV");
+        LOG("Condorcet           : "<<pct_fpp_con<<"%  "<<pct_rcv_con<<"%  "<<pct_rev_con<<"%");
+        LOG("First Past Post     :         "<<pct_rcv_fpp<<"%  "<<pct_rev_fpp<<"%");
+        LOG("Ranked Choice Voting:                 "<<pct_rev_rcv<<"%");
         LOG("");
         double nwinners1 = int(10000.0 * result_nwinners_1_ / kNVoteTrials) / 100.0;
         double nwinners2 = int(10000.0 * result_nwinners_2_ / kNVoteTrials) / 100.0;
