@@ -84,25 +84,24 @@ namespace {
 //constexpr int kNVoteTrials = 1;
 //constexpr int kNVoteTrials = 100;
 //constexpr int kNVoteTrials = 1000;
-//constexpr int kNVoteTrials = 10*1000;
+constexpr int kNVoteTrials = 10*1000;
 //constexpr int kNVoteTrials = 100*1000;
-constexpr int kNVoteTrials = 100;
 
 /** uniform utilities or not. **/
 //constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
-constexpr int kNUtilityTrials = 3;
+constexpr int kNUtilityTrials = 1;
 //constexpr int kNUtilityTrials = 2;
 //constexpr int kNUtilityTrials = 3;
 //constexpr int kNUtilityTrials = 10;
 //constexpr int kNUtilityTrials = 100;
 
 /** fixed seed or random seed **/
-//constexpr bool kRandomSeed = true;
-constexpr bool kRandomSeed = false;
+constexpr bool kRandomSeed = true;
+//constexpr bool kRandomSeed = false;
 
 /** extra logging **/
-//constexpr bool kVerbose = false;
-constexpr bool kVerbose = true;
+constexpr bool kVerbose = false;
+//constexpr bool kVerbose = true;
 
 class Result {
 public:
@@ -179,6 +178,8 @@ public:
     int result_fpp_b = 0;
     int result_fpp_c = 0;
     int result_fpp_con = 0;
+    int result_fpp_strategic_ = 0;
+    int result_fpp_counter_= 0;
     int ranked_choice_voting_ = 0;
     int result_rcv_a = 0;
     int result_rcv_b = 0;
@@ -197,7 +198,6 @@ public:
     int result_nwinners_3_ = 0;
 
     /** random number generation **/
-    std::uint64_t seed_;
     std::uint64_t trial_seed_;
     std::mt19937_64 rng_;
     std::uniform_real_distribution<double> unif_;
@@ -225,14 +225,23 @@ public:
     }
 
     void init() noexcept {
+        std::uint64_t seed;
         if (kRandomSeed) {
-            seed_ = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+            seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         } else {
-            seed_ = 0x123456789ABCDEF0;
+            //seed = 0x123456789ABCDEF0;
+            /**
+            nwinners=2 CON=0 FPP=0 RCV=0 RRO=1
+            ABC=0.123253 ACB=0.185715 AXX=0.188619 A1=0.497587 ~A2=0.340093
+            BAC=0.0544597 BCA=0.185522 BXX=0.110022 B1=0.350003 ~B2=0.332875
+            CAB=0.0459297 CBA=0.0926401 CXX=0.0138403 C1=0.15241 ~C2=0.327032
+            **/
+            seed = 1602873873118686564;
         }
-        std::seed_seq ss{uint32_t(seed_ & 0xffffffff), uint32_t(seed_>>32)};
+        std::seed_seq ss{uint32_t(seed & 0xffffffff), uint32_t(seed>>32)};
         rng_.seed(ss);
         unif_ = std::uniform_real_distribution<double>(0.0, 1.0);
+        LOG("Random Seed: "<<seed);
     }
 
     double random_number() noexcept {
@@ -451,6 +460,66 @@ public:
                 <<" "<<results[1].name_<<"="<<results[1].score_
                 <<" "<<results[0].name_<<"="<<results[0].score_);
         }
+
+        /** strategic voting **/
+        int winner = results[2].idx_;
+        int second = results[1].idx_;
+        int loser = results[0].idx_;
+        double winner_score = results[2].score_;
+        double second_score = results[1].score_;
+        if (winner == 0 && second == 1 && loser == 2) {
+            check_fpp_strategic_voting("CBA", "CAB", winner_score, second_score, p_cba_, p_cab_);
+        }
+        if (winner == 0 && second == 2 && loser == 1) {
+            check_fpp_strategic_voting("BCA", "BAC", winner_score, second_score, p_bca_, p_bac_);
+        }
+        if (winner == 1 && second == 0 && loser == 2) {
+            check_fpp_strategic_voting("CAB", "CBA", winner_score, second_score, p_cab_, p_cba_);
+        }
+        if (winner == 1 && second == 2 && loser == 0) {
+            check_fpp_strategic_voting("ACB", "ABC", winner_score, second_score, p_acb_, p_abc_);
+        }
+        if (winner == 2 && second == 0 && loser == 1) {
+            check_fpp_strategic_voting("BAC", "BCA", winner_score, second_score, p_bac_, p_bca_);
+        }
+        if (winner == 2 && second == 1 && loser == 0) {
+            check_fpp_strategic_voting("ABC", "ACB", winner_score, second_score, p_abc_, p_acb_);
+        }
+    }
+
+    void check_fpp_strategic_voting(
+        const char *cls1,
+        const char *cls2,
+        double winner,
+        double second,
+        double swing1,
+        double swing2
+    ) noexcept {
+        double second_plus = second + swing1;
+        double winner_plus = winner + swing2;
+        if (second_plus > winner) {
+            /**
+            class 1 can change the outcome from their last place choice
+            to their second place choice by changing their vote.
+            **/
+            ++result_fpp_strategic_;
+            if (kVerbose) {
+                LOG(cls1<<" should vote strategically: "
+                    <<second<<"+"<<swing1<<"="<<second_plus<<" > "<<winner);
+            }
+            if (winner_plus > second_plus) {
+                /**
+                when class 1 changes the outcome...
+                class 2 can change it back by also voting for their second choice.
+                **/
+                ++result_fpp_counter_;
+                if (kVerbose) {
+                    LOG(cls2<<" should also vote strategically: "
+                        <<second<<"+"<<swing1<<"="<<second_plus<<" < "
+                        <<winner_plus<<"="<<winner<<"+"<<swing2);
+                }
+            }
+        }
     }
 
     void ranked_choice_voting() noexcept {
@@ -655,7 +724,6 @@ public:
         LOG("");
         LOG("Number of Trials    : "<<kNVoteTrials);
         LOG("Utility Distribution: "<<kNUtilityTrials);
-        LOG("Random Seed         : "<<seed_);
         LOG("");
         LOG("Agreement with Group Utility:");
         double pct_con_a = int(10000.0 * result_con_a / kNVoteTrials) / 100.0;
@@ -676,26 +744,27 @@ public:
         double pct_rro_c = int(10000.0 * result_rro_c / kNVoteTrials) / 100.0;
         LOG("Reverse Rank Order  : A="<<pct_rro_a<<"% B="<<pct_rro_b<<"% C="<<pct_rro_c<<"%");
         LOG("");
+        LOG("Agreements:");
+        double pct_fpp_con = int(10000.0 * result_fpp_con / kNVoteTrials) / 100.0;
+        double pct_rcv_con = int(10000.0 * result_rcv_con / kNVoteTrials) / 100.0;
+        double pct_rro_con = int(10000.0 * result_rro_con / kNVoteTrials) / 100.0;
+        double pct_rcv_fpp = int(10000.0 * result_rcv_fpp / kNVoteTrials) / 100.0;
+        double pct_rro_fpp = int(10000.0 * result_rro_fpp / kNVoteTrials) / 100.0;
+        double pct_rro_rcv = int(10000.0 * result_rro_rcv / kNVoteTrials) / 100.0;
+        LOG("                       FPP     RCV     RRO");
+        LOG("Condorcet           : "<<pct_fpp_con<<"%  "<<pct_rcv_con<<"%  "<<pct_rro_con<<"%");
+        LOG("First Past Post     :         "<<pct_rcv_fpp<<"%  "<<pct_rro_fpp<<"%");
+        LOG("Ranked Choice Voting:                 "<<pct_rro_rcv<<"%");
+        LOG("");
         double nwinners1 = int(10000.0 * result_nwinners_1_ / kNVoteTrials) / 100.0;
         double nwinners2 = int(10000.0 * result_nwinners_2_ / kNVoteTrials) / 100.0;
         double nwinners3 = int(10000.0 * result_nwinners_3_ / kNVoteTrials) / 100.0;
         LOG("Unique Winners      : 1:"<<nwinners1<<"% 2:"<<nwinners2<<"% 3:"<<nwinners3<<"%");
         LOG("");
-        LOG("Agreement with Condorcet (includes cycles):");
-        double pct_fpp_con = int(10000.0 * result_fpp_con / kNVoteTrials) / 100.0;
-        double pct_rcv_con = int(10000.0 * result_rcv_con / kNVoteTrials) / 100.0;
-        double pct_rro_con = int(10000.0 * result_rro_con / kNVoteTrials) / 100.0;
-        LOG("First Past Post     : "<<pct_fpp_con<<"%");
-        LOG("Ranked Choice Voting: "<<pct_rcv_con<<"%");
-        LOG("Reverse Rank Order  : "<<pct_rro_con<<"%");
-        LOG("Agreement with First Past Post:");
-        double pct_rcv_fpp = int(10000.0 * result_rcv_fpp / kNVoteTrials) / 100.0;
-        double pct_rro_fpp = int(10000.0 * result_rro_fpp / kNVoteTrials) / 100.0;
-        LOG("Ranked Choice Voting: "<<pct_rcv_fpp<<"%");
-        LOG("Reverse Rank Order  : "<<pct_rro_fpp<<"%");
-        LOG("Agreement with Ranked Choice Voting:");
-        double pct_rro_rcv = int(10000.0 * result_rro_rcv / kNVoteTrials) / 100.0;
-        LOG("Reverse Rank Order  : "<<pct_rro_rcv<<"%");
+        LOG("Strategic Voting:");
+        double pct_fpp_strategic = int(10000.0 * result_fpp_strategic_ / kNVoteTrials) / 100.0;
+        double pct_fpp_counter = int(10000.0 * result_fpp_counter_ / kNVoteTrials) / 100.0;
+        LOG("First Past Post     : strategic="<<pct_fpp_strategic<<"% counter-strategic="<<pct_fpp_counter);
         LOG("");
     }
 };
