@@ -182,6 +182,7 @@ public:
     int result_rcv_con = 0;
     int result_rcv_fpp = 0;
     int result_rcv_strategic_ = 0;
+    int result_rcv_alternate_ = 0;
     int reverse_rank_order_ = 0;
     int result_rro_a = 0;
     int result_rro_b = 0;
@@ -582,56 +583,75 @@ public:
         however...
         voters for the second place candidate might want to vote strategically.
         for example: voter preference is A > B > C.
-        B voters have incentive to vote CBA.
+        B voters have incentive to vote C.
         it's risky because B may end up eliminated in the first round.
         and because C may end up winning in the second round.
         **/
         int winner = round2[2].idx_;
         int second = round2[1].idx_;
         if (winner == 0 && second == 1 && loser == 2) {
-            check_rcv_strategic_voting("B", a, b, c, p_abc_, p_acb_);
+            check_rcv_strategic_voting("B", "BCA", a, b, c, p_abc_, p_acb_, p_bca_, p_bac_);
         }
         if (winner == 0 && second == 2 && loser == 1) {
-            check_rcv_strategic_voting("C", a, c, b, p_acb_, p_abc_);
+            check_rcv_strategic_voting("C", "CBA", a, c, b, p_acb_, p_abc_, p_cba_, p_cab_);
         }
         if (winner == 1 && second == 0 && loser == 2) {
-            check_rcv_strategic_voting("A", b, a, c, p_bac_, p_bca_);
+            check_rcv_strategic_voting("A", "ACB", b, a, c, p_bac_, p_bca_, p_acb_, p_abc_);
         }
         if (winner == 1 && second == 2 && loser == 0) {
-            check_rcv_strategic_voting("C", b, c, a, p_bca_, p_bac_);
+            check_rcv_strategic_voting("C", "CAB", b, c, a, p_bca_, p_bac_, p_cab_, p_cba_);
         }
         if (winner == 2 && second == 0 && loser == 1) {
-            check_rcv_strategic_voting("A", c, a, b, p_cab_, p_cba_);
+            check_rcv_strategic_voting("A", "ABC", c, a, b, p_cab_, p_cba_, p_abc_, p_acb_);
         }
         if (winner == 2 && second == 1 && loser == 0) {
-            check_rcv_strategic_voting("B", c, b, a, p_cba_, p_cab_);
+            check_rcv_strategic_voting("B", "BAC", c, b, a, p_cba_, p_cab_, p_bac_, p_bca_);
         }
     }
 
     void check_rcv_strategic_voting(
-        const char *cls,
+        const char *cls1,
+        const char *cls2,
         double a,
         double b,
         double c,
-        double ab,
-        double ac
+        double abc,
+        double acb,
+        double bca,
+        double bac
     ) noexcept {
         /**
+        winner=A, second=B, last=C.
         B might want to shift X votes to C.
-        want B - X > A so we are not eliminated.
+        want B - X > A so B is not eliminated.
         want C + X > A so C is not eliminated.
         also need B - X + ABC > C + X + ACB so we don't lose in the second round.
         ergo X < B - A and X > A - C and X < (B + ABC - C - ACB) / 2.
         **/
         double bma = b - a;
         double amc = a - c;
-        double bmc = (b + ab - c - ac) / 2.0;
+        double bmc = (b + abc - c - acb) / 2.0;
         double min_x = amc;
         double max_x = std::min(bma, bmc);
         if (min_x > 0.0 && min_x < max_x) {
             ++result_rcv_strategic_;
             if (kVerbose) {
-                LOG(cls<<" should vote strategically. min="<<min_x<<" max="<<max_x);
+                LOG(cls1<<" should vote strategically. min="<<min_x<<" max="<<max_x);
+            }
+            return;
+        }
+
+        /**
+        B cannot win.
+        BCA might want to shift to C.
+        **/
+        double a2 = a + bac;
+        double b2 = b - bca;
+        double c2 = c + bca;
+        if (c2 > a2 && a2 > b2) {
+            ++result_rcv_alternate_;
+            if (kVerbose) {
+                LOG(cls2<<" should vote alternate strategy. c2="<<c2<<" a2="<<a2<<" b2="<<b2);
             }
         }
     }
@@ -843,7 +863,8 @@ public:
         double pct_fpp_counter = int(10000.0 * result_fpp_counter_ / kNVoteTrials) / 100.0;
         LOG("First Past Post     : "<<pct_fpp_strategic<<"% counter: "<<pct_fpp_counter<<"%");
         double pct_rcv_strategic = int(10000.0 * result_rcv_strategic_ / kNVoteTrials) / 100.0;
-        LOG("Ranked Choice Voting: "<<pct_rcv_strategic<<"%");
+        double pct_rcv_alternate = int(10000.0 * result_rcv_alternate_ / kNVoteTrials) / 100.0;
+        LOG("Ranked Choice Voting: "<<pct_rcv_strategic<<"% alternate: "<<pct_rcv_alternate<<"%");
         LOG("");
     }
 };
