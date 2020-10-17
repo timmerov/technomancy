@@ -775,7 +775,22 @@ public:
                     LOG("B should vote tactically.");
                 }
             } else {
-                LOG("B should sit down.");
+                /**
+                C has incentive to move last place votes from B to A
+                so that A is eliminated instead of B.
+                **/
+                double cma = last_c - last_a;
+                double bma = (last_b - last_a) / 2.0;
+                double max_x = p_cab_ + p_cxx_/2.0;
+                double min_x = std::max(cma, bma);
+                if (max_x > min_x && min_x > 0.0) {
+                    LOG("C should vote strategically. cma="<<cma<<" bma="<<bma<<" max="<<max_x<<" min="<<min_x);
+                    LOG("  last_a="<<last_a<<" last_c="<<last_c<<" last_b="<<last_b);
+                    LOG("  c="<<c<<" b="<<b);
+                    print_electorate();
+                } else {
+                    LOG("C should vote tactically.");
+                }
             }
         }
 
