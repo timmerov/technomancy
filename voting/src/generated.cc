@@ -82,8 +82,8 @@ namespace {
 
 /** number of trials to run. **/
 //constexpr int kNVoteTrials = 1;
-//constexpr int kNVoteTrials = 100;
-constexpr int kNVoteTrials = 10*1000;
+constexpr int kNVoteTrials = 100;
+//constexpr int kNVoteTrials = 10*1000;
 
 /** uniform utilities or not. **/
 //constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
@@ -91,8 +91,8 @@ constexpr int kNUtilityTrials = 1;
 //constexpr int kNUtilityTrials = 3;
 
 /** fixed seed or random seed **/
-constexpr bool kRandomSeed = true;
-//constexpr bool kRandomSeed = false;
+//constexpr bool kRandomSeed = true;
+constexpr bool kRandomSeed = false;
 
 /** extra logging **/
 constexpr bool kVerbose = false;
@@ -259,6 +259,11 @@ public:
             Ranked Choice Voting Winner: A=0.519308 B=0.475759
             **/
             seed = 1602879358922335402;
+            /**
+            Reverse Rank Order Round 1: A=0.280917 B=0.287955 C=0.431127
+            Reverse Rank Order Winner: A=0.504648 B=0.3792
+            **/
+            seed = 1602891851701679826;
         }
         std::seed_seq ss{uint32_t(seed & 0xffffffff), uint32_t(seed>>32)};
         rng_.seed(ss);
@@ -467,6 +472,9 @@ public:
                     <<" "<<results[1].name_<<"="<<results[1].score_
                     <<" "<<results[0].name_<<"="<<results[0].score_);
             }
+            if (kVerbose) {
+                LOG("  A-B: "<<a_b<<" A-C: "<<a_c<<" B-C: "<<b_c);
+            }
         }
     }
 
@@ -648,7 +656,7 @@ public:
         double bmc = (b + abc - c - acb) / 2.0;
         double min_x = amc;
         double max_x = std::min(bma, bmc);
-        if (min_x > 0.0 && min_x < max_x) {
+        if (max_x > min_x && min_x > 0.0) {
             ++result_rcv_strategic_;
             if (kVerbose) {
                 LOG(cls1<<" should vote strategically. min="<<min_x<<" max="<<max_x);
@@ -730,6 +738,48 @@ public:
             }
         }
 
+        /** strategic voting **/
+        int winner = round2[2].idx_;
+        int second = round2[1].idx_;
+        int last   = round2[0].idx_;
+        if (winner == 0 && second == 1 && last == 2 && second != reverse_rank_order_) {
+            double b = p_bac_ + p_bca_ + p_bxx_ + p_abc_;
+            double c = p_cab_ + p_cba_ + p_cxx_ + p_acb_;
+            if (b > c) {
+                /**
+                B has incentive to move last place votes from C to A
+                so that A is eliminated instead of C.
+
+                a = last_a + X
+                b = last_b
+                c = last_c - X
+                a > b and a > c
+
+                last_a + X > last_b
+                last_a + X > last_c - X
+
+                X > last_b - last_a
+                X > (last_c - last_a)/2
+                X < p_bac + p_bxx/2
+                **/
+                double bma = last_b - last_a;
+                double cma = (last_c - last_a) / 2.0;
+                double max_x = p_bac_ + p_bxx_/2.0;
+                double min_x = std::max(bma, cma);
+                if (max_x > min_x && min_x > 0.0) {
+                    LOG("B should vote strategically. bma="<<bma<<" cma="<<cma<<" max="<<max_x<<" min="<<min_x);
+                    LOG("  last_a="<<last_a<<" last_b="<<last_b<<" last_c="<<last_c);
+                    LOG("  b="<<b<<" c="<<c);
+                    print_electorate();
+                } else {
+                    LOG("B should vote tactically.");
+                }
+            } else {
+                LOG("B should sit down.");
+            }
+        }
+
+        /** track when the front runner loses with a majority of the popular vote. **/
         if (front_score > 0.50 && front_winner != reverse_rank_order_) {
             ++result_rev_majority_lost_;
             switch (front_winner) {
