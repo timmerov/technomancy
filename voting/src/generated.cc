@@ -76,6 +76,7 @@ model and/or estimate benefit from strategic voting.
 
 #include <algorithm>
 #include <chrono>
+#include <iomanip>
 #include <random>
 
 namespace {
@@ -220,6 +221,7 @@ public:
     int trial_ = 0;
 
     void run() noexcept {
+        LOG("Synthetic Electorate."<<std::fixed<<std::setprecision(2));
         init();
 
         for (trial_ = 0; trial_ < kNVoteTrials; ++trial_) {
@@ -1009,59 +1011,59 @@ public:
         LOG("Utility Distribution: "<<kNUtilityTrials);
         LOG("");
         LOG("Agreement with Group Utility:");
-        double pct_con_a = int(10000.0 * result_con_a / kNVoteTrials) / 100.0;
-        double pct_con_b = int(10000.0 * result_con_b / kNVoteTrials) / 100.0;
-        double pct_con_c = int(10000.0 * result_con_c / kNVoteTrials) / 100.0;
-        double pct_con_cycle = int(10000.0 * result_con_cycle / kNVoteTrials) / 100.0;
+        double pct_con_a = 100.0 * result_con_a / kNVoteTrials;
+        double pct_con_b = 100.0 * result_con_b / kNVoteTrials;
+        double pct_con_c = 100.0 * result_con_c / kNVoteTrials;
+        double pct_con_cycle = 100.0 * result_con_cycle / kNVoteTrials;
         LOG("Condorcet           : A="<<pct_con_a<<"% B="<<pct_con_b<<"% C="<<pct_con_c<<"% Cycle="<<pct_con_cycle<<"%");
-        double pct_fpp_a = int(10000.0 * result_fpp_a / kNVoteTrials) / 100.0;
-        double pct_fpp_b = int(10000.0 * result_fpp_b / kNVoteTrials) / 100.0;
-        double pct_fpp_c = int(10000.0 * result_fpp_c / kNVoteTrials) / 100.0;
+        double pct_fpp_a = 100.0 * result_fpp_a / kNVoteTrials;
+        double pct_fpp_b = 100.0 * result_fpp_b / kNVoteTrials;
+        double pct_fpp_c = 100.0 * result_fpp_c / kNVoteTrials;
         LOG("First Past Post     : A="<<pct_fpp_a<<"% B="<<pct_fpp_b<<"% C="<<pct_fpp_c<<"%");
-        double pct_rcv_a = int(10000.0 * result_rcv_a / kNVoteTrials) / 100.0;
-        double pct_rcv_b = int(10000.0 * result_rcv_b / kNVoteTrials) / 100.0;
-        double pct_rcv_c = int(10000.0 * result_rcv_c / kNVoteTrials) / 100.0;
+        double pct_rcv_a = 100.0 * result_rcv_a / kNVoteTrials;
+        double pct_rcv_b = 100.0 * result_rcv_b / kNVoteTrials;
+        double pct_rcv_c = 100.0 * result_rcv_c / kNVoteTrials;
         LOG("Ranked Choice Voting: A="<<pct_rcv_a<<"% B="<<pct_rcv_b<<"% C="<<pct_rcv_c<<"%");
-        double pct_rev_a = int(10000.0 * result_rev_a / kNVoteTrials) / 100.0;
-        double pct_rev_b = int(10000.0 * result_rev_b / kNVoteTrials) / 100.0;
-        double pct_rev_c = int(10000.0 * result_rev_c / kNVoteTrials) / 100.0;
+        double pct_rev_a = 100.0 * result_rev_a / kNVoteTrials;
+        double pct_rev_b = 100.0 * result_rev_b / kNVoteTrials;
+        double pct_rev_c = 100.0 * result_rev_c / kNVoteTrials;
         LOG("Reverse Rank Order  : A="<<pct_rev_a<<"% B="<<pct_rev_b<<"% C="<<pct_rev_c<<"%");
         LOG("");
-        double pct_fpp_con = int(10000.0 * result_fpp_con / kNVoteTrials) / 100.0;
-        double pct_rcv_con = int(10000.0 * result_rcv_con / kNVoteTrials) / 100.0;
-        double pct_rev_con = int(10000.0 * result_rev_con / kNVoteTrials) / 100.0;
-        double pct_rcv_fpp = int(10000.0 * result_rcv_fpp / kNVoteTrials) / 100.0;
-        double pct_rev_fpp = int(10000.0 * result_rev_fpp / kNVoteTrials) / 100.0;
-        double pct_rev_rcv = int(10000.0 * result_rev_rcv / kNVoteTrials) / 100.0;
+        double pct_fpp_con = 100.0 * result_fpp_con / kNVoteTrials;
+        double pct_rcv_con = 100.0 * result_rcv_con / kNVoteTrials;
+        double pct_rev_con = 100.0 * result_rev_con / kNVoteTrials;
+        double pct_rcv_fpp = 100.0 * result_rcv_fpp / kNVoteTrials;
+        double pct_rev_fpp = 100.0 * result_rev_fpp / kNVoteTrials;
+        double pct_rev_rcv = 100.0 * result_rev_rcv / kNVoteTrials;
         LOG("Agreements          :  FPP     RCV     REV");
         LOG("Condorcet           : "<<pct_fpp_con<<"%  "<<pct_rcv_con<<"%  "<<pct_rev_con<<"%");
         LOG("First Past Post     :         "<<pct_rcv_fpp<<"%  "<<pct_rev_fpp<<"%");
         LOG("Ranked Choice Voting:                 "<<pct_rev_rcv<<"%");
         LOG("");
-        double nwinners1 = int(10000.0 * result_nwinners_1_ / kNVoteTrials) / 100.0;
-        double nwinners2 = int(10000.0 * result_nwinners_2_ / kNVoteTrials) / 100.0;
-        double nwinners3 = int(10000.0 * result_nwinners_3_ / kNVoteTrials) / 100.0;
+        double nwinners1 = 100.0 * result_nwinners_1_ / kNVoteTrials;
+        double nwinners2 = 100.0 * result_nwinners_2_ / kNVoteTrials;
+        double nwinners3 = 100.0 * result_nwinners_3_ / kNVoteTrials;
         LOG("Unique Winners      : 1:"<<nwinners1<<"% 2:"<<nwinners2<<"% 3:"<<nwinners3<<"%");
         LOG("");
         LOG("Strategic Voting:");
-        double pct_fpp_strategic = int(10000.0 * result_fpp_strategic_ / kNVoteTrials) / 100.0;
-        double pct_fpp_counter = int(10000.0 * result_fpp_counter_ / kNVoteTrials) / 100.0;
+        double pct_fpp_strategic = 100.0 * result_fpp_strategic_ / kNVoteTrials;
+        double pct_fpp_counter = 100.0 * result_fpp_counter_ / kNVoteTrials;
         LOG("First Past Post     : "<<pct_fpp_strategic<<"% counter: "<<pct_fpp_counter<<"%");
-        double pct_rcv_strategic = int(10000.0 * result_rcv_strategic_ / kNVoteTrials) / 100.0;
-        double pct_rcv_alternate = int(10000.0 * result_rcv_alternate_ / kNVoteTrials) / 100.0;
+        double pct_rcv_strategic = 100.0 * result_rcv_strategic_ / kNVoteTrials;
+        double pct_rcv_alternate = 100.0 * result_rcv_alternate_ / kNVoteTrials;
         LOG("Ranked Choice Voting: "<<pct_rcv_strategic<<"% alternate: "<<pct_rcv_alternate<<"%");
-        double pct_rev_strategic = int(10000.0 * result_rev_strategic_ / kNVoteTrials) / 100.0;
-        double pct_rev_alternate = int(10000.0 * result_rev_alternate_ / kNVoteTrials) / 100.0;
+        double pct_rev_strategic = 100.0 * result_rev_strategic_ / kNVoteTrials;
+        double pct_rev_alternate = 100.0 * result_rev_alternate_ / kNVoteTrials;
         LOG("Reverse Rank Order  : "<<pct_rev_strategic<<"% alternate: "<<pct_rev_alternate<<"%");
         LOG("");
         LOG("Oddities:");
         LOG("Ranked Choice Voting:");
-        double pct_rev_front_runner = int(10000.0 * result_rev_front_runner_ / kNVoteTrials) / 100.0;
+        double pct_rev_front_runner = 100.0 * result_rev_front_runner_ / kNVoteTrials;
         LOG("Won by Front-Runner Rule: "<<pct_rev_front_runner<<"%");
-        double pct_rev_majority_lost = int(10000.0 * result_rev_majority_lost_ / kNVoteTrials) / 100.0;
-        double pct_rev_majority_lost_max = int(10000.0 * result_rev_majority_lost_max_) / 100.0;
-        double pct_rev_majority_lost_first = int(10000.0 * result_rev_majority_lost_first_sum_ / result_rev_majority_lost_) / 100.0;
-        double pct_rev_majority_lost_last = int(10000.0 * result_rev_majority_lost_last_sum_ / result_rev_majority_lost_) / 100.0;
+        double pct_rev_majority_lost = 100.0 * result_rev_majority_lost_ / kNVoteTrials;
+        double pct_rev_majority_lost_max = 100.0 * result_rev_majority_lost_max_;
+        double pct_rev_majority_lost_first = 100.0 * result_rev_majority_lost_first_sum_ / result_rev_majority_lost_;
+        double pct_rev_majority_lost_last = 100.0 * result_rev_majority_lost_last_sum_ / result_rev_majority_lost_;
         LOG("Lost with Majority of Popular Vote: "<<pct_rev_majority_lost<<"%");
         LOG("  max first place: "<<pct_rev_majority_lost_max<<"% average first place: "<<pct_rev_majority_lost_first
             <<"% average last place: "<<pct_rev_majority_lost_last<<"%");
