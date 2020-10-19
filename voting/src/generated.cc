@@ -82,8 +82,8 @@ namespace {
 
 /** number of trials to run. **/
 //constexpr int kNVoteTrials = 1;
-constexpr int kNVoteTrials = 100;
-//constexpr int kNVoteTrials = 10*1000;
+//constexpr int kNVoteTrials = 100;
+constexpr int kNVoteTrials = 10*1000;
 
 /** uniform utilities or not. **/
 //constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
@@ -200,6 +200,8 @@ public:
     int result_rev_con = 0;
     int result_rev_fpp = 0;
     int result_rev_rcv = 0;
+    int result_rev_strategic_ = 0;
+    int result_rev_alternate_ = 0;
     int result_nwinners_1_ = 0;
     int result_nwinners_2_ = 0;
     int result_nwinners_3_ = 0;
@@ -745,53 +747,32 @@ public:
         if (winner == 0 && second == 1 && last == 2 && second != reverse_rank_order_) {
             double b = p_bac_ + p_bca_ + p_bxx_ + p_abc_;
             double c = p_cab_ + p_cba_ + p_cxx_ + p_acb_;
-            if (b > c) {
-                /**
-                B has incentive to move last place votes from C to A
-                so that A is eliminated instead of C.
-
-                a = last_a + X
-                b = last_b
-                c = last_c - X
-                a > b and a > c
-
-                last_a + X > last_b
-                last_a + X > last_c - X
-
-                X > last_b - last_a
-                X > (last_c - last_a)/2
-                X < p_bac + p_bxx/2
-                **/
-                double bma = last_b - last_a;
-                double cma = (last_c - last_a) / 2.0;
-                double max_x = p_bac_ + p_bxx_/2.0;
-                double min_x = std::max(bma, cma);
-                if (max_x > min_x && min_x > 0.0) {
-                    LOG("B should vote strategically. bma="<<bma<<" cma="<<cma<<" max="<<max_x<<" min="<<min_x);
-                    LOG("  last_a="<<last_a<<" last_b="<<last_b<<" last_c="<<last_c);
-                    LOG("  b="<<b<<" c="<<c);
-                    print_electorate();
-                } else {
-                    LOG("B should vote tactically.");
-                }
-            } else {
-                /**
-                C has incentive to move last place votes from B to A
-                so that A is eliminated instead of B.
-                **/
-                double cma = last_c - last_a;
-                double bma = (last_b - last_a) / 2.0;
-                double max_x = p_cab_ + p_cxx_/2.0;
-                double min_x = std::max(cma, bma);
-                if (max_x > min_x && min_x > 0.0) {
-                    LOG("C should vote strategically. cma="<<cma<<" bma="<<bma<<" max="<<max_x<<" min="<<min_x);
-                    LOG("  last_a="<<last_a<<" last_c="<<last_c<<" last_b="<<last_b);
-                    LOG("  c="<<c<<" b="<<b);
-                    print_electorate();
-                } else {
-                    LOG("C should vote tactically.");
-                }
-            }
+            check_rev_strategic_voting("B", "C", b, c, last_a, last_b, last_c, p_bac_, p_bxx_, p_cab_, p_cxx_);
+        }
+        if (winner == 0 && second == 2 && last == 1 && second != reverse_rank_order_) {
+            double b = p_bac_ + p_bca_ + p_bxx_ + p_abc_;
+            double c = p_cab_ + p_cba_ + p_cxx_ + p_acb_;
+            check_rev_strategic_voting("C", "B", c, b, last_a, last_c, last_b, p_cab_, p_cxx_, p_bac_, p_bxx_);
+        }
+        if (winner == 1 && second == 0 && last == 2 && second != reverse_rank_order_) {
+            double a = p_abc_ + p_acb_ + p_axx_ + p_bac_;
+            double c = p_cab_ + p_cba_ + p_cxx_ + p_acb_;
+            check_rev_strategic_voting("A", "C", a, c, last_b, last_a, last_c, p_abc_, p_axx_, p_cba_, p_cxx_);
+        }
+        if (winner == 1 && second == 2 && last == 0 && second != reverse_rank_order_) {
+            double a = p_abc_ + p_acb_ + p_axx_ + p_bac_;
+            double c = p_cab_ + p_cba_ + p_cxx_ + p_acb_;
+            check_rev_strategic_voting("C", "A", c, a, last_b, last_c, last_a, p_cba_, p_cxx_, p_abc_, p_axx_);
+        }
+        if (winner == 2 && second == 0 && last == 1 && second != reverse_rank_order_) {
+            double a = p_acb_ + p_abc_ + p_axx_ + p_cab_;
+            double b = p_bca_ + p_bac_ + p_bxx_ + p_cba_;
+            check_rev_strategic_voting("A", "B", a, b, last_c, last_a, last_b, p_acb_, p_axx_, p_bca_, p_bxx_);
+        }
+        if (winner == 2 && second == 1 && last == 0 && second != reverse_rank_order_) {
+            double a = p_acb_ + p_abc_ + p_axx_ + p_cab_;
+            double b = p_bca_ + p_bac_ + p_bxx_ + p_cba_;
+            check_rev_strategic_voting("B", "A", b, a, last_c, last_b, last_a, p_bca_, p_bxx_, p_acb_, p_axx_);
         }
 
         /** track when the front runner loses with a majority of the popular vote. **/
@@ -816,6 +797,78 @@ public:
             }
             if (kVerbose) {
                 LOG(front_results[2].name_<<" had "<<front_score<<" first place votes and lost.");
+            }
+        }
+    }
+
+    void check_rev_strategic_voting(
+        const char *nameb,
+        const char *namec,
+        double b,
+        double c,
+        double last_a,
+        double last_b,
+        double last_c,
+        double p_bac,
+        double p_cab,
+        double p_bxx,
+        double p_cxx
+    ) noexcept {
+        if (b > c) {
+            /**
+            B has incentive to move last place votes from C to A
+            so that A is eliminated instead of C.
+
+            a = last_a + X
+            b = last_b
+            c = last_c - X
+            a > b and a > c
+
+            last_a + X > last_b
+            last_a + X > last_c - X
+
+            X > last_b - last_a
+            X > (last_c - last_a)/2
+            X < p_bac + p_bxx/2
+            **/
+            double bma = last_b - last_a;
+            double cma = (last_c - last_a) / 2.0;
+            double max_x = p_bac + p_bxx/2.0;
+            double min_x = std::max(bma, cma);
+            if (max_x > min_x && min_x > 0.0) {
+                ++result_rev_strategic_;
+                if (kVerbose) {
+                        LOG(nameb<<" should vote strategically. bma="<<bma<<" cma="<<cma<<" max="<<max_x<<" min="<<min_x);
+                        LOG("  last_a="<<last_a<<" last_b="<<last_b<<" last_c="<<last_c);
+                        LOG("  b="<<b<<" c="<<c);
+                        print_electorate();
+                }
+            } else {
+                if (kVerbose) {
+                    LOG(nameb<<" should vote tactically.");
+                }
+            }
+        } else {
+            /**
+            C has incentive to move last place votes from B to A
+            so that A is eliminated instead of B.
+            **/
+            double cma = last_c - last_a;
+            double bma = (last_b - last_a) / 2.0;
+            double max_x = p_cab + p_cxx/2.0;
+            double min_x = std::max(cma, bma);
+            if (max_x > min_x && min_x > 0.0) {
+                ++result_rev_alternate_;
+                if (kVerbose) {
+                    LOG(namec<<" should vote strategically. cma="<<cma<<" bma="<<bma<<" max="<<max_x<<" min="<<min_x);
+                    LOG("  last_a="<<last_a<<" last_c="<<last_c<<" last_b="<<last_b);
+                    LOG("  c="<<c<<" b="<<b);
+                    print_electorate();
+                }
+            } else {
+                if (kVerbose) {
+                    LOG(namec<<" should vote tactically.");
+                }
             }
         }
     }
@@ -997,6 +1050,9 @@ public:
         double pct_rcv_strategic = int(10000.0 * result_rcv_strategic_ / kNVoteTrials) / 100.0;
         double pct_rcv_alternate = int(10000.0 * result_rcv_alternate_ / kNVoteTrials) / 100.0;
         LOG("Ranked Choice Voting: "<<pct_rcv_strategic<<"% alternate: "<<pct_rcv_alternate<<"%");
+        double pct_rev_strategic = int(10000.0 * result_rev_strategic_ / kNVoteTrials) / 100.0;
+        double pct_rev_alternate = int(10000.0 * result_rev_alternate_ / kNVoteTrials) / 100.0;
+        LOG("Reverse Rank Order  : "<<pct_rev_strategic<<"% alternate: "<<pct_rev_alternate<<"%");
         LOG("");
         LOG("Oddities:");
         LOG("Ranked Choice Voting:");
