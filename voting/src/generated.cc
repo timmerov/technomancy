@@ -92,8 +92,8 @@ constexpr int kNUtilityTrials = 1;
 //constexpr int kNUtilityTrials = 3;
 
 /** fixed seed or random seed **/
-//constexpr bool kRandomSeed = true;
-constexpr bool kRandomSeed = false;
+constexpr bool kRandomSeed = true;
+//constexpr bool kRandomSeed = false;
 
 /** extra logging **/
 constexpr bool kVerbose = false;
@@ -175,34 +175,42 @@ public:
 
     /** results **/
     int condorcet_ = 0;
-    int result_con_a = 0;
-    int result_con_b = 0;
-    int result_con_c = 0;
-    int result_con_cycle = 0;
+    int result_con_a_ = 0;
+    int result_con_b_ = 0;
+    int result_con_c_ = 0;
+    int result_con_cycle_ = 0;
     int first_past_post_ = 0;
-    int result_fpp_a = 0;
-    int result_fpp_b = 0;
-    int result_fpp_c = 0;
-    int result_fpp_con = 0;
+    int result_fpp_a_ = 0;
+    int result_fpp_b_ = 0;
+    int result_fpp_c_ = 0;
+    int result_fpp_con_ = 0;
     int result_fpp_strategic_ = 0;
     int result_fpp_counter_= 0;
     int ranked_choice_voting_ = 0;
-    int result_rcv_a = 0;
-    int result_rcv_b = 0;
-    int result_rcv_c = 0;
-    int result_rcv_con = 0;
-    int result_rcv_fpp = 0;
+    int result_rcv_a_ = 0;
+    int result_rcv_b_ = 0;
+    int result_rcv_c_ = 0;
+    int result_rcv_con_ = 0;
+    int result_rcv_fpp_ = 0;
     int result_rcv_strategic_ = 0;
     int result_rcv_alternate_ = 0;
     int reverse_rank_order_ = 0;
-    int result_rev_a = 0;
-    int result_rev_b = 0;
-    int result_rev_c = 0;
-    int result_rev_con = 0;
-    int result_rev_fpp = 0;
-    int result_rev_rcv = 0;
+    int result_rev_a_ = 0;
+    int result_rev_b_ = 0;
+    int result_rev_c_ = 0;
+    int result_rev_con_ = 0;
+    int result_rev_fpp_ = 0;
+    int result_rev_rcv_ = 0;
     int result_rev_strategic_ = 0;
     int result_rev_alternate_ = 0;
+    int approval_ = 0;
+    int result_app_a_ = 0;
+    int result_app_b_ = 0;
+    int result_app_c_ = 0;
+    int result_app_con_ = 0;
+    int result_app_fpp_ = 0;
+    int result_app_rcv_ = 0;
+    int result_app_rev_ = 0;
     int result_nwinners_1_ = 0;
     int result_nwinners_2_ = 0;
     int result_nwinners_3_ = 0;
@@ -232,6 +240,7 @@ public:
             first_past_post();
             ranked_choice_voting();
             reverse_rank_order();
+            approval_voting();
             analyze();
         }
 
@@ -875,6 +884,20 @@ public:
         }
     }
 
+    void approval_voting() noexcept {
+        double a = p_abc_ + p_acb_ + p_axx_ + p_bac_ + p_cab_;
+        double b = p_bac_ + p_bca_ + p_bxx_ + p_abc_ + p_cba_;
+        double c = p_cab_ + p_cba_ + p_cxx_ + p_acb_ + p_bca_;
+        auto results = create_results(a, b, c);
+        approval_ = results[2].idx_;
+        if (kNVoteTrials == 1) {
+            LOG("Approval Winner:"
+                <<" "<<results[2].name_<<"="<<results[2].score_
+                <<" "<<results[1].name_<<"="<<results[1].score_
+                <<" "<<results[0].name_<<"="<<results[0].score_);
+        }
+    }
+
     Results create_results(
         double a,
         double b,
@@ -891,73 +914,97 @@ public:
     void analyze() noexcept {
         switch (condorcet_) {
         case 0:
-            ++result_con_a;
+            ++result_con_a_;
             break;
         case 1:
-            ++result_con_b;
+            ++result_con_b_;
             break;
         case 2:
-            ++result_con_c;
+            ++result_con_c_;
             break;
         case 3:
-            ++result_con_cycle;
+            ++result_con_cycle_;
             break;
         }
         switch (first_past_post_) {
         case 0:
-            ++result_fpp_a;
+            ++result_fpp_a_;
             break;
         case 1:
-            ++result_fpp_b;
+            ++result_fpp_b_;
             break;
         case 2:
-            ++result_fpp_c;
+            ++result_fpp_c_;
             break;
         }
         switch (ranked_choice_voting_) {
         case 0:
-            ++result_rcv_a;
+            ++result_rcv_a_;
             break;
         case 1:
-            ++result_rcv_b;
+            ++result_rcv_b_;
             break;
         case 2:
-            ++result_rcv_c;
+            ++result_rcv_c_;
             break;
         }
         switch (reverse_rank_order_) {
         case 0:
-            ++result_rev_a;
+            ++result_rev_a_;
             break;
         case 1:
-            ++result_rev_b;
+            ++result_rev_b_;
             break;
         case 2:
-            ++result_rev_c;
+            ++result_rev_c_;
+            break;
+        }
+        switch (approval_) {
+        case 0:
+            ++result_app_a_;
+            break;
+        case 1:
+            ++result_app_b_;
+            break;
+        case 2:
+            ++result_app_c_;
             break;
         }
         if (first_past_post_ == condorcet_) {
-            ++result_fpp_con;
+            ++result_fpp_con_;
         }
         if (ranked_choice_voting_ == condorcet_) {
-            ++result_rcv_con;
+            ++result_rcv_con_;
         }
         if (reverse_rank_order_ == condorcet_) {
-            ++result_rev_con;
+            ++result_rev_con_;
+        }
+        if (approval_ == condorcet_) {
+            ++result_app_con_;
         }
         if (condorcet_ == 3) {
-            ++result_fpp_con;
-            ++result_rcv_con;
-            ++result_rev_con;
+            ++result_fpp_con_;
+            ++result_rcv_con_;
+            ++result_rev_con_;
+            ++result_app_con_;
         }
         if (ranked_choice_voting_ == first_past_post_) {
-            ++result_rcv_fpp;
+            ++result_rcv_fpp_;
         }
         if (reverse_rank_order_ == first_past_post_) {
-            ++result_rev_fpp;
+            ++result_rev_fpp_;
+        }
+        if (approval_ == first_past_post_) {
+            ++result_app_fpp_;
         }
         if (reverse_rank_order_ == ranked_choice_voting_) {
-            ++result_rev_rcv;
+            ++result_rev_rcv_;
+        }
+        if (approval_ == ranked_choice_voting_) {
+            ++result_app_rcv_;
+        }
+        if (approval_ == reverse_rank_order_) {
+            ++result_app_rev_;
         }
         std::vector<int> candidates(4, 0);
         ++candidates[condorcet_];
@@ -1011,34 +1058,43 @@ public:
         LOG("Utility Distribution: "<<kNUtilityTrials);
         LOG("");
         LOG("Agreement with Group Utility:");
-        double pct_con_a = 100.0 * result_con_a / kNVoteTrials;
-        double pct_con_b = 100.0 * result_con_b / kNVoteTrials;
-        double pct_con_c = 100.0 * result_con_c / kNVoteTrials;
-        double pct_con_cycle = 100.0 * result_con_cycle / kNVoteTrials;
+        double pct_con_a = 100.0 * result_con_a_ / kNVoteTrials;
+        double pct_con_b = 100.0 * result_con_b_ / kNVoteTrials;
+        double pct_con_c = 100.0 * result_con_c_ / kNVoteTrials;
+        double pct_con_cycle = 100.0 * result_con_cycle_ / kNVoteTrials;
         LOG("Condorcet           : A="<<pct_con_a<<"% B="<<pct_con_b<<"% C="<<pct_con_c<<"% Cycle="<<pct_con_cycle<<"%");
-        double pct_fpp_a = 100.0 * result_fpp_a / kNVoteTrials;
-        double pct_fpp_b = 100.0 * result_fpp_b / kNVoteTrials;
-        double pct_fpp_c = 100.0 * result_fpp_c / kNVoteTrials;
+        double pct_fpp_a = 100.0 * result_fpp_a_ / kNVoteTrials;
+        double pct_fpp_b = 100.0 * result_fpp_b_ / kNVoteTrials;
+        double pct_fpp_c = 100.0 * result_fpp_c_ / kNVoteTrials;
         LOG("First Past Post     : A="<<pct_fpp_a<<"% B="<<pct_fpp_b<<"% C="<<pct_fpp_c<<"%");
-        double pct_rcv_a = 100.0 * result_rcv_a / kNVoteTrials;
-        double pct_rcv_b = 100.0 * result_rcv_b / kNVoteTrials;
-        double pct_rcv_c = 100.0 * result_rcv_c / kNVoteTrials;
+        double pct_rcv_a = 100.0 * result_rcv_a_ / kNVoteTrials;
+        double pct_rcv_b = 100.0 * result_rcv_b_ / kNVoteTrials;
+        double pct_rcv_c = 100.0 * result_rcv_c_ / kNVoteTrials;
         LOG("Ranked Choice Voting: A="<<pct_rcv_a<<"% B="<<pct_rcv_b<<"% C="<<pct_rcv_c<<"%");
-        double pct_rev_a = 100.0 * result_rev_a / kNVoteTrials;
-        double pct_rev_b = 100.0 * result_rev_b / kNVoteTrials;
-        double pct_rev_c = 100.0 * result_rev_c / kNVoteTrials;
+        double pct_rev_a = 100.0 * result_rev_a_ / kNVoteTrials;
+        double pct_rev_b = 100.0 * result_rev_b_ / kNVoteTrials;
+        double pct_rev_c = 100.0 * result_rev_c_ / kNVoteTrials;
         LOG("Reverse Rank Order  : A="<<pct_rev_a<<"% B="<<pct_rev_b<<"% C="<<pct_rev_c<<"%");
+        double pct_app_a = 100.0 * result_app_a_ / kNVoteTrials;
+        double pct_app_b = 100.0 * result_app_b_ / kNVoteTrials;
+        double pct_app_c = 100.0 * result_app_c_ / kNVoteTrials;
+        LOG("Approval            : A="<<pct_app_a<<"% B="<<pct_app_b<<"% C="<<pct_app_c<<"%");
         LOG("");
-        double pct_fpp_con = 100.0 * result_fpp_con / kNVoteTrials;
-        double pct_rcv_con = 100.0 * result_rcv_con / kNVoteTrials;
-        double pct_rev_con = 100.0 * result_rev_con / kNVoteTrials;
-        double pct_rcv_fpp = 100.0 * result_rcv_fpp / kNVoteTrials;
-        double pct_rev_fpp = 100.0 * result_rev_fpp / kNVoteTrials;
-        double pct_rev_rcv = 100.0 * result_rev_rcv / kNVoteTrials;
-        LOG("Agreements          :  FPP     RCV     REV");
-        LOG("Condorcet           : "<<pct_fpp_con<<"%  "<<pct_rcv_con<<"%  "<<pct_rev_con<<"%");
-        LOG("First Past Post     :         "<<pct_rcv_fpp<<"%  "<<pct_rev_fpp<<"%");
-        LOG("Ranked Choice Voting:                 "<<pct_rev_rcv<<"%");
+        double pct_fpp_con = 100.0 * result_fpp_con_ / kNVoteTrials;
+        double pct_rcv_con = 100.0 * result_rcv_con_ / kNVoteTrials;
+        double pct_rev_con = 100.0 * result_rev_con_ / kNVoteTrials;
+        double pct_app_con = 100.0 * result_app_con_ / kNVoteTrials;
+        double pct_rcv_fpp = 100.0 * result_rcv_fpp_ / kNVoteTrials;
+        double pct_rev_fpp = 100.0 * result_rev_fpp_ / kNVoteTrials;
+        double pct_app_fpp = 100.0 * result_app_fpp_ / kNVoteTrials;
+        double pct_rev_rcv = 100.0 * result_rev_rcv_ / kNVoteTrials;
+        double pct_app_rcv = 100.0 * result_app_rcv_ / kNVoteTrials;
+        double pct_app_rev = 100.0 * result_app_rev_ / kNVoteTrials;
+        LOG("Agreements          :  FPP     RCV     REV     APP");
+        LOG("Condorcet           : "<<pct_fpp_con<<"%  "<<pct_rcv_con<<"%  "<<pct_rev_con<<"%  "<<pct_app_con<<"%");
+        LOG("First Past Post     :         "<<pct_rcv_fpp<<"%  "<<pct_rev_fpp<<"%  "<<pct_app_fpp<<"%");
+        LOG("Ranked Choice Voting:                 "<<pct_rev_rcv<<"%  "<<pct_app_rcv<<"%");
+        LOG("Reverse Rank Order  :                         "<<pct_app_rev<<"%");
         LOG("");
         double nwinners1 = 100.0 * result_nwinners_1_ / kNVoteTrials;
         double nwinners2 = 100.0 * result_nwinners_2_ / kNVoteTrials;
