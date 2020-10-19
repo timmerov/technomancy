@@ -179,6 +179,7 @@ public:
     int result_con_b_ = 0;
     int result_con_c_ = 0;
     int result_con_cycle_ = 0;
+    int result_con_strategic_ = 0;
     int first_past_post_ = 0;
     int result_fpp_a_ = 0;
     int result_fpp_b_ = 0;
@@ -487,6 +488,49 @@ public:
             }
             if (kVerbose) {
                 LOG("  A-B: "<<a_b<<" A-C: "<<a_c<<" B-C: "<<b_c);
+            }
+        }
+
+        /**
+        strategic voting for condorcet post means...
+        assume the results are ABC.
+        BAC voters have incentive to vote BCA.
+        **/
+        if (condorcet_ != 3) {
+            int winner = results[2].idx_;
+            int second = results[1].idx_;
+            int loser = results[0].idx_;
+            if (winner == 0 && second == 1 && loser == 2) {
+                check_con_strategic_voting("BAC", a_c, p_bac_);
+            }
+            if (winner == 0 && second == 2 && loser == 1) {
+                check_con_strategic_voting("CAB", a_b, p_cab_);
+            }
+            if (winner == 1 && second == 0 && loser == 2) {
+                check_con_strategic_voting("ABC", b_c, p_abc_);
+            }
+            if (winner == 1 && second == 2 && loser == 0) {
+                check_con_strategic_voting("CBA", - a_b, p_cba_);
+            }
+            if (winner == 2 && second == 0 && loser == 1) {
+                check_con_strategic_voting("ACB", - b_c, p_acb_);
+            }
+            if (winner == 2 && second == 1 && loser == 0) {
+                check_con_strategic_voting("BCA", - a_c, p_cab_);
+            }
+        }
+    }
+
+    void check_con_strategic_voting(
+        const char *cls,
+        double a_c,
+        double swing
+    ) noexcept {
+        a_c -= 2.0 * swing;
+        if (a_c < 0.0) {
+            ++result_con_strategic_;
+            if (kVerbose) {
+                LOG(cls<<" should vote strategically.");
             }
         }
     }
@@ -1102,6 +1146,8 @@ public:
         LOG("Unique Winners      : 1:"<<nwinners1<<"% 2:"<<nwinners2<<"% 3:"<<nwinners3<<"%");
         LOG("");
         LOG("Strategic Voting:");
+        double pct_con_strategic = 100.0 * result_con_strategic_ / kNVoteTrials;
+        LOG("Condorcet           : "<<pct_con_strategic<<"%");
         double pct_fpp_strategic = 100.0 * result_fpp_strategic_ / kNVoteTrials;
         double pct_fpp_counter = 100.0 * result_fpp_counter_ / kNVoteTrials;
         LOG("First Past Post     : "<<pct_fpp_strategic<<"% counter: "<<pct_fpp_counter<<"%");
