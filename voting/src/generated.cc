@@ -727,15 +727,21 @@ public:
 
         /**
         B cannot win.
-        BCA might want to shift to C.
+        BCA might want to shift to CXX.
+        so that B is eliminated in the first round instead of C.
+        then A picks up votes from BAC.
+        C already as all the votes from BCA.
         **/
         double a2 = a;
         double b2 = b - p.bca_;
         double c2 = c + p.bca_;
-        if (c2 > a2 && a2 > b2) {
-            ++result_rcv_alternate_;
-            if (kVerbose) {
-                LOG(p.b_<<p.c_<<p.a_<<" should vote alternate strategy. c2="<<c2<<" a2="<<a2<<" b2="<<b2);
+        if (a2 > b2 && c2 > b2) {
+            a2 += p.bac_;
+            if (c2 > a2) {
+                ++result_rcv_alternate_;
+                if (kVerbose) {
+                    LOG(p.b_<<p.c_<<p.a_<<" should vote alternate strategy. c2="<<c2<<" a2="<<a2<<" b2="<<b2);
+                }
             }
         }
     }
