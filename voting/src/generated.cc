@@ -245,6 +245,7 @@ public:
     int result_con_c_ = 0;
     int result_con_cycle_ = 0;
     int result_con_strategic_ = 0;
+    int result_con_alternate_ = 0;
     int first_past_post_ = 0;
     int result_fpp_a_ = 0;
     int result_fpp_b_ = 0;
@@ -337,7 +338,7 @@ public:
             Ranked Choice Voting Round 1: B=0.379835 A=0.320321 C=0.299844
             Ranked Choice Voting Winner: A=0.519308 B=0.475759
             **/
-            seed = 1602879358922335402;
+            //seed = 1602879358922335402;
             /**
             Reverse Rank Order Round 1: A=0.280917 B=0.287955 C=0.431127
             Reverse Rank Order Winner: A=0.504648 B=0.3792
@@ -430,9 +431,9 @@ public:
         double &b,
         double &c
     ) noexcept {
-        std::vector<double> sum(3, 0.0);
         std::vector<double> v(3, 0.0);
         if (kNUtilityTrials > 0) {
+            std::vector<double> sum(3, 0.0);
             for (int k = 0; k < kNUtilityTrials; ++k) {
                 for (int i = 0; i < 3; ++i) {
                     v[i] = random_number();
@@ -556,11 +557,6 @@ public:
             }
         }
 
-        /**
-        strategic voting for condorcet post means...
-        assume the results are ABC.
-        BAC voters have incentive to vote BCA.
-        **/
         if (condorcet_ != 3) {
             auto p = p_.normalize(results);
             check_con_strategic_voting(p);
@@ -571,15 +567,28 @@ public:
         Electorate& p
     ) noexcept {
         /**
-        check if BAC voters have incentive to vote BCA.
+        strategic voting for condorcet means...
+        BAC voters may have incentive to vote BCA.
         **/
-        double a = p.acb_ + p.abc_ + p.axx_;
+        double a = p.acb_ + p.abc_ + p.axx_ + 0;
         double c = p.cab_ + p.cba_ + p.cxx_ + p.bca_ + p.bac_;
-
         if (c > a) {
             ++result_con_strategic_;
             if (kVerbose) {
                 LOG(p.b_<<p.a_<<p.c_<<" should vote strategically.");
+            }
+        }
+
+        /**
+        additionally...
+        CBA voters may have incentive to vote BCA.
+        **/
+        double a2 = p_.abc_ + p_.acb_ + p_.axx_ + p_.cab_;
+        double b2 = p_.bca_ + p_.bac_ + p_.bxx_ + p_.abc_ + p_.cba_;
+        if (b2 > a2) {
+            ++result_con_alternate_;
+            if (kVerbose) {
+                LOG(p.c_<<p.b_<<p.a_<<" should vote strategically.");
             }
         }
     }
@@ -918,6 +927,16 @@ public:
                 <<" "<<results[1].name_<<"="<<results[1].score_
                 <<" "<<results[0].name_<<"="<<results[0].score_);
         }
+
+        /** strategic voting **/
+        auto p = p_.normalize(results);
+        check_app_strategic_voting(p);
+    }
+
+    void check_app_strategic_voting(
+        Electorate& p
+    ) noexcept {
+        (void) p;
     }
 
     Results create_results(
@@ -1113,7 +1132,8 @@ public:
         LOG("");
         LOG("Strategic Voting:");
         double pct_con_strategic = 100.0 * result_con_strategic_ / kNVoteTrials;
-        LOG("Condorcet           : "<<pct_con_strategic<<"%");
+        double pct_con_alternate = 100.0 * result_con_alternate_ / kNVoteTrials;
+        LOG("Condorcet           : "<<pct_con_strategic<<"% alternate:"<<pct_con_alternate<<"%");
         double pct_fpp_strategic = 100.0 * result_fpp_strategic_ / kNVoteTrials;
         double pct_fpp_counter = 100.0 * result_fpp_counter_ / kNVoteTrials;
         LOG("First Past Post     : "<<pct_fpp_strategic<<"% counter: "<<pct_fpp_counter<<"%");
