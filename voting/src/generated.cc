@@ -270,7 +270,6 @@ public:
     int result_rev_fpp_ = 0;
     int result_rev_rcv_ = 0;
     int result_rev_strategic_ = 0;
-    int result_rev_alternate_ = 0;
     int approval_ = 0;
     int result_app_a_ = 0;
     int result_app_b_ = 0;
@@ -713,7 +712,7 @@ public:
         B might want to shift X votes to C.
         want B - X > A so B is not eliminated.
         want C + X > A so C is not eliminated.
-        also need B - X + ABC > C + X + ACB so we don't lose in the second round.
+        also need B - X + ABC > C + X + ACB so B doesn't lose in the second round.
         ergo X < B - A and X > A - C and X < (B + ABC - C - ACB) / 2.
         **/
         double bma = b - a;
@@ -844,66 +843,62 @@ public:
     }
 
     void check_rev_strategic_voting() noexcept {
+        /**
+        suppose A was eliminated.
+        normalize so B wins.
+        **/
         double b = pnorm_.bac_ + pnorm_.bca_ + pnorm_.bxx_ + pnorm_.abc_;
         double c = pnorm_.cab_ + pnorm_.cba_ + pnorm_.cxx_ + pnorm_.acb_;
+        if (c > b) {
+            pnorm_.swap_bc();
+        }
+
+        /**
+        B has incentive to move last place votes from C to A
+        so that A is eliminated instead of C.
+
+        a = last_a + X
+        b = last_b
+        c = last_c - X
+        a > b and a > c
+
+        rearranging the above.
+
+        last_a + X > last_b
+        last_a + X > last_c - X
+
+        more rearranging.
+
+        X > last_b - last_a
+        X > (last_c - last_a)/2
+
+        the number of votes that can be shifted is limited.
+        half of the p_bxx votes have already been cast for A last.
+
+        X < p_bac + p_bxx/2
+        **/
         double last_a = pnorm_.bca_ + pnorm_.cba_ + pnorm_.bxx_/2.0 + pnorm_.cxx_/2.0;
         double last_b = pnorm_.acb_ + pnorm_.cab_ + pnorm_.axx_/2.0 + pnorm_.cxx_/2.0;
         double last_c = pnorm_.bac_ + pnorm_.abc_ + pnorm_.axx_/2.0 + pnorm_.bxx_/2.0;
-        if (b > c) {
-            /**
-            B has incentive to move last place votes from C to A
-            so that A is eliminated instead of C.
-
-            a = last_a + X
-            b = last_b
-            c = last_c - X
-            a > b and a > c
-
-            last_a + X > last_b
-            last_a + X > last_c - X
-
-            X > last_b - last_a
-            X > (last_c - last_a)/2
-            X < p_bac + p_bxx/2
-            **/
-            double bma = last_b - last_a;
-            double cma = (last_c - last_a) / 2.0;
-            double max_x = pnorm_.bac_ + pnorm_.bxx_/2.0;
-            double min_x = std::max(bma, cma);
-            if (max_x > min_x && min_x > 0.0) {
-                ++result_rev_strategic_;
-                if (kVerbose) {
-                        LOG(pnorm_.b_<<" should vote strategically. bma="<<bma<<" cma="<<cma<<" max="<<max_x<<" min="<<min_x);
-                        LOG("  last_a="<<last_a<<" last_b="<<last_b<<" last_c="<<last_c);
-                        LOG("  b="<<b<<" c="<<c);
-                        pnorm_.print();
-                }
-            } else {
-                if (kVerbose) {
-                    LOG(pnorm_.b_<<" should vote tactically.");
-                }
-            }
-        } else {
-            /**
-            C has incentive to move last place votes from B to A
-            so that A is eliminated instead of B.
-            **/
-            double cma = last_c - last_a;
-            double bma = (last_b - last_a) / 2.0;
-            double max_x = pnorm_.cab_ + pnorm_.cxx_/2.0;
-            double min_x = std::max(cma, bma);
-            if (max_x > min_x && min_x > 0.0) {
-                ++result_rev_alternate_;
-                if (kVerbose) {
-                    LOG(pnorm_.c_<<" should vote strategically. cma="<<cma<<" bma="<<bma<<" max="<<max_x<<" min="<<min_x);
-                    LOG("  last_a="<<last_a<<" last_c="<<last_c<<" last_b="<<last_b);
-                    LOG("  c="<<c<<" b="<<b);
+        double bma = last_b - last_a;
+        double cma = (last_c - last_a) / 2.0;
+        double max_x = pnorm_.bac_ + pnorm_.bxx_/2.0;
+        double min_x = std::max(bma, cma);
+        if (max_x > min_x && min_x > 0.0) {
+            ++result_rev_strategic_;
+            if (kVerbose) {
+                    LOG(pnorm_.b_<<" should vote strategically. bma="<<bma<<" cma="<<cma<<" max="<<max_x<<" min="<<min_x);
+                    LOG("  last_a="<<last_a<<" last_b="<<last_b<<" last_c="<<last_c);
+                    LOG("  b="<<b<<" c="<<c);
                     pnorm_.print();
-                }
-            } else {
-                if (kVerbose) {
-                    LOG(pnorm_.c_<<" should vote tactically.");
-                }
+            }
+            /**
+            tk tsc todo: A should be able to counter this.
+            tk tsc todo: C should be able to counter this.
+            **/
+        } else {
+            if (kVerbose) {
+                LOG(pnorm_.b_<<" should vote tactically.");
             }
         }
     }
@@ -1129,7 +1124,7 @@ public:
         LOG("Strategic Voting:");
         double pct_con_strategic = 100.0 * result_con_strategic_ / kNVoteTrials;
         double pct_con_alternate = 100.0 * result_con_alternate_ / kNVoteTrials;
-        LOG("Condorcet           : "<<pct_con_strategic<<"% alternate:"<<pct_con_alternate<<"%");
+        LOG("Condorcet           : "<<pct_con_strategic<<"% alternate: "<<pct_con_alternate<<"%");
         double pct_fpp_strategic = 100.0 * result_fpp_strategic_ / kNVoteTrials;
         double pct_fpp_counter = 100.0 * result_fpp_counter_ / kNVoteTrials;
         LOG("First Past Post     : "<<pct_fpp_strategic<<"% counter: "<<pct_fpp_counter<<"%");
@@ -1137,8 +1132,7 @@ public:
         double pct_rcv_alternate = 100.0 * result_rcv_alternate_ / kNVoteTrials;
         LOG("Ranked Choice Voting: "<<pct_rcv_strategic<<"% alternate: "<<pct_rcv_alternate<<"%");
         double pct_rev_strategic = 100.0 * result_rev_strategic_ / kNVoteTrials;
-        double pct_rev_alternate = 100.0 * result_rev_alternate_ / kNVoteTrials;
-        LOG("Reverse Rank Order  : "<<pct_rev_strategic<<"% alternate: "<<pct_rev_alternate<<"%");
+        LOG("Reverse Rank Order  : "<<pct_rev_strategic<<"%");
         LOG("");
         LOG("Oddities:");
         LOG("Ranked Choice Voting:");
