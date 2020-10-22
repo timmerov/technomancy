@@ -208,6 +208,7 @@ public:
 
     /** probability distributions (9 of 12) **/
     Electorate p_;
+    Electorate pnorm_;
 
     /**
     generated utility values (24).
@@ -558,24 +559,22 @@ public:
         }
 
         if (condorcet_ != 3) {
-            auto p = p_.normalize(results);
-            check_con_strategic_voting(p);
+            normalize_electorate(results);
+            check_con_strategic_voting();
         }
     }
 
-    void check_con_strategic_voting(
-        Electorate& p
-    ) noexcept {
+    void check_con_strategic_voting() noexcept {
         /**
         strategic voting for condorcet means...
         BAC voters may have incentive to vote BCA.
         **/
-        double a = p.acb_ + p.abc_ + p.axx_ + 0;
-        double c = p.cab_ + p.cba_ + p.cxx_ + p.bca_ + p.bac_;
+        double a = pnorm_.acb_ + pnorm_.abc_ + pnorm_.axx_ + 0;
+        double c = pnorm_.cab_ + pnorm_.cba_ + pnorm_.cxx_ + pnorm_.bca_ + pnorm_.bac_;
         if (c > a) {
             ++result_con_strategic_;
             if (kVerbose) {
-                LOG(p.b_<<p.a_<<p.c_<<" should vote strategically.");
+                LOG(pnorm_.b_<<pnorm_.a_<<pnorm_.c_<<" should vote strategically.");
             }
         }
 
@@ -588,7 +587,7 @@ public:
         if (b2 > a2) {
             ++result_con_alternate_;
             if (kVerbose) {
-                LOG(p.c_<<p.b_<<p.a_<<" should vote strategically.");
+                LOG(pnorm_.c_<<pnorm_.b_<<pnorm_.a_<<" should vote strategically.");
             }
         }
     }
@@ -612,37 +611,35 @@ public:
         votes to the their second place choice to avoid being stuck with
         their last place choice.
         **/
-        auto p = p_.normalize(results);
-        check_fpp_strategic_voting(p);
+        normalize_electorate(results);
+        check_fpp_strategic_voting();
     }
 
-    void check_fpp_strategic_voting(
-        Electorate& p
-    ) noexcept {
-        double winner = p.abc_ + p.acb_ + p.axx_;
-        double second = p.bac_ + p.bca_ + p.bxx_;
-        double swing1 = p.cba_;
-        double swing2 = p.cab_;
+    void check_fpp_strategic_voting() noexcept {
+        double winner = pnorm_.abc_ + pnorm_.acb_ + pnorm_.axx_;
+        double second = pnorm_.bac_ + pnorm_.bca_ + pnorm_.bxx_;
+        double swing1 = pnorm_.cba_;
+        double swing2 = pnorm_.cab_;
         double second_plus = second + swing1;
         double winner_plus = winner + swing2;
         if (second_plus > winner) {
             /**
-            class 1 can change the outcome from their last place choice
+            CBA can change the outcome from their last place choice
             to their second place choice by changing their vote.
             **/
             ++result_fpp_strategic_;
             if (kVerbose) {
-                LOG(p.c_<<p.b_<<p.a_<<" should vote strategically: "
+                LOG(pnorm_.c_<<pnorm_.b_<<pnorm_.a_<<" should vote strategically: "
                     <<second<<"+"<<swing1<<"="<<second_plus<<" > "<<winner);
             }
             if (winner_plus > second_plus) {
                 /**
-                when class 1 changes the outcome...
-                class 2 can change it back by also voting for their second choice.
+                when CBA changes the outcome...
+                CAB can change it back by also voting for their second choice.
                 **/
                 ++result_fpp_counter_;
                 if (kVerbose) {
-                    LOG(p.c_<<p.a_<<p.b_<<" should also vote strategically: "
+                    LOG(pnorm_.c_<<pnorm_.a_<<pnorm_.b_<<" should also vote strategically: "
                         <<second<<"+"<<swing1<<"="<<second_plus<<" < "
                         <<winner_plus<<"="<<winner<<"+"<<swing2);
                 }
@@ -703,16 +700,14 @@ public:
         it's risky because B may end up eliminated in the first round.
         and because C may end up winning in the second round.
         **/
-        auto p = p_.normalize(round2);
-        check_rcv_strategic_voting(p);
+        normalize_electorate(round2);
+        check_rcv_strategic_voting();
     }
 
-    void check_rcv_strategic_voting(
-        Electorate& p
-    ) noexcept {
-        double a = p.abc_ + p.acb_ + p.axx_;
-        double b = p.bac_ + p.bca_ + p.bxx_;
-        double c = p.cab_ + p.cba_ + p.cxx_;
+    void check_rcv_strategic_voting() noexcept {
+        double a = pnorm_.abc_ + pnorm_.acb_ + pnorm_.axx_;
+        double b = pnorm_.bac_ + pnorm_.bca_ + pnorm_.bxx_;
+        double c = pnorm_.cab_ + pnorm_.cba_ + pnorm_.cxx_;
         /**
         winner=A, second=B, last=C.
         B might want to shift X votes to C.
@@ -723,13 +718,13 @@ public:
         **/
         double bma = b - a;
         double amc = a - c;
-        double bmc = (b + p.abc_ - c - p.acb_) / 2.0;
+        double bmc = (b + pnorm_.abc_ - c - pnorm_.acb_) / 2.0;
         double min_x = amc;
         double max_x = std::min(bma, bmc);
         if (max_x > min_x && min_x > 0.0) {
             ++result_rcv_strategic_;
             if (kVerbose) {
-                LOG(p.b_<<" should vote strategically. min="<<min_x<<" max="<<max_x);
+                LOG(pnorm_.b_<<" should vote strategically. min="<<min_x<<" max="<<max_x);
             }
             return;
         }
@@ -742,14 +737,14 @@ public:
         C already as all the votes from BCA.
         **/
         double a2 = a;
-        double b2 = b - p.bca_;
-        double c2 = c + p.bca_;
+        double b2 = b - pnorm_.bca_;
+        double c2 = c + pnorm_.bca_;
         if (a2 > b2 && c2 > b2) {
-            a2 += p.bac_;
+            a2 += pnorm_.bac_;
             if (c2 > a2) {
                 ++result_rcv_alternate_;
                 if (kVerbose) {
-                    LOG(p.b_<<p.c_<<p.a_<<" should vote alternate strategy. c2="<<c2<<" a2="<<a2<<" b2="<<b2);
+                    LOG(pnorm_.b_<<pnorm_.c_<<pnorm_.a_<<" should vote alternate strategy. c2="<<c2<<" a2="<<a2<<" b2="<<b2);
                 }
             }
         }
@@ -818,8 +813,8 @@ public:
 
         /** strategic voting **/
         if (front_runner == false) {
-            auto p = p_.normalize(round2);
-            check_rev_strategic_voting(p);
+            normalize_electorate(round2);
+            check_rev_strategic_voting();
         }
 
         /** track when the front runner loses with a majority of the popular vote. **/
@@ -848,14 +843,12 @@ public:
         }
     }
 
-    void check_rev_strategic_voting(
-        Electorate& p
-    ) noexcept {
-        double b = p.bac_ + p.bca_ + p.bxx_ + p.abc_;
-        double c = p.cab_ + p.cba_ + p.cxx_ + p.acb_;
-        double last_a = p.bca_ + p.cba_ + p.bxx_/2.0 + p.cxx_/2.0;
-        double last_b = p.acb_ + p.cab_ + p.axx_/2.0 + p.cxx_/2.0;
-        double last_c = p.bac_ + p.abc_ + p.axx_/2.0 + p.bxx_/2.0;
+    void check_rev_strategic_voting() noexcept {
+        double b = pnorm_.bac_ + pnorm_.bca_ + pnorm_.bxx_ + pnorm_.abc_;
+        double c = pnorm_.cab_ + pnorm_.cba_ + pnorm_.cxx_ + pnorm_.acb_;
+        double last_a = pnorm_.bca_ + pnorm_.cba_ + pnorm_.bxx_/2.0 + pnorm_.cxx_/2.0;
+        double last_b = pnorm_.acb_ + pnorm_.cab_ + pnorm_.axx_/2.0 + pnorm_.cxx_/2.0;
+        double last_c = pnorm_.bac_ + pnorm_.abc_ + pnorm_.axx_/2.0 + pnorm_.bxx_/2.0;
         if (b > c) {
             /**
             B has incentive to move last place votes from C to A
@@ -875,19 +868,19 @@ public:
             **/
             double bma = last_b - last_a;
             double cma = (last_c - last_a) / 2.0;
-            double max_x = p.bac_ + p.bxx_/2.0;
+            double max_x = pnorm_.bac_ + pnorm_.bxx_/2.0;
             double min_x = std::max(bma, cma);
             if (max_x > min_x && min_x > 0.0) {
                 ++result_rev_strategic_;
                 if (kVerbose) {
-                        LOG(p.b_<<" should vote strategically. bma="<<bma<<" cma="<<cma<<" max="<<max_x<<" min="<<min_x);
+                        LOG(pnorm_.b_<<" should vote strategically. bma="<<bma<<" cma="<<cma<<" max="<<max_x<<" min="<<min_x);
                         LOG("  last_a="<<last_a<<" last_b="<<last_b<<" last_c="<<last_c);
                         LOG("  b="<<b<<" c="<<c);
-                        p.print();
+                        pnorm_.print();
                 }
             } else {
                 if (kVerbose) {
-                    LOG(p.b_<<" should vote tactically.");
+                    LOG(pnorm_.b_<<" should vote tactically.");
                 }
             }
         } else {
@@ -897,19 +890,19 @@ public:
             **/
             double cma = last_c - last_a;
             double bma = (last_b - last_a) / 2.0;
-            double max_x = p.cab_ + p.cxx_/2.0;
+            double max_x = pnorm_.cab_ + pnorm_.cxx_/2.0;
             double min_x = std::max(cma, bma);
             if (max_x > min_x && min_x > 0.0) {
                 ++result_rev_alternate_;
                 if (kVerbose) {
-                    LOG(p.c_<<" should vote strategically. cma="<<cma<<" bma="<<bma<<" max="<<max_x<<" min="<<min_x);
+                    LOG(pnorm_.c_<<" should vote strategically. cma="<<cma<<" bma="<<bma<<" max="<<max_x<<" min="<<min_x);
                     LOG("  last_a="<<last_a<<" last_c="<<last_c<<" last_b="<<last_b);
                     LOG("  c="<<c<<" b="<<b);
-                    p.print();
+                    pnorm_.print();
                 }
             } else {
                 if (kVerbose) {
-                    LOG(p.c_<<" should vote tactically.");
+                    LOG(pnorm_.c_<<" should vote tactically.");
                 }
             }
         }
@@ -929,14 +922,17 @@ public:
         }
 
         /** strategic voting **/
-        auto p = p_.normalize(results);
-        check_app_strategic_voting(p);
+        normalize_electorate(results);
+        check_app_strategic_voting();
     }
 
-    void check_app_strategic_voting(
-        Electorate& p
+    void check_app_strategic_voting() noexcept {
+    }
+
+    void normalize_electorate(
+        Results& results
     ) noexcept {
-        (void) p;
+        pnorm_ = p_.normalize(results);
     }
 
     Results create_results(
