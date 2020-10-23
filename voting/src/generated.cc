@@ -85,6 +85,7 @@ namespace {
 //constexpr int kNVoteTrials = 1;
 //constexpr int kNVoteTrials = 100;
 constexpr int kNVoteTrials = 10*1000;
+//constexpr int kNVoteTrials = 1000*1000;
 
 /** uniform utilities or not. **/
 //constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
@@ -247,6 +248,7 @@ public:
     int result_con_cycle_ = 0;
     int result_con_strategic_ = 0;
     int result_con_alternate_ = 0;
+    int result_con_neither_ = 0;
     int first_past_post_ = 0;
     int result_fpp_a_ = 0;
     int result_fpp_b_ = 0;
@@ -278,6 +280,9 @@ public:
     int result_app_fpp_ = 0;
     int result_app_rcv_ = 0;
     int result_app_rev_ = 0;
+    int result_app_strategic_ = 0;
+    int result_app_alternate_ = 0;
+    int result_app_collude_ = 0;
     int result_nwinners_1_ = 0;
     int result_nwinners_2_ = 0;
     int result_nwinners_3_ = 0;
@@ -564,6 +569,8 @@ public:
     }
 
     void check_con_strategic_voting() noexcept {
+        bool neither = true;
+
         /**
         strategic voting for condorcet means...
         BAC voters may have incentive to vote BCA.
@@ -571,6 +578,7 @@ public:
         double a = pnorm_.acb_ + pnorm_.abc_ + pnorm_.axx_ + 0;
         double c = pnorm_.cab_ + pnorm_.cba_ + pnorm_.cxx_ + pnorm_.bca_ + pnorm_.bac_;
         if (c > a) {
+            neither = false;
             ++result_con_strategic_;
             if (kVerbose) {
                 LOG(pnorm_.b_<<pnorm_.a_<<pnorm_.c_<<" should vote strategically.");
@@ -584,10 +592,15 @@ public:
         double a2 = p_.abc_ + p_.acb_ + p_.axx_ + p_.cab_;
         double b2 = p_.bca_ + p_.bac_ + p_.bxx_ + p_.abc_ + p_.cba_;
         if (b2 > a2) {
+            neither = false;
             ++result_con_alternate_;
             if (kVerbose) {
                 LOG(pnorm_.c_<<pnorm_.b_<<pnorm_.a_<<" should vote strategically.");
             }
+        }
+
+        if (neither) {
+            ++result_con_neither_;
         }
     }
 
@@ -922,6 +935,48 @@ public:
     }
 
     void check_app_strategic_voting() noexcept {
+        /**
+        BAC voters should have voted BXX.
+        CAB voters should have voted CXX.
+        **/
+        double a1 = p_.abc_ + p_.acb_ + p_.axx_ + 0       + p_.cab_;
+        double b1 = p_.bac_ + p_.bca_ + p_.bxx_ + p_.abc_ + p_.cba_;
+        if (b1 > a1) {
+            ++result_app_strategic_;
+            if (kVerbose) {
+                LOG(pnorm_.b_<<pnorm_.a_<<"X should vote strategically.");
+            }
+        }
+        double a2 = p_.abc_ + p_.acb_ + p_.axx_ + p_.bac_ + 0;
+        double c2 = p_.cab_ + p_.cba_ + p_.cxx_ + p_.acb_ + p_.bca_;
+        if (c2 > a2) {
+            ++result_app_alternate_;
+            if (kVerbose) {
+                LOG(pnorm_.b_<<pnorm_.a_<<"X should vote strategically.");
+            }
+        }
+        /**
+        tk tsc todo: what does this mean?
+        BAC and CAB voters could have colluded.
+        **/
+        double a3 = p_.abc_ + p_.acb_ + p_.axx_ + 0 + 0;
+        double b3 = b1;
+        double c3 = c2;
+        if (b3 > a3 && c3 > a3) {
+            double diff = std::abs(b3 - c3);
+            if (diff < 0.03) {
+                ++result_app_collude_;
+                if (kVerbose) {
+                    LOG(pnorm_.b_<<pnorm_.a_<<"X and "<<pnorm_.c_<<pnorm_.a_<<"X should vote strategically.");
+                }
+            }
+        }
+
+        /**
+        tk tsc todo: how to model approval strategic voting fail?
+        BCA voters who voted BXX should have voted BCA.
+        CBA voters who voted BXX should have voted CBA.
+        **/
     }
 
     void normalize_electorate(
@@ -1122,22 +1177,29 @@ public:
         LOG("Unique Winners      : 1:"<<nwinners1<<"% 2:"<<nwinners2<<"% 3:"<<nwinners3<<"%");
         LOG("");
         LOG("Strategic Voting:");
-        double pct_con_strategic = 100.0 * result_con_strategic_ / kNVoteTrials;
-        double pct_con_alternate = 100.0 * result_con_alternate_ / kNVoteTrials;
-        LOG("Condorcet           : "<<pct_con_strategic<<"% alternate: "<<pct_con_alternate<<"%");
-        double pct_fpp_strategic = 100.0 * result_fpp_strategic_ / kNVoteTrials;
-        double pct_fpp_counter = 100.0 * result_fpp_counter_ / kNVoteTrials;
-        LOG("First Past Post     : "<<pct_fpp_strategic<<"% counter: "<<pct_fpp_counter<<"%");
         double pct_rcv_strategic = 100.0 * result_rcv_strategic_ / kNVoteTrials;
         double pct_rcv_alternate = 100.0 * result_rcv_alternate_ / kNVoteTrials;
         LOG("Ranked Choice Voting: "<<pct_rcv_strategic<<"% alternate: "<<pct_rcv_alternate<<"%");
+        double pct_fpp_strategic = 100.0 * result_fpp_strategic_ / kNVoteTrials;
+        double pct_fpp_counter = 100.0 * result_fpp_counter_ / kNVoteTrials;
+        LOG("First Past Post     : "<<pct_fpp_strategic<<"% counter: "<<pct_fpp_counter<<"%");
+        double pct_con_strategic = 100.0 * result_con_strategic_ / kNVoteTrials;
+        double pct_con_alternate = 100.0 * result_con_alternate_ / kNVoteTrials;
+        double pct_con_neither = 100.0 * result_con_neither_ / kNVoteTrials;
+        LOG("Condorcet           : "<<pct_con_strategic<<"% alternate: "<<pct_con_alternate<<"% neither: "<<pct_con_neither<<"%");
+        double pct_app_strategic = 100.0 * result_app_strategic_ / kNVoteTrials;
+        double pct_app_alternate = 100.0 * result_app_alternate_ / kNVoteTrials;
+        double pct_app_collude = 100.0 * result_app_collude_ / kNVoteTrials;
+        LOG("Approval            : "<<pct_app_strategic<<"% alternate: "<<pct_app_alternate<<"% collude: "<<pct_app_collude<<"%");
         double pct_rev_strategic = 100.0 * result_rev_strategic_ / kNVoteTrials;
         LOG("Reverse Rank Order  : "<<pct_rev_strategic<<"%");
         LOG("");
         LOG("Oddities:");
         LOG("Ranked Choice Voting:");
-        double pct_rev_front_runner = 100.0 * result_rev_front_runner_ / kNVoteTrials;
-        LOG("Won by Front-Runner Rule: "<<pct_rev_front_runner<<"%");
+        if (kRevFrontRunner < 1.0 && kRevFrontRunner >= 0.50) {
+            double pct_rev_front_runner = 100.0 * result_rev_front_runner_ / kNVoteTrials;
+            LOG("Won by Front-Runner Rule: "<<pct_rev_front_runner<<"%");
+        }
         double pct_rev_majority_lost = 100.0 * result_rev_majority_lost_ / kNVoteTrials;
         double pct_rev_majority_lost_max = 100.0 * result_rev_majority_lost_max_;
         double pct_rev_majority_lost_first = 100.0 * result_rev_majority_lost_first_sum_ / result_rev_majority_lost_;
