@@ -9,11 +9,15 @@ set(THIS_PROJECT_NAME technomancy)
 set(THIS_CMAKE_DIR "${CMAKE_SOURCE_DIR}/cmake")
 
 # cmake boilerplate
-include("${THIS_CMAKE_DIR}/scripts/preamble.txt")
+# unfortunately, we can't put this in preamble.
+# see preamble.txt for explanations.
+set(THIS_CMAKE_VERSION 2.8.11)
+cmake_minimum_required(VERSION ${THIS_CMAKE_VERSION})
+message("Creating project ${THIS_PROJECT_NAME}...")
+project(${THIS_PROJECT_NAME})
 
 # more cmake boilerplate
-# unfortunately, we can't put this in preamble.
-cmake_minimum_required(VERSION ${THIS_CMAKE_VERSION})
+include("${THIS_CMAKE_DIR}/scripts/preamble.txt")
 
 # add the targets
 add_subdirectory(agm)
