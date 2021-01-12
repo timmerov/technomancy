@@ -23,7 +23,7 @@ Candidates get_candidates() noexcept {
         "Loyal Ploof",
         "Write-ins",
       };
-      return std::move(candidates);
+      return candidates;
 }
 
 Ballots get_voting_data() noexcept {
@@ -9823,7 +9823,7 @@ Ballots get_voting_data() noexcept {
         {2, 3, 0, 0, 0, 0},
 #endif
     };
-    return std::move(ballots);
+    return ballots;
 }
 
 } // namespace burlington

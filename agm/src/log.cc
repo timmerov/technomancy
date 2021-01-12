@@ -106,7 +106,7 @@ std::string agm::log::getPrefix(
   if (ls->prefix_) {
     s += file + ":" + std::to_string(line) + ":" + func + ": ";
   }
-  return std::move(s);
+  return s;
 }
 
 agm::log::AsHex::AsHex(
@@ -133,7 +133,7 @@ std::string agm::basename(
 ) noexcept {
 	int where = path.find_last_of("/\\");
 	auto file = path.substr(where+1);
-	return std::move(file);
+	return file;
 }
 
 std::ostream & operator<<(

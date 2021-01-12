@@ -963,7 +963,7 @@ namespace {
 				s += move.change_->text_;
 				s += " ";
 			}
-			return std::move(s);
+			return s;
 		}
 
 		void logState(

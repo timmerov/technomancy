@@ -20,7 +20,7 @@ Candidates get_candidates() noexcept {
         "John Hayden",
         "Kevin Reich",
     };
-    return std::move(candidates);
+    return candidates;
 }
 
 Ballots get_voting_data() noexcept {
@@ -8890,7 +8890,7 @@ Ballots get_voting_data() noexcept {
         {3, 1, 2, 0, 0, 0},
         {1, 2, 0, 0, 0, 0},
     };
-    return std::move(ballots);
+    return ballots;
 }
 
 } // namespace minneapolis_park_1

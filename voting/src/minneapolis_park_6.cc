@@ -21,7 +21,7 @@ Candidates get_candidates() noexcept {
         "Jennifer Zielinski",
         "Robert M Schlosser \"Bob\"",
     };
-    return std::move(candidates);
+    return candidates;
 }
 
 Ballots get_voting_data() noexcept {
@@ -21625,7 +21625,7 @@ Ballots get_voting_data() noexcept {
         {2, 0, 0, 0, 0, 0},
         {2, 1, 0, 0, 0, 0},
     };
-    return std::move(ballots);
+    return ballots;
 }
 
 } // namespace minneapolis_park_1

@@ -20,7 +20,7 @@ Candidates get_candidates() noexcept {
         "Center",
         "Right",
     };
-    return std::move(candidates);
+    return candidates;
 }
 
 Ballots get_voting_data() noexcept {
@@ -129,7 +129,7 @@ Ballots get_voting_data() noexcept {
         {3, 2, 1, 0, 0, 0},
         {3, 2, 1, 0, 0, 0},
     };
-    return std::move(ballots);
+    return ballots;
 }
 
 } // namespace minneapolis_park_1

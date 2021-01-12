@@ -21,7 +21,7 @@ Candidates get_candidates() noexcept {
         "Joe Kovacs",
         "Teqen Zéa-Aida",
     };
-    return std::move(candidates);
+    return candidates;
 }
 
 Ballots get_voting_data() noexcept {
@@ -9282,7 +9282,7 @@ Ballots get_voting_data() noexcept {
         {2, 4, 0, 0, 0, 0},
         {1, 2, 4, 0, 0, 0},
     };
-    return std::move(ballots);
+    return ballots;
 }
 
 } // namespace minneapolis_park_1

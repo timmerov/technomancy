@@ -21,7 +21,7 @@ Candidates get_candidates() noexcept {
         "Gary Schiff",
         "Ronald W. Peterson",
     };
-    return std::move(candidates);
+    return candidates;
 }
 
 Ballots get_voting_data() noexcept {
@@ -5677,7 +5677,7 @@ Ballots get_voting_data() noexcept {
         {0, 0, 0, 0, 0, 0},
         {1, 0, 0, 0, 0, 0},
     };
-    return std::move(ballots);
+    return ballots;
 }
 
 } // namespace minneapolis_park_1

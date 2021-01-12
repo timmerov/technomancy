@@ -95,5 +95,5 @@ std::string clunc::compile(
 		dumpAst(ss, *ast, 0);
 	}
 
-	return std::move(ss.str());
+	return ss.str();
 }

@@ -21,7 +21,7 @@ Candidates get_candidates() noexcept {
         "Fadumo Yusuf",
         "Tiffini Forslund",
     };
-    return std::move(candidates);
+    return candidates;
 }
 
 Ballots get_voting_data() noexcept {
@@ -7424,7 +7424,7 @@ Ballots get_voting_data() noexcept {
         {2, 1, 3, 0, 0, 0},
         {2, 0, 0, 0, 0, 0},
     };
-    return std::move(ballots);
+    return ballots;
 }
 
 } // namespace minneapolis_park_1
