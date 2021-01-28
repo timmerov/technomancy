@@ -80,6 +80,7 @@ where X% of the pixels consume 1-X% of the range.
 #include <common/png.h>
 
 #include <vector>
+#include <sstream>
 
 namespace {
 
@@ -171,6 +172,98 @@ int scale_to_255(
     return c;
 }
 
+void dump(const LibRaw &raw_image) {
+    auto& imgdata = raw_image.imgdata;
+    LOG("dumping raw_image:");
+    LOG("imgdata.image[0]="<<(void*)imgdata.image[0]);
+    LOG("imgdata.image[1]="<<(void*)imgdata.image[0]);
+    LOG("imgdata.image[2]="<<(void*)imgdata.image[0]);
+    LOG("imgdata.image[3]="<<(void*)imgdata.image[0]);
+    LOG("imgdata.sizes.raw_height="<<imgdata.sizes.raw_height);
+    LOG("imgdata.sizes.raw_width="<<imgdata.sizes.raw_width);
+    LOG("imgdata.sizes.height="<<imgdata.sizes.height);
+    LOG("imgdata.sizes.width="<<imgdata.sizes.width);
+    LOG("imgdata.sizes.top_margin="<<imgdata.sizes.top_margin);
+    LOG("imgdata.sizes.left_margin="<<imgdata.sizes.left_margin);
+    LOG("imgdata.sizes.iheight="<<imgdata.sizes.iheight);
+    LOG("imgdata.sizes.iwidth="<<imgdata.sizes.iwidth);
+    LOG("imgdata.sizes.raw_pitch="<<imgdata.sizes.raw_pitch);
+    LOG("imgdata.sizes.pixel_aspect="<<imgdata.sizes.pixel_aspect);
+    LOG("imgdata.sizes.flip="<<imgdata.sizes.flip);
+    std::stringstream ss;
+    ss<<"[ ";
+    for (int i = 0; i < 8; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            ss<<imgdata.sizes.mask[i][k]<<" ";
+        }
+    }
+    ss<<"]";
+    LOG("imgdata.sizes.mask="<<ss.str());
+    LOG("imgdata.sizes.raw_crop.cleft="<<imgdata.sizes.raw_crop.cleft);
+    LOG("imgdata.sizes.raw_crop.ctop="<<imgdata.sizes.raw_crop.ctop);
+    LOG("imgdata.sizes.raw_crop.cwidth="<<imgdata.sizes.raw_crop.cwidth);
+    LOG("imgdata.sizes.raw_crop.cheight="<<imgdata.sizes.raw_crop.cheight);
+    ss.clear();
+    ss.str(std::string());
+    ss<<"[ ";
+    for (int i = 0; i < 4; ++i) {
+        ss<<(int)imgdata.idata.guard[i]<<" ";
+    }
+    ss<<"]";
+    LOG("imgdata.idata.guard="<<ss.str());
+    LOG("imgdata.idata.make=\""<<imgdata.idata.make<<"\"");
+    LOG("imgdata.idata.model=\""<<imgdata.idata.model<<"\"");
+    LOG("imgdata.idata.software=\""<<imgdata.idata.software<<"\"");
+    LOG("imgdata.idata.raw_count="<<imgdata.idata.raw_count);
+    LOG("imgdata.idata.dng_version="<<imgdata.idata.dng_version);
+    LOG("imgdata.idata.is_foveon="<<imgdata.idata.is_foveon);
+    LOG("imgdata.idata.colors="<<imgdata.idata.colors);
+    LOG("imgdata.idata.filters="<<imgdata.idata.filters);
+    ss.clear();
+    ss.str(std::string());
+    ss<<"[ ";
+    for (int i = 0; i < 6; ++i) {
+        for (int k = 0; k < 6; ++k) {
+            ss<<(int)imgdata.idata.xtrans[i][k]<<" ";
+        }
+    }
+    ss<<"]";
+    LOG("imgdata.idata.xtrans="<<ss.str());
+    ss.clear();
+    ss.str(std::string());
+    ss<<"[ ";
+    for (int i = 0; i < 6; ++i) {
+        for (int k = 0; k < 6; ++k) {
+            ss<<(int)imgdata.idata.xtrans_abs[i][k]<<" ";
+        }
+    }
+    ss<<"]";
+    LOG("imgdata.idata.xtrans_abs="<<ss.str());
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.idata.cdesc[i];
+    }
+    LOG("imgdata.idata.cdesc='"<<ss.str()<<"'");
+    LOG("imgdata.idata.xmplen="<<imgdata.idata.xmplen);
+    LOG("imgdata.idata.xmpdata="<<(void*)imgdata.idata.xmpdata);
+    /*
+    libraw_lensinfo_t lens;
+    libraw_makernotes_t makernotes;
+    libraw_shootinginfo_t shootinginfo;
+    libraw_output_params_t params;
+    */
+    LOG("imgdata.progress_flags="<<imgdata.progress_flags);
+    LOG("imgdata.process_warnings="<<imgdata.process_warnings);
+    /*
+    libraw_colordata_t color;
+    libraw_imgother_t other;
+    libraw_thumbnail_t thumbnail;
+    libraw_rawdata_t rawdata;
+    */
+    LOG("imgdata.parent_class="<<(void*)imgdata.parent_class);
+}
+
 }
 
 int main(
@@ -192,6 +285,8 @@ int main(
     /** load image **/
     LibRaw raw_image;
     raw_image.open_file(in_filename);
+    dump(raw_image);
+    return 0;
     int wd = raw_image.imgdata.sizes.width;
     int ht = raw_image.imgdata.sizes.height;
     LOG("wd="<<wd);
