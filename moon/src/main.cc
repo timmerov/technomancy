@@ -172,6 +172,18 @@ int scale_to_255(
     return c;
 }
 
+std::string quote_or_null(
+    const char *str
+) {
+    if (str == nullptr) {
+        return "(nullptr)";
+    }
+    std::string s("\"");
+    s += str;
+    s += "\"";
+    return s;
+}
+
 void dump(const LibRaw &raw_image) {
     auto& imgdata = raw_image.imgdata;
     LOG("dumping raw_image:");
@@ -191,29 +203,25 @@ void dump(const LibRaw &raw_image) {
     LOG("imgdata.sizes.pixel_aspect="<<imgdata.sizes.pixel_aspect);
     LOG("imgdata.sizes.flip="<<imgdata.sizes.flip);
     std::stringstream ss;
-    ss<<"[ ";
     for (int i = 0; i < 8; ++i) {
         for (int k = 0; k < 4; ++k) {
             ss<<imgdata.sizes.mask[i][k]<<" ";
         }
     }
-    ss<<"]";
-    LOG("imgdata.sizes.mask="<<ss.str());
+    LOG("imgdata.sizes.mask=[ "<<ss.str()<<"]");
     LOG("imgdata.sizes.raw_crop.cleft="<<imgdata.sizes.raw_crop.cleft);
     LOG("imgdata.sizes.raw_crop.ctop="<<imgdata.sizes.raw_crop.ctop);
     LOG("imgdata.sizes.raw_crop.cwidth="<<imgdata.sizes.raw_crop.cwidth);
     LOG("imgdata.sizes.raw_crop.cheight="<<imgdata.sizes.raw_crop.cheight);
     ss.clear();
     ss.str(std::string());
-    ss<<"[ ";
     for (int i = 0; i < 4; ++i) {
         ss<<(int)imgdata.idata.guard[i]<<" ";
     }
-    ss<<"]";
-    LOG("imgdata.idata.guard="<<ss.str());
-    LOG("imgdata.idata.make=\""<<imgdata.idata.make<<"\"");
-    LOG("imgdata.idata.model=\""<<imgdata.idata.model<<"\"");
-    LOG("imgdata.idata.software=\""<<imgdata.idata.software<<"\"");
+    LOG("imgdata.idata.guard=[ "<<ss.str()<<"]");
+    LOG("imgdata.idata.make="<<quote_or_null(imgdata.idata.make));
+    LOG("imgdata.idata.model="<<quote_or_null(imgdata.idata.model));
+    LOG("imgdata.idata.software="<<quote_or_null(imgdata.idata.software));
     LOG("imgdata.idata.raw_count="<<imgdata.idata.raw_count);
     LOG("imgdata.idata.dng_version="<<imgdata.idata.dng_version);
     LOG("imgdata.idata.is_foveon="<<imgdata.idata.is_foveon);
@@ -221,24 +229,20 @@ void dump(const LibRaw &raw_image) {
     LOG("imgdata.idata.filters="<<imgdata.idata.filters);
     ss.clear();
     ss.str(std::string());
-    ss<<"[ ";
     for (int i = 0; i < 6; ++i) {
         for (int k = 0; k < 6; ++k) {
             ss<<(int)imgdata.idata.xtrans[i][k]<<" ";
         }
     }
-    ss<<"]";
-    LOG("imgdata.idata.xtrans="<<ss.str());
+    LOG("imgdata.idata.xtrans=[ "<<ss.str()<<"]");
     ss.clear();
     ss.str(std::string());
-    ss<<"[ ";
     for (int i = 0; i < 6; ++i) {
         for (int k = 0; k < 6; ++k) {
             ss<<(int)imgdata.idata.xtrans_abs[i][k]<<" ";
         }
     }
-    ss<<"]";
-    LOG("imgdata.idata.xtrans_abs="<<ss.str());
+    LOG("imgdata.idata.xtrans_abs=[ "<<ss.str()<<"]");
     ss.clear();
     ss.str(std::string());
     for (int i = 0; i < 4; ++i) {
@@ -247,12 +251,155 @@ void dump(const LibRaw &raw_image) {
     LOG("imgdata.idata.cdesc='"<<ss.str()<<"'");
     LOG("imgdata.idata.xmplen="<<imgdata.idata.xmplen);
     LOG("imgdata.idata.xmpdata="<<(void*)imgdata.idata.xmpdata);
+    LOG("imgdata.lens.MinFocal="<<imgdata.lens.MinFocal);
+    LOG("imgdata.lens.MaxFocal="<<imgdata.lens.MaxFocal);
+    LOG("imgdata.lens.MaxAp4MinFocal="<<imgdata.lens.MaxAp4MinFocal);
+    LOG("imgdata.lens.MaxAp4MaxFocal="<<imgdata.lens.MaxAp4MaxFocal);
+    LOG("imgdata.lens.EXIF_MaxAp="<<imgdata.lens.EXIF_MaxAp);
+    LOG("imgdata.lens.LensMake="<<quote_or_null(imgdata.lens.LensMake));
+    LOG("imgdata.lens.Lens="<<quote_or_null(imgdata.lens.Lens));
+    LOG("imgdata.lens.LensSerial="<<quote_or_null(imgdata.lens.LensSerial));
+    LOG("imgdata.lens.InternalLensSerial="<<quote_or_null(imgdata.lens.InternalLensSerial));
+    LOG("imgdata.lens.FocalLengthIn35mmFormat="<<imgdata.lens.FocalLengthIn35mmFormat);
+    LOG("imgdata.lens.nikon.NikonEffectiveMaxAp="<<imgdata.lens.nikon.NikonEffectiveMaxAp);
+    LOG("imgdata.lens.nikon.NikonLensIDNumber="<<(int)imgdata.lens.nikon.NikonLensIDNumber);
+    LOG("imgdata.lens.nikon.NikonLensFStops="<<(int)imgdata.lens.nikon.NikonLensFStops);
+    LOG("imgdata.lens.nikon.NikonMCUVersion="<<(int)imgdata.lens.nikon.NikonMCUVersion);
+    LOG("imgdata.lens.nikon.NikonLensType="<<(int)imgdata.lens.nikon.NikonLensType);
+    LOG("imgdata.lens.dng.MinFocal="<<(int)imgdata.lens.dng.MinFocal);
+    LOG("imgdata.lens.dng.MaxFocal="<<(int)imgdata.lens.dng.MaxFocal);
+    LOG("imgdata.lens.dng.MaxAp4MinFocal="<<(int)imgdata.lens.dng.MaxAp4MinFocal);
+    LOG("imgdata.lens.dng.MaxAp4MaxFocal="<<(int)imgdata.lens.dng.MaxAp4MaxFocal);
+    LOG("imgdata.lens.makernotes=not dumped");
     /*
-    libraw_lensinfo_t lens;
-    libraw_makernotes_t makernotes;
-    libraw_shootinginfo_t shootinginfo;
-    libraw_output_params_t params;
+    LOG("imgdata.lens.makernotes.LensID="<<imgdata.lens.makernotes.LensID);
+    LOG("imgdata.lens.makernotes.Lens="<<quote_or_null(imgdata.lens.makernotes.Lens));
+    LOG("imgdata.lens.makernotes.LensFormat="<<imgdata.lens.makernotes.LensFormat);
+    LOG("imgdata.lens.makernotes.LensMount="<<imgdata.lens.makernotes.LensMount);
+    LOG("imgdata.lens.makernotes.CamID="<<imgdata.lens.makernotes.CamID);
+    LOG("imgdata.lens.makernotes.CameraFormat="<<imgdata.lens.makernotes.CameraFormat);
+    LOG("imgdata.lens.makernotes.CameraMount="<<imgdata.lens.makernotes.CameraMount);
+    LOG("imgdata.lens.makernotes.body="<<quote_or_null(imgdata.lens.makernotes.body));
+    LOG("imgdata.lens.makernotes.FocalType="<<imgdata.lens.makernotes.FocalType);
+    LOG("imgdata.lens.makernotes.LensFeatures_pre="<<quote_or_null(imgdata.lens.makernotes.LensFeatures_pre));
+    LOG("imgdata.lens.makernotes.LensFeatures_suf="<<quote_or_null(imgdata.lens.makernotes.LensFeatures_suf));
+    LOG("imgdata.lens.makernotes.MinFocal="<<imgdata.lens.makernotes.MinFocal);
+    LOG("imgdata.lens.makernotes.MaxFocal="<<imgdata.lens.makernotes.MaxFocal);
+    LOG("imgdata.lens.makernotes.MaxAp4MinFocal="<<imgdata.lens.makernotes.MaxAp4MinFocal);
+    LOG("imgdata.lens.makernotes.MaxAp4MaxFocal="<<imgdata.lens.makernotes.MaxAp4MaxFocal);
+    LOG("imgdata.lens.makernotes.MinAp4MinFocal="<<imgdata.lens.makernotes.MinAp4MinFocal);
+    LOG("imgdata.lens.makernotes.MinAp4MaxFocal="<<imgdata.lens.makernotes.MinAp4MaxFocal);
+    LOG("imgdata.lens.makernotes.MaxAp="<<imgdata.lens.makernotes.MaxAp);
+    LOG("imgdata.lens.makernotes.MinAp="<<imgdata.lens.makernotes.MinAp);
+    LOG("imgdata.lens.makernotes.CurFocal="<<imgdata.lens.makernotes.CurFocal);
+    LOG("imgdata.lens.makernotes.CurAp="<<imgdata.lens.makernotes.CurAp);
+    LOG("imgdata.lens.makernotes.MaxAp4CurFocal="<<imgdata.lens.makernotes.MaxAp4CurFocal);
+    LOG("imgdata.lens.makernotes.MinAp4CurFocal="<<imgdata.lens.makernotes.MinAp4CurFocal);
+    LOG("imgdata.lens.makernotes.MinFocusDistance="<<imgdata.lens.makernotes.MinFocusDistance);
+    LOG("imgdata.lens.makernotes.FocusRangeIndex="<<imgdata.lens.makernotes.FocusRangeIndex);
+    LOG("imgdata.lens.makernotes.LensFStops="<<imgdata.lens.makernotes.LensFStops);
+    LOG("imgdata.lens.makernotes.TeleconverterID="<<imgdata.lens.makernotes.TeleconverterID);
+    LOG("imgdata.lens.makernotes.Teleconverter="<<quote_or_null(imgdata.lens.makernotes.Teleconverter));
+    LOG("imgdata.lens.makernotes.AdapterID="<<imgdata.lens.makernotes.AdapterID);
+    LOG("imgdata.lens.makernotes.Adapter="<<quote_or_null(imgdata.lens.makernotes.Adapter));
+    LOG("imgdata.lens.makernotes.AttachmentID="<<imgdata.lens.makernotes.AttachmentID);
+    LOG("imgdata.lens.makernotes.Attachment="<<quote_or_null(imgdata.lens.makernotes.Attachment));
+    LOG("imgdata.lens.makernotes.CanonFocalUnits="<<imgdata.lens.makernotes.CanonFocalUnits);
+    LOG("imgdata.lens.makernotes.FocalLengthIn35mmFormat="<<imgdata.lens.makernotes.FocalLengthIn35mmFormat);
     */
+    LOG("imgdata.makernotes=not dumped");
+    /*
+    libraw_makernotes_t makernotes;
+    */
+    LOG("imgdata.shootinginfo.DriveMode="<<imgdata.shootinginfo.DriveMode);
+    LOG("imgdata.shootinginfo.FocusMode="<<imgdata.shootinginfo.FocusMode);
+    LOG("imgdata.shootinginfo.MeteringMode="<<imgdata.shootinginfo.MeteringMode);
+    LOG("imgdata.shootinginfo.AFPoint="<<imgdata.shootinginfo.AFPoint);
+    LOG("imgdata.shootinginfo.ExposureMode="<<imgdata.shootinginfo.ExposureMode);
+    LOG("imgdata.shootinginfo.ImageStabilization="<<imgdata.shootinginfo.ImageStabilization);
+    LOG("imgdata.shootinginfo.BodySerial="<<quote_or_null(imgdata.shootinginfo.BodySerial));
+    LOG("imgdata.shootinginfo.InternalBodySerial="<<quote_or_null(imgdata.shootinginfo.InternalBodySerial));
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.params.greybox[i]<<" ";
+    }
+    LOG("imgdata.params.greybox=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.params.cropbox[i]<<" ";
+    }
+    LOG("imgdata.params.cropbox=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.params.aber[i]<<" ";
+    }
+    LOG("imgdata.params.aber=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 6; ++i) {
+        ss<<imgdata.params.gamm[i]<<" ";
+    }
+    LOG("imgdata.params.gamm=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.params.user_mul[i]<<" ";
+    }
+    LOG("imgdata.params.user_mul=[ "<<ss.str()<<"]");
+    LOG("imgdata.params.shot_select="<<imgdata.params.shot_select);
+    LOG("imgdata.params.bright="<<imgdata.params.bright);
+    LOG("imgdata.params.threshold="<<imgdata.params.threshold);
+    LOG("imgdata.params.half_size="<<imgdata.params.half_size);
+    LOG("imgdata.params.four_color_rgb="<<imgdata.params.four_color_rgb);
+    LOG("imgdata.params.highlight="<<imgdata.params.highlight);
+    LOG("imgdata.params.use_auto_wb="<<imgdata.params.use_auto_wb);
+    LOG("imgdata.params.use_camera_wb="<<imgdata.params.use_camera_wb);
+    LOG("imgdata.params.use_camera_matrix="<<imgdata.params.use_camera_matrix);
+    LOG("imgdata.params.output_color="<<imgdata.params.output_color);
+    LOG("imgdata.params.output_profile="<<quote_or_null(imgdata.params.output_profile));
+    LOG("imgdata.params.bad_pixels="<<quote_or_null(imgdata.params.bad_pixels));
+    LOG("imgdata.params.dark_frame="<<quote_or_null(imgdata.params.dark_frame));
+    LOG("imgdata.params.output_bps="<<imgdata.params.output_bps);
+    LOG("imgdata.params.output_tiff="<<imgdata.params.output_tiff);
+    LOG("imgdata.params.user_flip="<<imgdata.params.user_flip);
+    LOG("imgdata.params.user_qual="<<imgdata.params.user_qual);
+    LOG("imgdata.params.user_black="<<imgdata.params.user_black);
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.params.user_cblack[i]<<" ";
+    }
+    LOG("imgdata.params.user_cblack=[ "<<ss.str()<<"]");
+    LOG("imgdata.params.user_sat="<<imgdata.params.user_sat);
+    LOG("imgdata.params.med_passes="<<imgdata.params.med_passes);
+    LOG("imgdata.params.auto_bright_thr="<<imgdata.params.auto_bright_thr);
+    LOG("imgdata.params.adjust_maximum_thr="<<imgdata.params.adjust_maximum_thr);
+    LOG("imgdata.params.no_auto_bright="<<imgdata.params.no_auto_bright);
+    LOG("imgdata.params.use_fuji_rotate="<<imgdata.params.use_fuji_rotate);
+    LOG("imgdata.params.green_matching="<<imgdata.params.green_matching);
+    LOG("imgdata.params.dcb_iterations="<<imgdata.params.dcb_iterations);
+    LOG("imgdata.params.dcb_enhance_fl="<<imgdata.params.dcb_enhance_fl);
+    LOG("imgdata.params.fbdd_noiserd="<<imgdata.params.fbdd_noiserd);
+    LOG("imgdata.params.exp_correc="<<imgdata.params.exp_correc);
+    LOG("imgdata.params.exp_shift="<<imgdata.params.exp_shift);
+    LOG("imgdata.params.exp_preser="<<imgdata.params.exp_preser);
+    LOG("imgdata.params.use_rawspeed="<<imgdata.params.use_rawspeed);
+    LOG("imgdata.params.use_dngsdk="<<imgdata.params.use_dngsdk);
+    LOG("imgdata.params.no_auto_scale="<<imgdata.params.no_auto_scale);
+    LOG("imgdata.params.no_interpolation="<<imgdata.params.no_interpolation);
+    LOG("imgdata.params.raw_processing_options="<<imgdata.params.raw_processing_options);
+    LOG("imgdata.params.sony_arw2_posterization_thr="<<imgdata.params.sony_arw2_posterization_thr);
+    LOG("imgdata.params.coolscan_nef_gamma="<<imgdata.params.coolscan_nef_gamma);
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 5; ++i) {
+        ss<<(int)imgdata.params.p4shot_order[i]<<" ";
+    }
+    LOG("imgdata.params.p4shot_order=[ "<<ss.str()<<"]");
+    LOG("imgdata.params.custom_camera_strings="<<(void*)imgdata.params.custom_camera_strings);
     LOG("imgdata.progress_flags="<<imgdata.progress_flags);
     LOG("imgdata.process_warnings="<<imgdata.process_warnings);
     /*
