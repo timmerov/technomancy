@@ -402,8 +402,161 @@ void dump(const LibRaw &raw_image) {
     LOG("imgdata.params.custom_camera_strings="<<(void*)imgdata.params.custom_camera_strings);
     LOG("imgdata.progress_flags="<<imgdata.progress_flags);
     LOG("imgdata.process_warnings="<<imgdata.process_warnings);
+    LOG("imgdata.color.curve=[not available]");
+    LOG("imgdata.color.cblack=[not available]");
+    LOG("imgdata.color.black="<<imgdata.color.black);
+    LOG("imgdata.color.data_maximum="<<imgdata.color.data_maximum);
+    LOG("imgdata.color.maximum="<<imgdata.color.maximum);
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 5; ++i) {
+        ss<<imgdata.color.linear_max[i]<<" ";
+    }
+    LOG("imgdata.color.linear_max=[ "<<ss.str()<<"]");
+    LOG("imgdata.color.fmaximum="<<imgdata.color.fmaximum);
+    LOG("imgdata.color.fnorm="<<imgdata.color.fnorm);
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 8; ++i) {
+        for (int k = 0; k < 8; ++k) {
+            ss<<imgdata.color.white[i][k]<<" ";
+        }
+    }
+    LOG("imgdata.color.white=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.color.cam_mul[i]<<" ";
+    }
+    LOG("imgdata.color.cam_mul=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.color.pre_mul[i]<<" ";
+    }
+    LOG("imgdata.color.pre_mul=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 3; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            ss<<imgdata.color.cmatrix[i][k]<<" ";
+        }
+    }
+    LOG("imgdata.color.cmatrix=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 3; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            ss<<imgdata.color.ccm[i][k]<<" ";
+        }
+    }
+    LOG("imgdata.color.ccm=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 3; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            ss<<imgdata.color.rgb_cam[i][k]<<" ";
+        }
+    }
+    LOG("imgdata.color.rgb_cam=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        for (int k = 0; k < 3; ++k) {
+            ss<<imgdata.color.cam_xyz[i][k]<<" ";
+        }
+    }
+    LOG("imgdata.color.cam_xyz=[ "<<ss.str()<<"]");
+    LOG("imgdata.color.phase_one_data.format="<<imgdata.color.phase_one_data.format);
+    LOG("imgdata.color.phase_one_data.key_off="<<imgdata.color.phase_one_data.key_off);
+    LOG("imgdata.color.phase_one_data.tag_21a="<<imgdata.color.phase_one_data.tag_21a);
+    LOG("imgdata.color.phase_one_data.t_black="<<imgdata.color.phase_one_data.t_black);
+    LOG("imgdata.color.phase_one_data.split_col="<<imgdata.color.phase_one_data.split_col);
+    LOG("imgdata.color.phase_one_data.black_col="<<imgdata.color.phase_one_data.black_col);
+    LOG("imgdata.color.phase_one_data.split_row="<<imgdata.color.phase_one_data.split_row);
+    LOG("imgdata.color.phase_one_data.black_row="<<imgdata.color.phase_one_data.black_row);
+    LOG("imgdata.color.phase_one_data.tag_210="<<imgdata.color.phase_one_data.tag_210);
+    LOG("imgdata.color.flash_used="<<imgdata.color.flash_used);
+    LOG("imgdata.color.canon_ev="<<imgdata.color.canon_ev);
+    LOG("imgdata.color.model2="<<quote_or_null(imgdata.color.model2));
+    LOG("imgdata.color.UniqueCameraModel="<<quote_or_null(imgdata.color.UniqueCameraModel));
+    LOG("imgdata.color.LocalizedCameraModel="<<quote_or_null(imgdata.color.LocalizedCameraModel));
+    LOG("imgdata.color.profile="<<(void*)imgdata.color.profile);
+    LOG("imgdata.color.profile_length="<<imgdata.color.profile_length);
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 8; ++i) {
+        ss<<imgdata.color.black_stat[i]<<" ";
+    }
+    LOG("imgdata.color.black_stat=[ "<<ss.str()<<"]");
+    for (int n = 0; n < 2; ++n) {
+        auto& dng_color = imgdata.color.dng_color[n];
+        LOG("imgdata.color.dng_color["<<n<<"].parsedfields="<<dng_color.parsedfields);
+        LOG("imgdata.color.dng_color["<<n<<"].illuminant="<<dng_color.illuminant);
+        ss.clear();
+        ss.str(std::string());
+        for (int i = 0; i < 4; ++i) {
+            for (int k = 0; k < 4; ++k) {
+                ss<<dng_color.calibration[i][k]<<" ";
+            }
+        }
+        LOG("imgdata.color.dng_color["<<n<<"].calibration=[ "<<ss.str()<<"]");
+        ss.clear();
+        ss.str(std::string());
+        for (int i = 0; i < 4; ++i) {
+            for (int k = 0; k < 3; ++k) {
+                ss<<dng_color.colormatrix[i][k]<<" ";
+            }
+        }
+        LOG("imgdata.color.dng_color["<<n<<"].colormatrix=[ "<<ss.str()<<"]");
+        ss.clear();
+        ss.str(std::string());
+        for (int i = 0; i < 3; ++i) {
+            for (int k = 0; k < 4; ++k) {
+                ss<<dng_color.forwardmatrix[i][k]<<" ";
+            }
+        }
+        LOG("imgdata.color.dng_color["<<n<<"].forwardmatrix=[ "<<ss.str()<<"]");
+    }
+    LOG("imgdata.color.dng_levels.parsedfields="<<imgdata.color.dng_levels.parsedfields);
+    LOG("imgdata.color.dng_levels.dng_cblack=not dumped");
+    LOG("imgdata.color.dng_levels.dng_black="<<imgdata.color.dng_levels.dng_black);
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.color.dng_levels.dng_whitelevel[i]<<" ";
+    }
+    LOG("imgdata.color.dng_levels.dng_whitelevel=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.color.dng_levels.default_crop[i]<<" ";
+    }
+    LOG("imgdata.color.dng_levels.default_crop=[ "<<ss.str()<<"]");
+    LOG("imgdata.color.dng_levels.preview_colorspace="<<imgdata.color.dng_levels.preview_colorspace);
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 4; ++i) {
+        ss<<imgdata.color.dng_levels.analogbalance[i]<<" ";
+    }
+    LOG("imgdata.color.dng_levels.analogbalance=[ "<<ss.str()<<"]");
+    LOG("imgdata.color.baseline_exposure="<<imgdata.color.baseline_exposure);
+    LOG("imgdata.color.WB_Coeffs=not dumped");
+    LOG("imgdata.color.WBCT_Coeffs=not dumped");
+    for (int n = 0; n < 2; ++n) {
+        auto& P1_color = imgdata.color.P1_color[n];
+        ss.clear();
+        ss.str(std::string());
+        for (int i = 0; i < 9; ++i) {
+            ss<<P1_color.romm_cam[i]<<" ";
+        }
+        LOG("imgdata.color.P1_color["<<n<<"].calibration=[ "<<ss.str()<<"]");
+    }
     /*
     libraw_colordata_t color;
+    ushort curve[0x10000];
+    unsigned cblack[4102];
+
     libraw_imgother_t other;
     libraw_thumbnail_t thumbnail;
     libraw_rawdata_t rawdata;
