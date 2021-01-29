@@ -528,11 +528,16 @@ void dump(
     } libraw_colordata_t;
     */
     LOG(prefix<<".curve=[not available]");
-    LOG(prefix<<".cblack=[not available]");
+    std::stringstream ss;
+    for (int i = 0; i < 6; ++i) {
+        ss<<color.cblack[i]<<" ";
+    }
+    LOG(prefix<<".cblack=[ "<<ss.str()<<"... ]");
     LOG(prefix<<".black="<<color.black);
     LOG(prefix<<".data_maximum="<<color.data_maximum);
     LOG(prefix<<".maximum="<<color.maximum);
-    std::stringstream ss;
+    ss.clear();
+    ss.str(std::string());
     for (int i = 0; i < 5; ++i) {
         ss<<color.linear_max[i]<<" ";
     }
@@ -591,7 +596,7 @@ void dump(
         }
     }
     LOG(prefix<<".cam_xyz=[ "<<ss.str()<<"]");
-    dump(prefix+"phase_one_data", color.phase_one_data);
+    dump(prefix+".phase_one_data", color.phase_one_data);
     LOG(prefix<<".flash_used="<<color.flash_used);
     LOG(prefix<<".canon_ev="<<color.canon_ev);
     LOG(prefix<<".model2="<<quote_or_null(color.model2));
@@ -605,14 +610,14 @@ void dump(
         ss<<color.black_stat[i]<<" ";
     }
     LOG(prefix<<".black_stat=[ "<<ss.str()<<"]");
-    dump(prefix+"dng_color[0]", color.dng_color[0]);
-    dump(prefix+"dng_color[1]", color.dng_color[1]);
-    dump(prefix+"dng_levels", color.dng_levels);
+    dump(prefix+".dng_color[0]", color.dng_color[0]);
+    dump(prefix+".dng_color[1]", color.dng_color[1]);
+    dump(prefix+".dng_levels", color.dng_levels);
     LOG(prefix<<".baseline_exposure="<<color.baseline_exposure);
     LOG(prefix<<".WB_Coeffs=not dumped");
     LOG(prefix<<".WBCT_Coeffs=not dumped");
-    dump(prefix+"P1_color[0]", color.P1_color[0]);
-    dump(prefix+"P1_color[1]", color.P1_color[1]);
+    dump(prefix+".P1_color[0]", color.P1_color[0]);
+    dump(prefix+".P1_color[1]", color.P1_color[1]);
 }
 
 void dump(
@@ -699,7 +704,7 @@ void dump(
         ss<<other.gpsdata[i]<<" ";
     }
     LOG(prefix<<".gpsdata=[ "<<ss.str()<<"]");
-    dump(prefix+"parsed_gps", other.parsed_gps);
+    dump(prefix+".parsed_gps", other.parsed_gps);
     LOG(prefix<<".desc="<<quote_or_null(other.desc));
     LOG(prefix<<".artist="<<quote_or_null(other.artist));
     LOG(prefix<<".FlashEC="<<other.FlashEC);
@@ -862,9 +867,9 @@ void dump(
     } libraw_data_t;
     */
     LOG(prefix<<".image[0]="<<(void*)imgdata.image[0]);
-    LOG(prefix<<".image[1]="<<(void*)imgdata.image[0]);
-    LOG(prefix<<".image[2]="<<(void*)imgdata.image[0]);
-    LOG(prefix<<".image[3]="<<(void*)imgdata.image[0]);
+    LOG(prefix<<".image[1]="<<(void*)imgdata.image[1]);
+    LOG(prefix<<".image[2]="<<(void*)imgdata.image[2]);
+    LOG(prefix<<".image[3]="<<(void*)imgdata.image[3]);
     dump(prefix+".sizes", imgdata.sizes);
     dump(prefix+".idata", imgdata.idata);
     dump(prefix+".lens", imgdata.lens);

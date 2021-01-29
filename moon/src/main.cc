@@ -86,8 +86,14 @@ where X% of the pixels consume 1-X% of the range.
 
 namespace {
 
-const char *kInputFilename = "/home/timmer/Pictures/2020-05-12/moon/IMG_0393.CR2";
-const char *kOutputFilename = "moon.png";
+//const char *kInputFilename = "/home/timmer/Pictures/2020-05-12/moon/IMG_0393.CR2";
+//const char *kOutputFilename = "moon.png";
+
+const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/red.CR2";
+const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/red.png";
+
+//const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/santa.CR2";
+//const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/santa.png";
 
 //const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0480.CR2";
 //const char *kOutputFilename = "comet1.png";
@@ -133,8 +139,9 @@ unsigned short *get_pixel(
     int y,
     int cmp
 ) {
+    /** height can be odd but shouldn't be. weird. **/
     int wd = raw_image.imgdata.sizes.width;
-    int ht = raw_image.imgdata.sizes.height;
+    int ht = raw_image.imgdata.sizes.height & ~2;
     x = std::max(x, 0);
     y = std::max(y, 0);
     x = std::min(x, wd-1);
@@ -195,10 +202,9 @@ int main(
     /** load image **/
     LibRaw raw_image;
     raw_image.open_file(in_filename);
-    dump(raw_image);
-    return 0;
+    /** height can be odd but shouldn't be. weird. **/
     int wd = raw_image.imgdata.sizes.width;
-    int ht = raw_image.imgdata.sizes.height;
+    int ht = raw_image.imgdata.sizes.height & ~2;
     LOG("wd="<<wd);
     LOG("ht="<<ht);
     if (wd <= 0 || ht <= 0) {
@@ -207,6 +213,7 @@ int main(
     }
     raw_image.unpack();
     raw_image.raw2image();
+    dump(raw_image);
 
     /** analyze image **/
     int minr = 99999;
@@ -341,6 +348,83 @@ int main(
     }
     std::cout<<std::endl;
 
+    //int x = wd/2/2*2;
+    //int y = ht/2/2*2;
+    //int x = 4336;
+    //int y = 3076;
+    int x = 2748;
+    int y = 2854;
+    LOG("center pixels:");
+    int p0 = *get_pixel(raw_image, x, y, 0);
+    int p1 = *get_pixel(raw_image, x, y, 1);
+    int p2 = *get_pixel(raw_image, x, y, 2);
+    int p3 = *get_pixel(raw_image, x, y, 3);
+    LOG("x,y="<<x<<","<<y<<" pixel="<<p0<<","<<p1<<","<<p2<<","<<p3);
+    ++x;
+    p0 = *get_pixel(raw_image, x, y, 0);
+    p1 = *get_pixel(raw_image, x, y, 1);
+    p2 = *get_pixel(raw_image, x, y, 2);
+    p3 = *get_pixel(raw_image, x, y, 3);
+    LOG("x,y="<<x<<","<<y<<" pixel="<<p0<<","<<p1<<","<<p2<<","<<p3);
+    --x;
+    ++y;
+    p0 = *get_pixel(raw_image, x, y, 0);
+    p1 = *get_pixel(raw_image, x, y, 1);
+    p2 = *get_pixel(raw_image, x, y, 2);
+    p3 = *get_pixel(raw_image, x, y, 3);
+    LOG("x,y="<<x<<","<<y<<" pixel="<<p0<<","<<p1<<","<<p2<<","<<p3);
+    ++x;
+    p0 = *get_pixel(raw_image, x, y, 0);
+    p1 = *get_pixel(raw_image, x, y, 1);
+    p2 = *get_pixel(raw_image, x, y, 2);
+    p3 = *get_pixel(raw_image, x, y, 3);
+    LOG("x,y="<<x<<","<<y<<" pixel="<<p0<<","<<p1<<","<<p2<<","<<p3);
+
+
+#if 1
+    /**
+    this test code ensures component values are where we think they are.
+    even rows: RR G1 RR G1 RR G1 RR G1 RR G1 RR G1 RR G1 RR G1 RR G1 RR G1
+    odd  rows: G2 BB G2 BB G2 BB G2 BB G2 BB G2 BB G2 BB G2 BB G2 BB G2 BB
+    all other components are 0.
+    the index for each component is: RR=0 G1=1 BB=2 G2=3.
+    **/
+
+    int unexpected0 = 0;
+    int unexpected1 = 0;
+    int unexpected2 = 0;
+    int unexpected3 = 0;
+    for (int y = 0; y < ht; y += 2) {
+        for (int x = 0; x < wd; x += 2) {
+            auto p = &raw_image.imgdata.image[x + wd*y][0];
+            if (p[1] || p[2] || p[3]) {
+                ++unexpected0;
+                LOG("unexpected0: x,y="<<x<<","<<y<<" p="<<p[0]<<","<<p[1]<<","<<p[2]<<","<<p[3]);
+            }
+            p += 4;
+            if (p[0] || p[2] || p[3]) {
+                ++unexpected1;
+                LOG("unexpected1: x,y="<<x<<","<<y<<" p="<<p[0]<<","<<p[1]<<","<<p[2]<<","<<p[3]);
+            }
+            p += 4*(wd - 1);
+            if (p[0] || p[1] || p[2]) {
+                ++unexpected2;
+                LOG("unexpected2: x,y="<<x<<","<<y<<" p="<<p[0]<<","<<p[1]<<","<<p[2]<<","<<p[3]);
+            }
+            p += 4;
+            if (p[0] || p[1] || p[3]) {
+                ++unexpected3;
+                LOG("unexpected3: x,y="<<x<<","<<y<<" p="<<p[0]<<","<<p[1]<<","<<p[2]<<","<<p[3]);
+            }
+        }
+    }
+    LOG("unexpected0="<<unexpected0);
+    LOG("unexpected1="<<unexpected1);
+    LOG("unexpected2="<<unexpected2);
+    LOG("unexpected3="<<unexpected3);
+#endif
+
+#if 1
 #if 1
     int wd2 = wd/2;
     int ht2 = ht/2;
@@ -367,17 +451,20 @@ int main(
             interpolate1331(raw_image, 2*x+1, 2*y+1, 1, 0, 3);
         }
     }
+#else
+    (void) interpolate1331;
+#endif
 
     Png png;
     png.init(wd, ht);
     for (int y = 0; y < ht; ++y) {
         for (int x = 0; x < wd; ++x) {
             int idx = x + y*wd;
-            auto pixel = raw_image.imgdata.image[idx];
+            auto pixel = &raw_image.imgdata.image[idx][0];
             int r0 = pixel[0];
             int b0 = pixel[2];
             int g1 = pixel[1];
-            int g2 = pixel[3];
+            int g2 = g1; //pixel[3];
             int r = scale_to_255(r0, r0, 1.0);
             int b = scale_to_255(b0, b0, 1.0);
             int g = scale_to_255(g1, g2, kFactor);
