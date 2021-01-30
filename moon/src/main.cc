@@ -33,8 +33,54 @@ r and b seem to correlate very tightly.
 but g1 g2 seem to be out to lunch.
 they seem to need need to be scaled (after subracting black) by about 1.9.
 
+this camera seems to have some unused pixels:
+the top 36 rows.
+and the left 76 columns.
+these numbers are hard coded in dcraw.
+weird.
+
+the height of this camera is 4051.
+which is literally and figuratively odd.
+should probably ignore the last row.
+
+we should probably crop to:
+left   = 76 unused + 3 interpolation + 1 round = 80
+top    = 36 unused + 3 interpolation + 1 round = 40
+right  = 6096 width - 3 interpolation - 1 round = 6092
+bottom = 4051 height - 3 interpolation - 2 round = 4046
+width  = 6092 - 80 = 6012
+height = 4046 - 40 = 4006
+
+dcraw gets the black value from the unused pixels.
+that's a LOT of black pixels.
+be careful of overflow.
+
+we need to subtract black first.
+
+second we need to do white balance and pixel scaling.
+we're given cam_mul.
+which gives the relative magnitudes of rgbg.
+relative is the key word.
+find the smallest: cam_mul_min.
+range = 16384-1 - black
+the scaling values are: cam_mul[i] / cam_mul_min * 65536-1 / range
+multiply every pixel by the scaling values.
+and now the pixel values span 0 .. 65535.
+yay.
+
+third we need to gamma correct.
+we're given imgdata.params.gamm[4].
+steal the gamma_curve function from dcraw.c.
+dcraw does gamma correction when converting to rgb.
+i don't know the values of the gamma curve.
+
+note: if we don't care about component...
+like say for to compute black.
+then we can use imgdata.rawdata.raw_image.
+it's the single component version of imgdata.image.
+
 re interpolation...
-currently we interopolate rgbg values for every pixel.
+currently we interpolate rgbg values for every pixel.
 using a 1331 filter.
 there are probably other methods.
 
@@ -398,8 +444,12 @@ int main(
     //int y = ht/2/2*2;
     //int x = 4336;
     //int y = 3076;
-    int x = 2748;
-    int y = 2854;
+    //int x = 2748;
+    //int y = 2854;
+    //int x = 76-2;
+    //int y = 34-2;
+    int x = 2;
+    int y = 2;
     LOG("center pixels:");
     int p0 = *get_pixel(raw_image, x, y, 0);
     int p1 = *get_pixel(raw_image, x, y, 1);
