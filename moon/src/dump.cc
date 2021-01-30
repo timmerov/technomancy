@@ -527,8 +527,13 @@ void dump(
         libraw_P1_color_t P1_color[2];
     } libraw_colordata_t;
     */
-    LOG(prefix<<".curve=[not available]");
     std::stringstream ss;
+    for (int i = 0; i < 0x10000; i += 0x100) {
+        ss<<color.curve[i]<<" ";
+    }
+    LOG(prefix<<".curve=[ "<<ss.str()<<"]");
+    ss.clear();
+    ss.str(std::string());
     for (int i = 0; i < 6; ++i) {
         ss<<color.cblack[i]<<" ";
     }
@@ -614,7 +619,14 @@ void dump(
     dump(prefix+".dng_color[1]", color.dng_color[1]);
     dump(prefix+".dng_levels", color.dng_levels);
     LOG(prefix<<".baseline_exposure="<<color.baseline_exposure);
-    LOG(prefix<<".WB_Coeffs=not dumped");
+    ss.clear();
+    ss.str(std::string());
+    for (int i = 0; i < 256; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            ss<<color.WB_Coeffs[i][k]<<" ";
+        }
+    }
+    LOG(prefix<<".WB_Coeffs=[ "<<ss.str()<<"]");
     LOG(prefix<<".WBCT_Coeffs=not dumped");
     dump(prefix+".P1_color[0]", color.P1_color[0]);
     dump(prefix+".P1_color[1]", color.P1_color[1]);

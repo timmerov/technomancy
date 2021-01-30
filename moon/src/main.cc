@@ -89,8 +89,14 @@ namespace {
 //const char *kInputFilename = "/home/timmer/Pictures/2020-05-12/moon/IMG_0393.CR2";
 //const char *kOutputFilename = "moon.png";
 
-const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/red.CR2";
-const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/red.png";
+//const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/red.CR2";
+//const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/red.png";
+
+//const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/green.CR2";
+//const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/green.png";
+
+const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/blue.CR2";
+const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/blue.png";
 
 //const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/santa.CR2";
 //const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/santa.png";
@@ -212,7 +218,10 @@ int main(
         return 1;
     }
     raw_image.unpack();
-    raw_image.raw2image();
+    raw_image.dcraw_process();
+    //raw_image.raw2image();
+    raw_image.imgdata.params.green_matching = 1;
+    raw_image.imgdata.params.use_camera_wb = 1;
     dump(raw_image);
 
     /** analyze image **/
@@ -348,6 +357,13 @@ int main(
     }
     std::cout<<std::endl;
 
+    int width = 0;
+    int height = 0;
+    int colors = 0;
+    int bps = 0;
+    raw_image.get_mem_image_format(&width, &height, &colors, &bps);
+    LOG("image format width="<<width<<" height="<<height<<" colors="<<colors<<" bps="<<bps);
+
     //int x = wd/2/2*2;
     //int y = ht/2/2*2;
     //int x = 4336;
@@ -380,8 +396,28 @@ int main(
     p3 = *get_pixel(raw_image, x, y, 3);
     LOG("x,y="<<x<<","<<y<<" pixel="<<p0<<","<<p1<<","<<p2<<","<<p3);
 
+    --x;
+    --y;
+    int c0 = raw_image.COLOR(y, x);
+    int c1 = raw_image.COLOR(y, x+1);
+    int c2 = raw_image.COLOR(y+1, x);
+    int c3 = raw_image.COLOR(y+1, x+1);
+    LOG("COLOR="<<c0<<","<<c1<<","<<c2<<","<<c3);
 
-#if 1
+    int fc0 = raw_image.FC(y, x);
+    int fc1 = raw_image.FC(y, x+1);
+    int fc2 = raw_image.FC(y+1, x);
+    int fc3 = raw_image.FC(y+1, x+1);
+    LOG("FC="<<fc0<<","<<fc1<<","<<fc2<<","<<fc3);
+
+    int fcol0 = raw_image.fcol(y, x);
+    int fcol1 = raw_image.fcol(y, x+1);
+    int fcol2 = raw_image.fcol(y+1, x);
+    int fcol3 = raw_image.fcol(y+1, x+1);
+    LOG("fcol="<<fcol0<<","<<fcol1<<","<<fcol2<<","<<fcol3);
+
+
+#if 0
     /**
     this test code ensures component values are where we think they are.
     even rows: RR G1 RR G1 RR G1 RR G1 RR G1 RR G1 RR G1 RR G1 RR G1 RR G1
@@ -425,7 +461,7 @@ int main(
 #endif
 
 #if 1
-#if 1
+#if 0
     int wd2 = wd/2;
     int ht2 = ht/2;
 
@@ -465,9 +501,15 @@ int main(
             int b0 = pixel[2];
             int g1 = pixel[1];
             int g2 = g1; //pixel[3];
+            /*
             int r = scale_to_255(r0, r0, 1.0);
             int b = scale_to_255(b0, b0, 1.0);
             int g = scale_to_255(g1, g2, kFactor);
+            */
+            (void) scale_to_255;
+            int r = r0 / 256;
+            int b = b0 / 256;
+            int g = (g1 + g2) / 256;
             idx = x * 3 + y * png.stride_;
             png.data_[idx] = r;
             png.data_[idx+1] = g;
