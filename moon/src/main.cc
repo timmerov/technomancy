@@ -120,6 +120,7 @@ where X% of the pixels consume 1-X% of the range.
 **/
 
 #include "dump.h"
+#include "image.h"
 
 #include <libraw/libraw.h>
 
@@ -141,11 +142,11 @@ namespace {
 //const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/green.CR2";
 //const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/green.png";
 
-const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/blue.CR2";
-const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/blue.png";
+//const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/blue.CR2";
+//const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/blue.png";
 
-//const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/santa.CR2";
-//const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/santa.png";
+const char *kInputFilename = "/home/timmer/Pictures/2021-01-29/santa.CR2";
+const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/santa.png";
 
 //const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0480.CR2";
 //const char *kOutputFilename = "comet1.png";
@@ -153,6 +154,7 @@ const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/blue.png";
 //const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0481.CR2";
 //const char *kOutputFilename = "comet2.png";
 
+#if 0
 /**
 bins in histogram.
 **/
@@ -259,6 +261,236 @@ void scale_image(
         }
     }
 }
+#endif
+
+class Black {
+public:
+    int r_ = 0;
+    int g1_ = 0;
+    int g2_ = 0;
+    int b_ = 0;
+};
+
+class Balance {
+public:
+    float r_ = 1.0;
+    float g1_ = 1.0;
+    float g2_ = 1.0;
+    float b_ = 1.0;
+};
+
+class Rawsome {
+public:
+    Rawsome() = default;
+    ~Rawsome() {
+        if (is_loaded_) {
+            raw_image_.recycle();
+        }
+    }
+
+    std::string in_filename_;
+    std::string out_filename_;
+    LibRaw raw_image_;
+    bool is_loaded_ = false;
+    Image image_;
+    Black black_;
+
+    int run(
+        const char *in_filename,
+        const char *out_filename
+    ) {
+        in_filename_ = in_filename;
+        out_filename_ = out_filename;
+        load_raw_image();
+        if (is_loaded_ == false) {
+            return 1;
+        }
+        copy_raw_to_image();
+        determine_black();
+        scale_image();
+        apply_gamma();
+        write_png();
+        return 0;
+    }
+
+    void load_raw_image() {
+        LOG("loading raw image from: \""<<in_filename_<<"\"...");
+        is_loaded_ = false;
+        raw_image_.open_file(in_filename_.c_str());
+        int raw_wd = raw_image_.imgdata.sizes.width;
+        int raw_ht = raw_image_.imgdata.sizes.height;
+        LOG("raw_wd="<<raw_wd);
+        LOG("raw_ht="<<raw_ht);
+        if (raw_wd <= 0 || raw_ht <= 0) {
+            LOG("File not opened: "<<in_filename_);
+            return;
+        }
+        raw_image_.unpack();
+        raw_image_.raw2image();
+        //dump(raw_image_);
+        is_loaded_ = true;
+    }
+
+    void copy_raw_to_image() {
+        LOG("copying raw to image...");
+        /**
+        raw_image_.imgdata.rawdata.raw_image is the raw samples in bayer format.
+        evem rows: G B G B G B ...
+        odd  rows: R G R G R G ...
+        we want this pattern:
+        every row: R G G B R G G B ...
+
+        i don't know why the bayer pattern is GB/RG.
+        i was expecting it to be RG/GB.
+        but experimentation shows otherwise.
+        maybe it has to do with the odd number of rows?
+        and the pattern is bottom justified?
+        dunno.
+        weird.
+        **/
+        int raw_wd = raw_image_.imgdata.sizes.width;
+        int raw_ht = raw_image_.imgdata.sizes.height;
+        int wd = raw_wd / 2;
+        int ht = raw_ht / 2;
+        image_.init(wd, ht);
+
+        for (int y = 0; y < ht; ++y) {
+            for (int x = 0; x < wd; ++x) {
+                int raw_idx = 2*x + 2*y*raw_wd;
+
+                /** extract rggb from the GB/RG bayer pattern **/
+                int g2 = raw_image_.imgdata.rawdata.raw_image[raw_idx];
+                int b  = raw_image_.imgdata.rawdata.raw_image[raw_idx+1];
+                int r  = raw_image_.imgdata.rawdata.raw_image[raw_idx+raw_wd];
+                int g1 = raw_image_.imgdata.rawdata.raw_image[raw_idx+raw_wd+1];
+
+                image_.r_.set(x, y, r);
+                image_.g1_.set(x, y, g1);
+                image_.g2_.set(x, y, g2);
+                image_.b_.set(x, y, b);
+            }
+        }
+    }
+
+    void determine_black() {
+        LOG("determining black (nyi)...");
+        /**
+        the top rows and left columns of pixels are black.
+        **/
+        /** hack **/
+        black_.r_ = 2000;
+        black_.g1_ = 2000;
+        black_.g2_ = 2000;
+        black_.b_ = 2000;
+    }
+
+    void scale_image() {
+        LOG("scaling image...");
+        /**
+        combine three things:
+        1. subtract black
+        2. white balance
+        3. scale to full 32 bits.
+        **/
+
+        /**
+        get the rggb camera multipliers from the raw_image.
+        note order permutation.
+        **/
+        Balance cam_mul;
+        auto& raw_cam_mul = raw_image_.imgdata.rawdata.color.cam_mul;
+        cam_mul.r_ = raw_cam_mul[0];
+        cam_mul.g1_ = raw_cam_mul[1];
+        cam_mul.g2_ = raw_cam_mul[3];
+        cam_mul.b_ = raw_cam_mul[2];
+        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
+
+        /** find the smallest multiplier. **/
+        float f = std::min(cam_mul.r_, cam_mul.g1_);
+        f = std::min(f, cam_mul.g2_);
+        f = std::min(f, cam_mul.b_);
+
+        /** scale so smallest is 1.0 **/
+        cam_mul.r_ /= f;
+        cam_mul.g1_ /= f;
+        cam_mul.g2_ /= f;
+        cam_mul.b_ /= f;
+        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
+
+        /** adjust so maximum =16384-black scales to 1.0 **/
+        cam_mul.r_ /= 16383.0 - black_.r_;
+        cam_mul.g1_ /= 16383.0 - black_.g1_;
+        cam_mul.g2_ /= 16383.0 - black_.g2_;
+        cam_mul.b_ /= 16383.0 - black_.b_;
+        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
+
+        /** adjust to span full 32 bit range. **/
+        cam_mul.r_ *= 65535.0;
+        cam_mul.g1_ *= 65535.0;
+        cam_mul.g2_ *= 65535.0;
+        cam_mul.b_ *= 65535.0;
+        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
+
+        /**
+        note: dcraw gets different numbers here.
+        theirs are correct: scale_mul=[ 10.484786 4.571040 6.256171 4.571040 ] RGBG
+        ours are wrong: cam_mul=11.1908 4.55642 4.55642 6.82128 RGGB
+        examine scale_colors in dcraw.c around line 4300.
+        **/
+
+        /** subtract black and white balance **/
+        image_.r_.scale(black_.r_, cam_mul.r_);
+        image_.g1_.scale(black_.g1_, cam_mul.g1_);
+        image_.g2_.scale(black_.g2_, cam_mul.g2_);
+        image_.b_.scale(black_.b_, cam_mul.b_);
+    }
+
+    void apply_gamma() {
+        LOG("applying gamma (nyi)...");
+        /** hack **/
+        /** apply linear gamma and scale to 8 bits. **/
+        image_.r_.scale(0, 256*65536-1);
+        image_.g1_.scale(0, 256*65536-1);
+        image_.g2_.scale(0, 256*65536-1);
+        image_.b_.scale(0, 256*65536-1);
+    }
+
+    void write_png() {
+        LOG("writing to: \""<<out_filename_<<"\"...");
+        int wd = image_.r_.width_;
+        int ht = image_.r_.height_;
+        Png png;
+        png.init(wd, ht);
+        for (int y = 0; y < ht; ++y) {
+            for (int x = 0; x < wd; ++x) {
+                int r = image_.r_.get(x, y);
+                int g1 = image_.g1_.get(x, y);
+                int g2 = image_.g2_.get(x, y);
+                int b = image_.b_.get(x, y);
+                int g = (g1 + g2) / 2;
+                int idx = 3*x + y*png.stride_;
+                //g = b = r;
+                //r = b = g = g1;
+                //r = b = g = g2;
+                //r = g = b;
+                png.data_[idx] = pin8bits(r);
+                png.data_[idx+1] = pin8bits(g);
+                png.data_[idx+2] = pin8bits(b);
+            }
+        }
+        png.write(out_filename_.c_str());
+    }
+
+    int pin8bits(int x) {
+        if (x < 0) {
+            return 0;
+        }
+        if (x > 255) {
+            return 255;
+        }
+        return x;
+    }
+};
 
 }
 
@@ -278,28 +510,15 @@ int main(
 
     LOG("Hello, World!");
 
-    /** load image **/
-    LibRaw raw_image;
-    raw_image.open_file(in_filename);
-    /** height can be odd but shouldn't be. weird. **/
-    int wd = raw_image.imgdata.sizes.width;
-    int ht = raw_image.imgdata.sizes.height & ~2;
-    LOG("wd="<<wd);
-    LOG("ht="<<ht);
-    if (wd <= 0 || ht <= 0) {
-        LOG("File not opened: "<<in_filename);
-        return 1;
-    }
-    raw_image.imgdata.params.green_matching = 1;
-    raw_image.imgdata.params.use_camera_wb = 1;
-    raw_image.unpack();
-    //raw_image.dcraw_process();
-    raw_image.raw2image();
-    raw_image.subtract_black();
-    //scale_image(raw_image);
-    (void) scale_image;
-    dump(raw_image);
+    Rawsome rawsome;
+    int exit_code = rawsome.run(in_filename, out_filename);
 
+    LOG("Goodbye, World!");
+
+    return exit_code;
+}
+
+#if 0
     /** analyze image **/
     int minr = 99999;
     int maxr = 0;
@@ -604,7 +823,6 @@ int main(
 
     raw_image.recycle();
 
-    LOG("Goodbye, World!");
-
     return 0;
 }
+#endif
