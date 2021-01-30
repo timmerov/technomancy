@@ -187,6 +187,33 @@ int scale_to_255(
     return c;
 }
 
+void scale_image(
+    LibRaw& raw_image
+) {
+    /** height can be odd but shouldn't be. weird. **/
+    int wd = raw_image.imgdata.sizes.width;
+    int ht = raw_image.imgdata.sizes.height & ~2;
+    int max = 0;
+
+    int sz = wd * ht;
+    for (int i = 0; i < sz; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            int px = raw_image.imgdata.image[i][k];
+            max = std::max(max, px);
+        }
+    }
+    LOG("max="<<max);
+    if (max > 0 && max <= 0x7FFF) {
+        for (int i = 0; i < sz; ++i) {
+            for (int k = 0; k < 4; ++k) {
+                auto p = &raw_image.imgdata.image[i][k];
+                int px = *p;
+                *p = (px << 16) / max;
+            }
+        }
+    }
+}
+
 }
 
 int main(
@@ -217,11 +244,14 @@ int main(
         LOG("File not opened: "<<in_filename);
         return 1;
     }
-    raw_image.unpack();
-    raw_image.dcraw_process();
-    //raw_image.raw2image();
     raw_image.imgdata.params.green_matching = 1;
     raw_image.imgdata.params.use_camera_wb = 1;
+    raw_image.unpack();
+    //raw_image.dcraw_process();
+    raw_image.raw2image();
+    raw_image.subtract_black();
+    //scale_image(raw_image);
+    (void) scale_image;
     dump(raw_image);
 
     /** analyze image **/
@@ -516,6 +546,7 @@ int main(
             png.data_[idx+2] = b;
         }
     }
+    LOG("writing to "<<out_filename);
     png.write(out_filename);
 #else
     (void) out_filename;
