@@ -394,15 +394,26 @@ public:
         **/
 
         /**
-        get the rggb camera multipliers from the raw_image.
+        normally, we would get the rggb camera multipliers from the raw_image.
         note order permutation.
         **/
         Balance cam_mul;
-        auto& raw_cam_mul = raw_image_.imgdata.rawdata.color.cam_mul;
+        /*auto& raw_cam_mul = raw_image_.imgdata.rawdata.color.cam_mul;
         cam_mul.r_ = raw_cam_mul[0];
         cam_mul.g1_ = raw_cam_mul[1];
         cam_mul.g2_ = raw_cam_mul[3];
         cam_mul.b_ = raw_cam_mul[2];
+        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);*/
+
+        /**
+        but... dcraw hard-codes them.
+        in a very round-about fashion.
+        for unknown reasons.
+        **/
+        cam_mul.r_ = 2.156868;
+        cam_mul.g1_ = 0.940327;
+        cam_mul.g2_ = 0.940327;
+        cam_mul.b_ = 1.286982;
         LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /** find the smallest multiplier. **/
@@ -417,7 +428,11 @@ public:
         cam_mul.b_ /= f;
         LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
-        /** adjust so maximum =16384-black scales to 1.0 **/
+        /**
+        adjust so maximum=16383 scales to 1.0 when cam_mul is 1.0.
+        (16383 - black) * cam_mul_new = 1.0 = cam_mul_org
+        cam_mul_new = cam_mul_org / (16383 - black)
+        **/
         cam_mul.r_ /= 16383.0 - black_.r_;
         cam_mul.g1_ /= 16383.0 - black_.g1_;
         cam_mul.g2_ /= 16383.0 - black_.g2_;
@@ -454,6 +469,44 @@ public:
         image_.g2_.scale(0, 256*65536-1);
         image_.b_.scale(0, 256*65536-1);
     }
+
+    #if 0
+    /** derived from dcraw. **/
+    void CLASS gamma_curve (double pwr, double ts, int mode, int imax)
+    {
+      int i;
+      double g[6], bnd[2]={0,0}, r;
+
+      g[0] = pwr;
+      g[1] = ts;
+      g[2] = g[3] = g[4] = 0;
+      bnd[g[1] >= 1] = 1;
+      if (g[1] && (g[1]-1)*(g[0]-1) <= 0) {
+        for (i=0; i < 48; i++) {
+          g[2] = (bnd[0] + bnd[1])/2;
+          if (g[0]) bnd[(pow(g[2]/g[1],-g[0]) - 1)/g[0] - 1/g[2] > -1] = g[2];
+          else	bnd[g[2]/exp(1-1/g[2]) < g[1]] = g[2];
+        }
+        g[3] = g[2] / g[1];
+        if (g[0]) g[4] = g[2] * (1/g[0] - 1);
+      }
+      if (g[0]) g[5] = 1 / (g[1]*SQR(g[3])/2 - g[4]*(1 - g[3]) +
+            (1 - pow(g[3],1+g[0]))*(1 + g[4])/(1 + g[0])) - 1;
+      else      g[5] = 1 / (g[1]*SQR(g[3])/2 + 1
+            - g[2] - g[3] -	g[2]*g[3]*(log(g[3]) - 1)) - 1;
+      if (!mode--) {
+        memcpy (gamm, g, sizeof gamm);
+        return;
+      }
+      for (i=0; i < 0x10000; i++) {
+        curve[i] = 0xffff;
+        if ((r = (double) i / imax) < 1)
+          curve[i] = 0x10000 * ( mode
+        ? (r < g[3] ? r*g[1] : (g[0] ? pow( r,g[0])*(1+g[4])-g[4]    : log(r)*g[2]+1))
+        : (r < g[2] ? r/g[1] : (g[0] ? pow((r+g[4])/(1+g[4]),1/g[0]) : exp((r-1)/g[2]))));
+      }
+    }
+    #endif
 
     void write_png() {
         LOG("writing to: \""<<out_filename_<<"\"...");
