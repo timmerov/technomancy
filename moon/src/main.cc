@@ -378,16 +378,44 @@ public:
     }
 
     void determine_black() {
-        LOG("determining black (nyi)...");
+        LOG("determining black...");
         /**
         the top rows and left columns of pixels are black.
         **/
-        /** hack **/
-        black_.r_ = 2046;
-        black_.g1_ = 2046;
-        black_.g2_ = 2046;
-        black_.b_ = 2046;
+        black_.r_ = determine_black(image_.r_);
+        black_.g1_ = determine_black(image_.g1_);
+        black_.g2_ = determine_black(image_.g2_);
+        black_.b_ = determine_black(image_.b_);
         LOG("black is: "<<black_.r_<<" "<<black_.g1_<<" "<<black_.g2_<<" "<<black_.b_);
+    }
+
+    int determine_black(
+        Plane &plane
+    ) {
+        agm::int64 sum = 0;
+        /*
+        the left 37 columns are black.
+        the top 16 rows are black.
+        row 17 is garbage.
+        the rest of the pixels are the actual image.
+        */
+        int top_count = 16 * plane.width_;
+        for (int y = 0; y < 16; ++y) {
+            for (int x = 0; x < plane.width_; ++x) {
+                sum += plane.get(x, y);
+            }
+        }
+
+        int left_count = 37 * (plane.height_ - 16);
+        for (int y = 16; y < plane.height_; ++y) {
+            for (int x = 0; x < 37; ++x) {
+                sum += plane.get(x, y);
+            }
+        }
+
+        int count = top_count + left_count;
+        int black = sum / count;
+        return black;
     }
 
     float average_top_left(
