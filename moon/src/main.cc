@@ -310,8 +310,9 @@ public:
         determine_black();
         scale_image();
         combine_greens();
-        //apply_gamma();
         convert_to_srgb();
+        apply_gamma();
+        scale_to_8bits();
         write_png();
         return 0;
     }
@@ -385,6 +386,7 @@ public:
         black_.g1_ = 2000;
         black_.g2_ = 2000;
         black_.b_ = 2000;
+        LOG("black is: "<<black_.r_<<" "<<black_.g1_<<" "<<black_.g2_<<" "<<black_.b_);
     }
 
     void scale_image() {
@@ -445,13 +447,6 @@ public:
         cam_mul.g2_ *= 65535.0;
         cam_mul.b_ *= 65535.0;
 
-        /**
-        note: dcraw gets different numbers here.
-        theirs are correct: scale_mul=[ 10.484786 4.571040 6.256171 4.571040 ] RGBG
-        ours are wrong: cam_mul=11.1908 4.55642 4.55642 6.82128 RGGB
-        examine scale_colors in dcraw.c around line 4300.
-        **/
-
         /** subtract black and white balance **/
         image_.r_.scale(black_.r_, cam_mul.r_);
         image_.g1_.scale(black_.g1_, cam_mul.g1_);
@@ -469,75 +464,13 @@ public:
         }
     }
 
-    void apply_gamma() {
-        LOG("applying gamma (nyi)...");
-        gamma_curve(0.45, 4.5);
-        /** hack **/
-        /** apply linear gamma and scale to 8 bits. **/
-        double factor = 1.0/256.0;
-        image_.r_.scale(0, factor);
-        image_.g1_.scale(0, factor);
-        image_.g2_.scale(0, factor);
-        image_.b_.scale(0, factor);
-    }
-
-    /** derived from dcraw. **/
-    void gamma_curve (
-        double pwr,
-        double ts
-    ){
-#define SQR(x) ((x)*(x))
-      int curve[0x10000];
-      (void) curve;
-      int mode = 0;
-      int imax = 0;
-      double g2 = 0.0;
-      double g3 = 0.0;
-      double g4 = 0.0;
-      double g5 = 0.0;
-
-      int i;
-      double bnd[2]={0,0}, r;
-
-      pwr = pwr;
-      ts = ts;
-      g2 = g3 = g4 = 0;
-      bnd[ts >= 1] = 1;
-      if (ts && (ts-1)*(pwr-1) <= 0) {
-        for (i=0; i < 48; i++) {
-          g2 = (bnd[0] + bnd[1])/2;
-          if (pwr) bnd[(std::pow(g2/ts,-pwr) - 1)/pwr - 1/g2 > -1] = g2;
-          else	bnd[g2/std::exp(1-1/g2) < ts] = g2;
-        }
-        g3 = g2 / ts;
-        if (pwr) g4 = g2 * (1/pwr - 1);
-      }
-      if (pwr) g5 = 1 / (ts*SQR(g3)/2 - g4*(1 - g3) +
-            (1 - std::pow(g3,1+pwr))*(1 + g4)/(1 + pwr)) - 1;
-      else      g5 = 1 / (ts*SQR(g3)/2 + 1
-            - g2 - g3 -	g2*g3*(std::log(g3) - 1)) - 1;
-      if (!mode--) {
-        (void) g5;
-        LOG("you are here.");
-        //memcpy (gamm, g, sizeof gamm);
-        return;
-      }
-      for (i=0; i < 0x10000; i++) {
-        curve[i] = 0xffff;
-        if ((r = (double) i / imax) < 1)
-          curve[i] = 0x10000 * ( mode
-        ? (r < g3 ? r*ts : (pwr ? std::pow( r,pwr)*(1+g4)-g4    : std::log(r)*g2+1))
-        : (r < g2 ? r/ts : (pwr ? std::pow((r+g4)/(1+g4),1/pwr) : std::exp((r-1)/g2))));
-      }
-    }
-
     void convert_to_srgb() {
         LOG("converting to sRGB...");
         /**
         we are currently in canon bayer rgb space.
         convert to srgb space by matrix multiplication.
         the matrix is hard-coded.
-        dcraw derives it in a roundaboutedly.
+        dcraw derives it roundaboutedly.
         **/
         static double mat[3][3] = {
             {+1.901824, -0.972035, +0.070211},
@@ -556,16 +489,62 @@ public:
             double out_g = mat[1][0]*in_r + mat[1][1]*in_g + mat[1][2]*in_b;
             double out_b = mat[2][0]*in_r + mat[2][1]*in_g + mat[2][2]*in_b;
 
-            /** scale to 8 bits **/
-            out_r /= 256.0;
-            out_g /= 256.0;
-            out_b /= 256.0;
-
             /** overwrite old values. **/
             image_.r_.samples_[i] = out_r;
             image_.g1_.samples_[i] = out_g;
             image_.b_.samples_[i] = out_b;
         }
+    }
+
+    void apply_gamma() {
+        LOG("applying gamma (nyi)...");
+        gamma_curve(0.45, 4.5, 0x10000);
+    }
+
+    /** derived from dcraw. **/
+    void gamma_curve(
+        double pwr,
+        double ts,
+        int imax
+    ){
+        #define SQR(x) ((x)*(x))
+        int curve[0x10000];
+        (void) curve;
+        double g2 = 0.0;
+        double g3 = 0.0;
+        double g4 = 0.0;
+
+        int i;
+        double bnd[2]={0,0}, r;
+
+        pwr = pwr;
+        ts = ts;
+        g2 = g3 = g4 = 0;
+        bnd[ts >= 1] = 1;
+        if ((ts-1)*(pwr-1) <= 0) {
+            for (i=0; i < 48; i++) {
+                g2 = (bnd[0] + bnd[1])/2;
+                bnd[(std::pow(g2/ts,-pwr) - 1)/pwr - 1/g2 > -1] = g2;
+            }
+            g3 = g2 / ts;
+            g4 = g2 * (1/pwr - 1);
+        }
+        for (i=0; i < 0x10000; i++) {
+            curve[i] = 0xffff;
+            r = (double) i / imax;
+            if (r < 1) {
+                curve[i] = 0x10000 * (r < g3 ? r*ts : std::pow(r,pwr)*(1+g4)-g4);
+            }
+        }
+        LOG("curve set.");
+    }
+
+    void scale_to_8bits() {
+        LOG("scaling to 8 bits per sample..");
+        double factor = 1.0/256.0;
+        image_.r_.scale(0, factor);
+        image_.g1_.scale(0, factor);
+        image_.b_.scale(0, factor);
     }
 
     void write_png() {
@@ -580,15 +559,17 @@ public:
                 int g = image_.g1_.get(x, y);
                 int b = image_.b_.get(x, y);
                 int idx = 3*x + y*png.stride_;
-                png.data_[idx] = pin8bits(r);
-                png.data_[idx+1] = pin8bits(g);
-                png.data_[idx+2] = pin8bits(b);
+                png.data_[idx] = pin_to_8bits(r);
+                png.data_[idx+1] = pin_to_8bits(g);
+                png.data_[idx+2] = pin_to_8bits(b);
             }
         }
         png.write(out_filename_.c_str());
     }
 
-    int pin8bits(int x) {
+    int pin_to_8bits(
+        int x
+    ) {
         if (x < 0) {
             return 0;
         }
