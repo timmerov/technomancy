@@ -295,6 +295,7 @@ public:
     bool is_loaded_ = false;
     Image image_;
     Black black_;
+    std::vector<int> gamma_curve_;
 
     int run(
         const char *in_filename,
@@ -382,11 +383,33 @@ public:
         the top rows and left columns of pixels are black.
         **/
         /** hack **/
-        black_.r_ = 2000;
-        black_.g1_ = 2000;
-        black_.g2_ = 2000;
-        black_.b_ = 2000;
+        black_.r_ = 2046;
+        black_.g1_ = 2046;
+        black_.g2_ = 2046;
+        black_.b_ = 2046;
         LOG("black is: "<<black_.r_<<" "<<black_.g1_<<" "<<black_.g2_<<" "<<black_.b_);
+    }
+
+    float average_top_left(
+        Plane &plane,
+        int black
+    ) {
+        int sum = 0;
+        int count = 0;
+        for (int y = 0; y < 4; ++y) {
+            for (int x = 0; x < 4; ++x) {
+                int c = plane.get(x, y);
+                if (c > black) {
+                    sum += c;
+                    ++count;
+                }
+            }
+        }
+        float avg = 0.0;
+        if (count) {
+            avg = float(avg) / float(count);
+        }
+        return avg;
     }
 
     void scale_image() {
@@ -403,22 +426,12 @@ public:
         note order permutation.
         **/
         Balance cam_mul;
-        /*auto& raw_cam_mul = raw_image_.imgdata.rawdata.color.cam_mul;
+        auto& raw_cam_mul = raw_image_.imgdata.rawdata.color.cam_mul;
         cam_mul.r_ = raw_cam_mul[0];
         cam_mul.g1_ = raw_cam_mul[1];
         cam_mul.g2_ = raw_cam_mul[3];
         cam_mul.b_ = raw_cam_mul[2];
-        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);*/
-
-        /**
-        but... dcraw hard-codes them.
-        in a very round-about fashion.
-        for unknown reasons.
-        **/
-        cam_mul.r_ = 2.156868;
-        cam_mul.g1_ = 0.940327;
-        cam_mul.g2_ = 0.940327;
-        cam_mul.b_ = 1.286982;
+        //LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /** find the smallest multiplier. **/
         float f = std::min(cam_mul.r_, cam_mul.g1_);
@@ -430,6 +443,7 @@ public:
         cam_mul.g1_ /= f;
         cam_mul.g2_ /= f;
         cam_mul.b_ /= f;
+        //LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /**
         adjust so maximum=16383 scales to 1.0 when cam_mul is 1.0.
@@ -440,12 +454,14 @@ public:
         cam_mul.g1_ /= 16383.0 - black_.g1_;
         cam_mul.g2_ /= 16383.0 - black_.g2_;
         cam_mul.b_ /= 16383.0 - black_.b_;
+        //LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /** adjust to span full 32 bit range. **/
         cam_mul.r_ *= 65535.0;
         cam_mul.g1_ *= 65535.0;
         cam_mul.g2_ *= 65535.0;
         cam_mul.b_ *= 65535.0;
+        //LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /** subtract black and white balance **/
         image_.r_.scale(black_.r_, cam_mul.r_);
@@ -499,6 +515,10 @@ public:
     void apply_gamma() {
         LOG("applying gamma (nyi)...");
         gamma_curve(0.45, 4.5, 0x10000);
+
+        apply_gamma(image_.r_);
+        apply_gamma(image_.g1_);
+        apply_gamma(image_.b_);
     }
 
     /** derived from dcraw. **/
@@ -507,36 +527,53 @@ public:
         double ts,
         int imax
     ){
+        gamma_curve_.resize(0x10000);
+
         #define SQR(x) ((x)*(x))
-        int curve[0x10000];
-        (void) curve;
         double g2 = 0.0;
         double g3 = 0.0;
         double g4 = 0.0;
 
-        int i;
-        double bnd[2]={0,0}, r;
+        double bnd[2] = {0.0, 0.0};
+        double r;
 
         pwr = pwr;
         ts = ts;
         g2 = g3 = g4 = 0;
         bnd[ts >= 1] = 1;
         if ((ts-1)*(pwr-1) <= 0) {
-            for (i=0; i < 48; i++) {
+            for (int i = 0; i < 48; ++i) {
                 g2 = (bnd[0] + bnd[1])/2;
                 bnd[(std::pow(g2/ts,-pwr) - 1)/pwr - 1/g2 > -1] = g2;
             }
             g3 = g2 / ts;
             g4 = g2 * (1/pwr - 1);
         }
-        for (i=0; i < 0x10000; i++) {
-            curve[i] = 0xffff;
+        for (int i = 0; i < 0x10000; ++i) {
+            gamma_curve_[i] = 0xffff;
             r = (double) i / imax;
             if (r < 1) {
-                curve[i] = 0x10000 * (r < g3 ? r*ts : std::pow(r,pwr)*(1+g4)-g4);
+                gamma_curve_[i] = 0x10000 * (r < g3 ? r*ts : std::pow(r,pwr)*(1+g4)-g4);
             }
         }
-        LOG("curve set.");
+
+        /*std::stringstream ss;
+        for (int i = 0; i < 0x10000; i += 0x100) {
+            ss<<gamma_curve_[i]<<" ";
+        }
+        LOG("gamma_curve=[ "<<ss.str()<<"]");*/
+    }
+
+    void apply_gamma(
+        Plane& plane
+    ) {
+        int sz = plane.width_ * plane.height_;
+        for (int i = 0; i < sz; ++i) {
+            int c = plane.samples_[i];
+            c = pin_to_32bits(c);
+            c = gamma_curve_[c];
+            plane.samples_[i] = c;
+        }
     }
 
     void scale_to_8bits() {
@@ -575,6 +612,18 @@ public:
         }
         if (x > 255) {
             return 255;
+        }
+        return x;
+    }
+
+    int pin_to_32bits(
+        int x
+    ) {
+        if (x < 0) {
+            return 0;
+        }
+        if (x > 65535) {
+            return 65535;
         }
         return x;
     }
