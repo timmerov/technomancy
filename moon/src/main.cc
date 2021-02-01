@@ -309,6 +309,7 @@ public:
         }
         copy_raw_to_image();
         determine_black();
+        crop_black();
         scale_image();
         combine_greens();
         convert_to_srgb();
@@ -393,12 +394,12 @@ public:
         Plane &plane
     ) {
         agm::int64 sum = 0;
-        /*
+        /**
         the left 37 columns are black.
         the top 16 rows are black.
         row 17 is garbage.
         the rest of the pixels are the actual image.
-        */
+        **/
         int top_count = 16 * plane.width_;
         for (int y = 0; y < 16; ++y) {
             for (int x = 0; x < plane.width_; ++x) {
@@ -438,6 +439,17 @@ public:
             avg = float(avg) / float(count);
         }
         return avg;
+    }
+
+    void crop_black() {
+        /**
+        the left 37 columns are black.
+        the top 16 rows are black.
+        row 17 is garbage.
+        the rest of the pixels are the actual image.
+        **/
+        /** left, top, right, bottom **/
+        image_.crop(38, 18, image_.r_.width_, image_.r_.height_);
     }
 
     void scale_image() {

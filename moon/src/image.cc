@@ -73,6 +73,25 @@ void Plane::scale(
     }
 }
 
+void Plane::crop(
+    int left,
+    int top,
+    int right,
+    int bottom
+) {
+    int new_wd = right - left;
+    int new_ht = bottom - top;
+    Plane dst;
+    dst.init(new_wd, new_ht);
+    for (int y = 0; y < new_ht; ++y) {
+        for (int x = 0; x < new_wd; ++x) {
+            int c = get(x + left, y + top);
+            dst.set(x, y, c);
+        }
+    }
+    *this = std::move(dst);
+}
+
 Image::Image() {
 }
 
@@ -87,4 +106,16 @@ void Image::init(
     g1_.init(wd, ht);
     g2_.init(wd, ht);
     b_.init(wd, ht);
+}
+
+void Image::crop(
+    int left,
+    int top,
+    int right,
+    int bottom
+) {
+    r_.crop(left, top, right, bottom);
+    g1_.crop(left, top, right, bottom);
+    g2_.crop(left, top, right, bottom);
+    b_.crop(left, top, right, bottom);
 }

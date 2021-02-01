@@ -26,6 +26,9 @@ public:
 
     /** scale low to 0 and multiply by the factor. **/
     void scale(int low, float factor);
+
+    /** crop to rectangle **/
+    void crop(int left, int top, int right, int bottom);
 };
 
 class Image {
@@ -40,4 +43,7 @@ public:
 
     /** initialize all of the planes. **/
     void init(int wd, int ht);
+
+    /** crop to rectangle **/
+    void crop(int left, int top, int right, int bottom);
 };
