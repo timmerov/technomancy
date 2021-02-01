@@ -7,6 +7,8 @@ read and write png files.
 wrapper for libpng.
 **/
 
+#pragma GCC diagnostic ignored "-Wclobbered"
+
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
 #include <common/png.h>

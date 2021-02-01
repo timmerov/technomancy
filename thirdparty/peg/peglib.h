@@ -5,6 +5,8 @@
 //  MIT License
 //
 
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+
 #ifndef CPPPEGLIB_PEGLIB_H
 #define CPPPEGLIB_PEGLIB_H
 
