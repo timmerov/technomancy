@@ -310,6 +310,7 @@ public:
         copy_raw_to_image();
         determine_black();
         crop_black();
+        interpolate();
         scale_image();
         combine_greens();
         convert_to_srgb();
@@ -450,6 +451,43 @@ public:
         **/
         /** left, top, right, bottom **/
         image_.crop(38, 18, image_.r_.width_, image_.r_.height_);
+    }
+
+    void interpolate() {
+        /**
+        applying the 1331 filter is really fast for horizontal pixels.
+        so we transpose while small.
+        add pixels horizontally.
+        tanspose again while medium sized.
+        add pixels horizontally again.
+        **/
+        image_.transpose();
+        image_.interpolate_horz_1331();
+        image_.transpose();
+        image_.interpolate_horz_1331();
+
+        /**
+        at this point we have alignment issues.
+        every plane has 1 too many rows and 1 too many columns.
+        but every plane needs to chop a different set.
+        right now every plane looks like this:
+        r i r i r i
+        i i i i i i
+        r i r i r i
+        i i i i i i
+        where r is a "real" pixel and i is an interpolated pixels.
+        we need to make them like up with the bayer pattern.
+        r g r g r g
+        g b g b g b
+        r g r g r g
+        g b g b g b
+        **/
+        int wd = image_.r_.width_ - 1;
+        int ht = image_.r_.height_ - 1;
+        image_.r_.crop(0, 0, wd, ht);
+        image_.g1_.crop(1, 0, wd+1, ht);
+        image_.g2_.crop(0, 1, wd, ht+1);
+        image_.b_.crop(1, 1, wd+1, ht+1);
     }
 
     void scale_image() {

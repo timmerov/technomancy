@@ -29,6 +29,12 @@ public:
 
     /** crop to rectangle **/
     void crop(int left, int top, int right, int bottom);
+
+    /** transpose the image. **/
+    void transpose();
+
+    /** interpolate intermediate horizontal pixels. **/
+    void interpolate_horz_1331();
 };
 
 class Image {
@@ -46,4 +52,10 @@ public:
 
     /** crop to rectangle **/
     void crop(int left, int top, int right, int bottom);
+
+    /** transpose the image. **/
+    void transpose();
+
+    /** interpolate intermediate horizontal pixels. **/
+    void interpolate_horz_1331();
 };
