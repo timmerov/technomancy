@@ -592,7 +592,10 @@ public:
 
     void apply_gamma() {
         LOG("applying gamma (nyi)...");
-        gamma_curve(0.45, 4.5, 0x10000);
+        double pwr = raw_image_.imgdata.params.gamm[0];
+        double ts = raw_image_.imgdata.params.gamm[1];
+        int white = 0x10000;
+        gamma_curve(pwr, ts, white);
 
         apply_gamma(image_.r_);
         apply_gamma(image_.g1_);
