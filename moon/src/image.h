@@ -24,9 +24,6 @@ public:
     void set(int x, int y, int value);
     int get(int x, int y);
 
-    /** scale low to 0 and high to 65535. **/
-    void scale(int low, int high);
-
     /** scale low to 0 and multiply by the factor. **/
     void scale(int low, float factor);
 };

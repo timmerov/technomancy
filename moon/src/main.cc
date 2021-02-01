@@ -128,6 +128,7 @@ where X% of the pixels consume 1-X% of the range.
 #include <aggiornamento/log.h>
 #include <common/png.h>
 
+#include <cmath>
 #include <vector>
 #include <sstream>
 
@@ -308,7 +309,9 @@ public:
         copy_raw_to_image();
         determine_black();
         scale_image();
-        apply_gamma();
+        combine_greens();
+        //apply_gamma();
+        convert_to_srgb();
         write_png();
         return 0;
     }
@@ -414,7 +417,6 @@ public:
         cam_mul.g1_ = 0.940327;
         cam_mul.g2_ = 0.940327;
         cam_mul.b_ = 1.286982;
-        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /** find the smallest multiplier. **/
         float f = std::min(cam_mul.r_, cam_mul.g1_);
@@ -426,7 +428,6 @@ public:
         cam_mul.g1_ /= f;
         cam_mul.g2_ /= f;
         cam_mul.b_ /= f;
-        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /**
         adjust so maximum=16383 scales to 1.0 when cam_mul is 1.0.
@@ -437,14 +438,12 @@ public:
         cam_mul.g1_ /= 16383.0 - black_.g1_;
         cam_mul.g2_ /= 16383.0 - black_.g2_;
         cam_mul.b_ /= 16383.0 - black_.b_;
-        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /** adjust to span full 32 bit range. **/
         cam_mul.r_ *= 65535.0;
         cam_mul.g1_ *= 65535.0;
         cam_mul.g2_ *= 65535.0;
         cam_mul.b_ *= 65535.0;
-        LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /**
         note: dcraw gets different numbers here.
@@ -460,53 +459,114 @@ public:
         image_.b_.scale(black_.b_, cam_mul.b_);
     }
 
-    void apply_gamma() {
-        LOG("applying gamma (nyi)...");
-        /** hack **/
-        /** apply linear gamma and scale to 8 bits. **/
-        image_.r_.scale(0, 256*65536-1);
-        image_.g1_.scale(0, 256*65536-1);
-        image_.g2_.scale(0, 256*65536-1);
-        image_.b_.scale(0, 256*65536-1);
+    void combine_greens() {
+        LOG("combining greens...");
+        int sz = image_.g1_.width_ * image_.g1_.height_;
+        for (int i = 0; i < sz; ++i) {
+            int g1 = image_.g1_.samples_[i];
+            int g2 = image_.g2_.samples_[i];
+            image_.g1_.samples_[i] = (g1 + g2)/2;
+        }
     }
 
-    #if 0
-    /** derived from dcraw. **/
-    void CLASS gamma_curve (double pwr, double ts, int mode, int imax)
-    {
-      int i;
-      double g[6], bnd[2]={0,0}, r;
+    void apply_gamma() {
+        LOG("applying gamma (nyi)...");
+        gamma_curve(0.45, 4.5);
+        /** hack **/
+        /** apply linear gamma and scale to 8 bits. **/
+        double factor = 1.0/256.0;
+        image_.r_.scale(0, factor);
+        image_.g1_.scale(0, factor);
+        image_.g2_.scale(0, factor);
+        image_.b_.scale(0, factor);
+    }
 
-      g[0] = pwr;
-      g[1] = ts;
-      g[2] = g[3] = g[4] = 0;
-      bnd[g[1] >= 1] = 1;
-      if (g[1] && (g[1]-1)*(g[0]-1) <= 0) {
+    /** derived from dcraw. **/
+    void gamma_curve (
+        double pwr,
+        double ts
+    ){
+#define SQR(x) ((x)*(x))
+      int curve[0x10000];
+      (void) curve;
+      int mode = 0;
+      int imax = 0;
+      double g2 = 0.0;
+      double g3 = 0.0;
+      double g4 = 0.0;
+      double g5 = 0.0;
+
+      int i;
+      double bnd[2]={0,0}, r;
+
+      pwr = pwr;
+      ts = ts;
+      g2 = g3 = g4 = 0;
+      bnd[ts >= 1] = 1;
+      if (ts && (ts-1)*(pwr-1) <= 0) {
         for (i=0; i < 48; i++) {
-          g[2] = (bnd[0] + bnd[1])/2;
-          if (g[0]) bnd[(pow(g[2]/g[1],-g[0]) - 1)/g[0] - 1/g[2] > -1] = g[2];
-          else	bnd[g[2]/exp(1-1/g[2]) < g[1]] = g[2];
+          g2 = (bnd[0] + bnd[1])/2;
+          if (pwr) bnd[(std::pow(g2/ts,-pwr) - 1)/pwr - 1/g2 > -1] = g2;
+          else	bnd[g2/std::exp(1-1/g2) < ts] = g2;
         }
-        g[3] = g[2] / g[1];
-        if (g[0]) g[4] = g[2] * (1/g[0] - 1);
+        g3 = g2 / ts;
+        if (pwr) g4 = g2 * (1/pwr - 1);
       }
-      if (g[0]) g[5] = 1 / (g[1]*SQR(g[3])/2 - g[4]*(1 - g[3]) +
-            (1 - pow(g[3],1+g[0]))*(1 + g[4])/(1 + g[0])) - 1;
-      else      g[5] = 1 / (g[1]*SQR(g[3])/2 + 1
-            - g[2] - g[3] -	g[2]*g[3]*(log(g[3]) - 1)) - 1;
+      if (pwr) g5 = 1 / (ts*SQR(g3)/2 - g4*(1 - g3) +
+            (1 - std::pow(g3,1+pwr))*(1 + g4)/(1 + pwr)) - 1;
+      else      g5 = 1 / (ts*SQR(g3)/2 + 1
+            - g2 - g3 -	g2*g3*(std::log(g3) - 1)) - 1;
       if (!mode--) {
-        memcpy (gamm, g, sizeof gamm);
+        (void) g5;
+        LOG("you are here.");
+        //memcpy (gamm, g, sizeof gamm);
         return;
       }
       for (i=0; i < 0x10000; i++) {
         curve[i] = 0xffff;
         if ((r = (double) i / imax) < 1)
           curve[i] = 0x10000 * ( mode
-        ? (r < g[3] ? r*g[1] : (g[0] ? pow( r,g[0])*(1+g[4])-g[4]    : log(r)*g[2]+1))
-        : (r < g[2] ? r/g[1] : (g[0] ? pow((r+g[4])/(1+g[4]),1/g[0]) : exp((r-1)/g[2]))));
+        ? (r < g3 ? r*ts : (pwr ? std::pow( r,pwr)*(1+g4)-g4    : std::log(r)*g2+1))
+        : (r < g2 ? r/ts : (pwr ? std::pow((r+g4)/(1+g4),1/pwr) : std::exp((r-1)/g2))));
       }
     }
-    #endif
+
+    void convert_to_srgb() {
+        LOG("converting to sRGB...");
+        /**
+        we are currently in canon bayer rgb space.
+        convert to srgb space by matrix multiplication.
+        the matrix is hard-coded.
+        dcraw derives it in a roundaboutedly.
+        **/
+        static double mat[3][3] = {
+            {+1.901824, -0.972035, +0.070211},
+            {-0.229410, +1.659384, -0.429974},
+            {+0.042001, -0.519143, +1.477141}
+        };
+        int sz = image_.r_.width_ * image_.r_.height_;
+        for (int i = 0; i < sz; ++i) {
+            /** start with the original rgb. **/
+            double in_r = image_.r_.samples_[i];
+            double in_g = image_.g1_.samples_[i];
+            double in_b = image_.b_.samples_[i];
+
+            /** transform by matrix multiplication. **/
+            double out_r = mat[0][0]*in_r + mat[0][1]*in_g + mat[0][2]*in_b;
+            double out_g = mat[1][0]*in_r + mat[1][1]*in_g + mat[1][2]*in_b;
+            double out_b = mat[2][0]*in_r + mat[2][1]*in_g + mat[2][2]*in_b;
+
+            /** scale to 8 bits **/
+            out_r /= 256.0;
+            out_g /= 256.0;
+            out_b /= 256.0;
+
+            /** overwrite old values. **/
+            image_.r_.samples_[i] = out_r;
+            image_.g1_.samples_[i] = out_g;
+            image_.b_.samples_[i] = out_b;
+        }
+    }
 
     void write_png() {
         LOG("writing to: \""<<out_filename_<<"\"...");
@@ -517,15 +577,9 @@ public:
         for (int y = 0; y < ht; ++y) {
             for (int x = 0; x < wd; ++x) {
                 int r = image_.r_.get(x, y);
-                int g1 = image_.g1_.get(x, y);
-                int g2 = image_.g2_.get(x, y);
+                int g = image_.g1_.get(x, y);
                 int b = image_.b_.get(x, y);
-                int g = (g1 + g2) / 2;
                 int idx = 3*x + y*png.stride_;
-                //g = b = r;
-                //r = b = g = g1;
-                //r = b = g = g2;
-                //r = g = b;
                 png.data_[idx] = pin8bits(r);
                 png.data_[idx+1] = pin8bits(g);
                 png.data_[idx+2] = pin8bits(b);

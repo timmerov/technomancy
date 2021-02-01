@@ -63,19 +63,6 @@ int Plane::get(
 
 void Plane::scale(
     int low,
-    int high
-) {
-    int range = high - low;
-    int sz = width_ * height_;
-    for (int i = 0; i < sz; ++i) {
-        agm::int64 x = samples_[i];
-        x = (x - low) * 65535 / range;
-        samples_[i] = pin32bits(x);
-    }
-}
-
-void Plane::scale(
-    int low,
     float factor
 ) {
     int sz = width_ * height_;
