@@ -579,6 +579,16 @@ public:
             double out_g = mat[1][0]*in_r + mat[1][1]*in_g + mat[1][2]*in_b;
             double out_b = mat[2][0]*in_r + mat[2][1]*in_g + mat[2][2]*in_b;
 
+            /** ensure we don't change the color on overflow. **/
+            double maxc = std::max(out_r, out_g);
+            maxc = std::max(maxc, out_b);
+            if (maxc > 65535.0) {
+                double factor = 65535.0 / maxc;
+                out_r *= factor;
+                out_g *= factor;
+                out_b *= factor;
+            }
+
             /** overwrite old values. **/
             image_.r_.samples_[i] = out_r;
             image_.g1_.samples_[i] = out_g;
