@@ -35,6 +35,13 @@ public:
 
     /** interpolate intermediate horizontal pixels. **/
     void interpolate_horz_1331();
+
+    /** downsample by 2x. **/
+    void downsample(Plane &src);
+
+    /** apply 121 gaussian N times. **/
+    void gaussian(int n);
+    void gaussian_horz(int n);
 };
 
 class Image {

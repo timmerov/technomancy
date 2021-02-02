@@ -135,6 +135,57 @@ void Plane::interpolate_horz_1331() {
     *this = std::move(dst);
 }
 
+void Plane::downsample(
+    Plane &src
+) {
+    int wd = (src.width_ + 1) / 2;
+    int ht = (src.height_ + 1) / 2;
+    init(wd, ht);
+    for (int y = 0; y < ht; ++y) {
+        int src_y0 = 2*y;
+        int src_y1 = std::min(src_y0 + 1, src.height_);
+        for (int x = 0; x < wd; ++x) {
+            int src_x0 = 2*x;
+            int src_x1 = std::min(src_x0 + 1, src.width_);
+            int c00 = src.get(src_x0, src_y0);
+            int c10 = src.get(src_x1, src_y0);
+            int c01 = src.get(src_x0, src_y1);
+            int c11 = src.get(src_x1, src_y1);
+            int c = (c00 + c01 + c10 + c11 + 2) / 4;
+            set(x, y, c);
+        }
+    }
+}
+
+void Plane::gaussian(
+    int n
+) {
+    gaussian_horz(n);
+    transpose();
+    gaussian_horz(n);
+    transpose();
+}
+
+void Plane::gaussian_horz(
+    int n
+) {
+    for (int y = 0; y < height_; ++y) {
+        for (int i = 0; i < n; ++i) {
+            int c1 = get(0, y);
+            int c2 = c1;
+            for (int x = 1; x < width_; ++x) {
+                int c0 = c1;
+                c1 = c2;
+                c2 = get(x, y);
+                int c = (c0 + 2*c1 + c2 + 2)/4;
+                set(x-1, y, c);
+            }
+            int c = (c1 + 3*c2 + 2)/4;
+            set(width_-1, y, c);
+        }
+    }
+}
+
 Image::Image() {
 }
 

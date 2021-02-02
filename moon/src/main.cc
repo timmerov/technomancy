@@ -186,6 +186,7 @@ public:
     bool is_loaded_ = false;
     Image image_;
     Black black_;
+    int noise_;
     std::vector<int> gamma_curve_;
 
     int run(
@@ -201,8 +202,9 @@ public:
         copy_raw_to_image();
         determine_black();
         crop_black();
-        interpolate();
         scale_image();
+        adjust_dynamic_range();
+        interpolate();
         combine_greens();
         convert_to_srgb();
         apply_gamma();
@@ -274,12 +276,21 @@ public:
         LOG("determining black...");
         /**
         the top rows and left columns of pixels are black.
+        also set the black noise level.
         **/
+        noise_ = 0;
         black_.r_ = determine_black(image_.r_);
         black_.g1_ = determine_black(image_.g1_);
         black_.g2_ = determine_black(image_.g2_);
         black_.b_ = determine_black(image_.b_);
         LOG("black is: "<<black_.r_<<" "<<black_.g1_<<" "<<black_.g2_<<" "<<black_.b_);
+
+        /** adjust noise for black levels. **/
+        int min_black = std::min(black_.r_, black_.g1_);
+        min_black = std::min(min_black, black_.g2_);
+        min_black = std::min(min_black, black_.b_);
+        noise_ -= min_black;
+        LOG("noise is: "<<noise_);
     }
 
     int determine_black(
@@ -295,7 +306,9 @@ public:
         int top_count = 16 * plane.width_;
         for (int y = 0; y < 16; ++y) {
             for (int x = 0; x < plane.width_; ++x) {
-                sum += plane.get(x, y);
+                int c = plane.get(x, y);
+                sum += c;
+                noise_ = std::max(noise_, c);
             }
         }
 
@@ -311,29 +324,8 @@ public:
         return black;
     }
 
-    float average_top_left(
-        Plane &plane,
-        int black
-    ) {
-        int sum = 0;
-        int count = 0;
-        for (int y = 0; y < 4; ++y) {
-            for (int x = 0; x < 4; ++x) {
-                int c = plane.get(x, y);
-                if (c > black) {
-                    sum += c;
-                    ++count;
-                }
-            }
-        }
-        float avg = 0.0;
-        if (count) {
-            avg = float(avg) / float(count);
-        }
-        return avg;
-    }
-
     void crop_black() {
+        LOG("cropping black pixels...");
         /**
         the left 37 columns are black.
         the top 16 rows are black.
@@ -342,43 +334,6 @@ public:
         **/
         /** left, top, right, bottom **/
         image_.crop(38, 18, image_.r_.width_, image_.r_.height_);
-    }
-
-    void interpolate() {
-        /**
-        applying the 1331 filter is really fast for horizontal pixels.
-        so we transpose while small.
-        add pixels horizontally.
-        tanspose again while medium sized.
-        add pixels horizontally again.
-        **/
-        image_.transpose();
-        image_.interpolate_horz_1331();
-        image_.transpose();
-        image_.interpolate_horz_1331();
-
-        /**
-        at this point we have alignment issues.
-        every plane has 1 too many rows and 1 too many columns.
-        but every plane needs to chop a different set.
-        right now every plane looks like this:
-        r i r i r i
-        i i i i i i
-        r i r i r i
-        i i i i i i
-        where r is a "real" pixel and i is an interpolated pixels.
-        we need to make them like up with the bayer pattern.
-        r g r g r g
-        g b g b g b
-        r g r g r g
-        g b g b g b
-        **/
-        int wd = image_.r_.width_ - 1;
-        int ht = image_.r_.height_ - 1;
-        image_.r_.crop(0, 0, wd, ht);
-        image_.g1_.crop(1, 0, wd+1, ht);
-        image_.g2_.crop(0, 1, wd, ht+1);
-        image_.b_.crop(1, 1, wd+1, ht+1);
     }
 
     void scale_image() {
@@ -439,6 +394,134 @@ public:
         image_.b_.scale(black_.b_, cam_mul.b_);
     }
 
+    void adjust_dynamic_range() {
+        LOG("adjusting dynamic range (wip)...");
+
+        /**
+        this technique has promise.
+        but the algorithm needs attention.
+        the shift and drama parameters work.
+        but small values can make images look ridiculous.
+        the downsampling technique has severe issues with macro blocking.
+        the shifting technique doesn't play nicely with gamma correction.
+        expanding mid range luminances works nicely for the moon.
+        the shifting technique tends to just amplify noise in the dark areas.
+
+        need to handle areas that overflow one component.
+        that cap will shift the color.
+
+        am looking at this paper:
+        Image Display Algorithms for High and Low Dynamic Range Display Devices
+        by Erik Reinhard Timo Kunkel Yoann Marion Kadi Bouatouch Jonathan Brouillat
+        **/
+
+        /** convert canon rggb to srgb by multiplying by this matrix. **/
+        static double mat[3][3] = {
+            {+1.901824, -0.972035, +0.070211},
+            {-0.229410, +1.659384, -0.429974},
+            {+0.042001, -0.519143, +1.477141}
+        };
+
+        /** convert srgb to luminance by multiplying by this vector. **/
+        static double lum_vec[3] = { 0.2125, 0.7154, 0.0721};
+
+        /** combine them **/
+        double rx = mat[0][0]*lum_vec[0] + mat[0][1]*lum_vec[1] + mat[0][2]*lum_vec[2];
+        double gx = mat[1][0]*lum_vec[0] + mat[1][1]*lum_vec[1] + mat[1][2]*lum_vec[2];
+        double bx = mat[2][0]*lum_vec[0] + mat[2][1]*lum_vec[1] + mat[2][2]*lum_vec[2];
+
+        /** we still have two greens. **/
+        gx /= 2.0;
+
+        /** compute luminance for all pixels. **/
+        int wd = image_.r_.width_;
+        int ht = image_.r_.height_;
+        Plane luminance;
+        luminance.init(wd, ht);
+        int sz = wd * ht;
+        for (int i = 0; i < sz; ++i) {
+            int r = image_.r_.samples_[i];
+            int g1 = image_.g1_.samples_[i];
+            int g2 = image_.g2_.samples_[i];
+            int b = image_.b_.samples_[i];
+            int lum = r*rx + g1*gx + g2*gx + b*bx;
+            luminance.samples_[i] = lum;
+        }
+
+        /** downsample luminance a few times to get the average luminance. **/
+        Plane average(luminance);
+        average.gaussian(32);
+
+        /**
+        dramatically move a pixel from its average luminance.
+        and shift the average lumance towards 50%.
+        **/
+        const double kShift = 1.0;
+        const double kDrama = 1.5;
+
+        for (int y = 0; y < ht; ++y) {
+            for (int x = 0; x < wd; ++x) {
+                int lum = luminance.get(x, y);
+                if (lum >= noise_) {
+                    double avg_lum = average.get(x, y);
+                    double new_lum = (avg_lum - 0x8000)*kShift + 0x8000;
+                    double target_lum = new_lum + kDrama*(lum - avg_lum);
+                    double factor = target_lum / lum;
+                    int r = image_.r_.get(x, y);
+                    int g1 = image_.g1_.get(x, y);
+                    int g2 = image_.g2_.get(x, y);
+                    int b = image_.b_.get(x, y);
+                    r = r * factor;
+                    g1 = g1 * factor;
+                    g2 = g2 * factor;
+                    b = b * factor;
+                    image_.r_.set(x, y, r);
+                    image_.g1_.set(x, y, g1);
+                    image_.g2_.set(x, y, g2);
+                    image_.b_.set(x, y, b);
+                }
+            }
+        }
+    }
+
+    void interpolate() {
+        LOG("interpolating pixels...");
+        /**
+        applying the 1331 filter is really fast for horizontal pixels.
+        so we transpose while small.
+        add pixels horizontally.
+        tanspose again while medium sized.
+        add pixels horizontally again.
+        **/
+        image_.transpose();
+        image_.interpolate_horz_1331();
+        image_.transpose();
+        image_.interpolate_horz_1331();
+
+        /**
+        at this point we have alignment issues.
+        every plane has 1 too many rows and 1 too many columns.
+        but every plane needs to chop a different set.
+        right now every plane looks like this:
+        r i r i r i
+        i i i i i i
+        r i r i r i
+        i i i i i i
+        where r is a "real" pixel and i is an interpolated pixels.
+        we need to make them like up with the bayer pattern.
+        r g r g r g
+        g b g b g b
+        r g r g r g
+        g b g b g b
+        **/
+        int wd = image_.r_.width_ - 1;
+        int ht = image_.r_.height_ - 1;
+        image_.r_.crop(0, 0, wd, ht);
+        image_.g1_.crop(1, 0, wd+1, ht);
+        image_.g2_.crop(0, 1, wd, ht+1);
+        image_.b_.crop(1, 1, wd+1, ht+1);
+    }
+
     void combine_greens() {
         LOG("combining greens...");
         int sz = image_.g1_.width_ * image_.g1_.height_;
@@ -482,7 +565,7 @@ public:
     }
 
     void apply_gamma() {
-        LOG("applying gamma (nyi)...");
+        LOG("applying gamma...");
         double pwr = raw_image_.imgdata.params.gamm[0];
         double ts = raw_image_.imgdata.params.gamm[1];
         int white = 0x10000;
