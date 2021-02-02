@@ -452,6 +452,9 @@ public:
         Plane average(luminance);
         average.gaussian(32);
 
+        /** expand the noise floor a bit. **/
+        int noise = noise_ * 150 / 100;
+
         /**
         dramatically move a pixel from its average luminance.
         and shift the average lumance towards 50%.
@@ -462,23 +465,42 @@ public:
         for (int y = 0; y < ht; ++y) {
             for (int x = 0; x < wd; ++x) {
                 int lum = luminance.get(x, y);
-                if (lum >= noise_) {
+                if (lum >= noise) {
+                    /** rescale the average luminance. **/
                     double avg_lum = average.get(x, y);
                     double new_lum = (avg_lum - 0x8000)*kShift + 0x8000;
+
+                    /** move the colors of this pixel away from the average luminance. **/
                     double target_lum = new_lum + kDrama*(lum - avg_lum);
+
+                    /** scale the components. **/
                     double factor = target_lum / lum;
                     int r = image_.r_.get(x, y);
                     int g1 = image_.g1_.get(x, y);
                     int g2 = image_.g2_.get(x, y);
                     int b = image_.b_.get(x, y);
-                    r = r * factor;
-                    g1 = g1 * factor;
-                    g2 = g2 * factor;
-                    b = b * factor;
-                    image_.r_.set(x, y, r);
-                    image_.g1_.set(x, y, g1);
-                    image_.g2_.set(x, y, g2);
-                    image_.b_.set(x, y, b);
+                    double new_r = r * factor;
+                    double new_g1 = g1 * factor;
+                    double new_g2 = g2 * factor;
+                    double new_b = b * factor;
+
+                    /** ensure we don't change the color on overflow. **/
+                    double maxc = std::max(new_r, new_g1);
+                    maxc = std::max(maxc, new_g2);
+                    maxc = std::max(maxc, new_b);
+                    if (maxc > 65535.0) {
+                        factor = 65535.0 / maxc;
+                        new_r *= factor;
+                        new_g1 *= factor;
+                        new_g2 *= factor;
+                        new_b *= factor;
+                    }
+
+                    /** store the dynamically enhanced pixel **/
+                    image_.r_.set(x, y, new_r);
+                    image_.g1_.set(x, y, new_g1);
+                    image_.g2_.set(x, y, new_g2);
+                    image_.b_.set(x, y, new_b);
                 }
             }
         }

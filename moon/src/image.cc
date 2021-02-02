@@ -170,6 +170,7 @@ void Plane::gaussian_horz(
     int n
 ) {
     for (int y = 0; y < height_; ++y) {
+        int div = 1;
         for (int i = 0; i < n; ++i) {
             int c1 = get(0, y);
             int c2 = c1;
@@ -177,11 +178,29 @@ void Plane::gaussian_horz(
                 int c0 = c1;
                 c1 = c2;
                 c2 = get(x, y);
-                int c = (c0 + 2*c1 + c2 + 2)/4;
+                int c = c0 + 2*c1 + c2;
                 set(x-1, y, c);
             }
-            int c = (c1 + 3*c2 + 2)/4;
+            int c = c1 + 3*c2;
             set(width_-1, y, c);
+            div *= 4;
+            if (div >= 8196) {
+                int round = div / 2;
+                for (int x = 0; x < width_; ++x) {
+                    int c = get(x, y);
+                    c = (c + round) / div;
+                    set(x, y, c);
+                }
+                div = 1;
+            }
+        }
+        if (div > 1) {
+            int round = div / 2;
+            for (int x = 0; x < width_; ++x) {
+                int c = get(x, y);
+                c = (c + round) / div;
+                set(x, y, c);
+            }
         }
     }
 }
