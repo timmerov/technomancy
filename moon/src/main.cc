@@ -155,6 +155,8 @@ const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/santa.png";
 //const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0481.CR2";
 //const char *kOutputFilename = "comet2.png";
 
+const int kFullySaturated = (1<<30)-1;
+
 class RggbPixel {
 public:
     int r_ = 0;
@@ -205,7 +207,7 @@ public:
         determine_black();
         crop_black();
         determine_saturation();
-        white_saturated_pixels();
+        desaturate_pixels();
         scale_image();
         adjust_dynamic_range();
         interpolate();
@@ -430,13 +432,14 @@ public:
         return saturation;
     }
 
-    void white_saturated_pixels() {
+    void desaturate_pixels() {
         LOG("setting saturated pixels to white...");
         /**
-        if any component is saturated...
-        then we saturate all components.
+        mark saturated pixels in the red component.
         **/
-        int sz = image_.r_.width_ * image_.r_.height_;
+        int wd = image_.r_.width_;
+        int ht = image_.r_.height_;
+        int sz = wd * ht;
         for (int i = 0; i < sz; ++i) {
             int r = image_.r_.samples_[i];
             int g1 = image_.g1_.samples_[i];
@@ -446,10 +449,108 @@ public:
             ||  g1 >= saturation_.g1_
             ||  g2 >= saturation_.g2_
             ||  b >= saturation_.b_) {
-                image_.r_.samples_[i] = saturation_.r_;
-                image_.g1_.samples_[i] = saturation_.g1_;
-                image_.g2_.samples_[i] = saturation_.g2_;
-                image_.b_.samples_[i] = saturation_.b_;
+                image_.r_.samples_[i] = kFullySaturated;
+            }
+        }
+
+        /** any saturated pixels on the edges are full white. **/
+        for (int y = 0; y < ht; y += ht-1) {
+            for (int x = 0; x < wd; ++x) {
+                int r = image_.r_.get(x, y);
+                if (r == kFullySaturated) {
+                    image_.r_.set(x, y, saturation_.r_);
+                    image_.g1_.set(x, y, saturation_.g1_);
+                    image_.g2_.set(x, y, saturation_.g2_);
+                    image_.b_.set(x, y, saturation_.b_);
+                }
+            }
+        }
+        for (int x = 0; x < wd; x += wd-1) {
+            for (int y = 1; y < ht-1; ++y) {
+                int r = image_.r_.get(x, y);
+                if (r == kFullySaturated) {
+                    image_.r_.set(x, y, saturation_.r_);
+                    image_.g1_.set(x, y, saturation_.g1_);
+                    image_.g2_.set(x, y, saturation_.g2_);
+                    image_.b_.set(x, y, saturation_.b_);
+                }
+            }
+        }
+
+        /** fill in the saturated pixels with not-saturated pixels. **/
+        for (int y = 1; y < ht-1; ++y) {
+            desaturate_pixels(y);
+        }
+    }
+
+    void desaturate_pixels(
+        int y
+    ) {
+        int wd = image_.r_.width_;
+        for(;;) {
+            int x0 = -1;
+            for (int x = 0; x < wd; ++x) {
+                int r = image_.r_.get(x, y);
+                if (r == kFullySaturated) {
+                    x0 = x;
+                    break;
+                }
+            }
+            if (x0 < 0) {
+                break;
+            }
+
+            int x1 = -1;
+            for (int x = x0; x < wd; ++x) {
+                int r = image_.r_.get(x, y);
+                if (r != kFullySaturated) {
+                    x1 = x;
+                    break;
+                }
+            }
+
+            /** x0 is fully saturated. x0-1 is not. **/
+            int lr = image_.r_.get(x0-1, y);
+            int lg1 = image_.g1_.get(x0-1, y);
+            int lg2 = image_.g2_.get(x0-1, y);
+            int lb = image_.b_.get(x0-1, y);
+
+            /** x1 is not fully saturated. **/
+            int rr = image_.r_.get(x1, y);
+            int rg1 = image_.g1_.get(x1, y);
+            int rg2 = image_.g2_.get(x1, y);
+            int rb = image_.b_.get(x1, y);
+
+            /** desaturate the pixels in this segment. **/
+            int denom = x1 - x0 + 1;
+            for (int x = x0; x < x1; ++x) {
+                /** compute the left/right weights. **/
+                int rwt = x - x0 + 1;
+                int lwt = denom - rwt;
+
+                /** weight the left and right non-saturated pixels. **/
+                int r = lr * lwt + rr * rwt;
+                int g1 = lg1 * lwt + rg1 * rwt;
+                int g2 = lg2 * lwt + rg2 * rwt;
+                int b = lb * lwt + rb * rwt;
+
+                /** accumulate the pixel above. **/
+                r += denom * image_.r_.get(x, y-1);
+                g1 += denom * image_.g1_.get(x, y-1);
+                g2 += denom * image_.g2_.get(x, y-1);
+                b += denom * image_.b_.get(x, y-1);
+
+                /** normalize. **/
+                r = (r + denom) / (2*denom);
+                g1 = (g1 + denom) / (2*denom);
+                g2 = (g2 + denom) / (2*denom);
+                b = (b + denom) / (2*denom);
+
+                /** save **/
+                image_.r_.set(x, y, r);
+                image_.g1_.set(x, y, g1);
+                image_.g2_.set(x, y, g2);
+                image_.b_.set(x, y, b);
             }
         }
     }
@@ -514,7 +615,7 @@ public:
     }
 
     void adjust_dynamic_range() {
-        LOG("adjusting dynamic range (wip)...");
+        LOG("adjusting dynamic range...");
 
         /**
         this technique has promise.
@@ -585,49 +686,24 @@ public:
             for (int x = 0; x < wd; ++x) {
                 int lum = luminance.get(x, y);
                 if (lum >= noise) {
-                    double new_r;
-                    double new_g1;
-                    double new_g2;
-                    double new_b;
-
                     int r = image_.r_.get(x, y);
                     int g1 = image_.g1_.get(x, y);
                     int g2 = image_.g2_.get(x, y);
                     int b = image_.b_.get(x, y);
 
-                    /** ensure saturated pixels stay saturated. **/
-                    double maxc = std::max(std::max(r, g1), std::max(g2, b));
-                    if (maxc > 65525.0) {
-                        new_r = 65535.0;
-                        new_g1 = 65535.0;
-                        new_g2 = 65535.0;
-                        new_b = 65535.0;
-                    } else {
-                        /** rescale the average luminance. **/
-                        double avg_lum = average.get(x, y);
-                        double new_lum = (avg_lum - 0x8000)*kShift + 0x8000;
+                    /** rescale the average luminance. **/
+                    double avg_lum = average.get(x, y);
+                    double new_lum = (avg_lum - 0x8000)*kShift + 0x8000;
 
-                        /** move the colors of this pixel away from the average luminance. **/
-                        double target_lum = new_lum + kDrama*(lum - avg_lum);
+                    /** move the colors of this pixel away from the average luminance. **/
+                    double target_lum = new_lum + kDrama*(lum - avg_lum);
 
-                        /** scale the components. **/
-                        double factor = target_lum / lum;
-
-                        new_r = r * factor;
-                        new_g1 = g1 * factor;
-                        new_g2 = g2 * factor;
-                        new_b = b * factor;
-
-                        /** ensure we don't change the color on overflow. **/
-                        maxc = std::max(std::max(new_r, new_g1), std::max(new_g2, new_b));
-                        if (maxc > 65525.0) {
-                            factor = 65525.0 / maxc;
-                            new_r *= factor;
-                            new_g1 *= factor;
-                            new_g2 *= factor;
-                            new_b *= factor;
-                        }
-                    }
+                    /** scale the components. **/
+                    double factor = target_lum / lum;
+                    double new_r = r * factor;
+                    double new_g1 = g1 * factor;
+                    double new_g2 = g2 * factor;
+                    double new_b = b * factor;
 
                     /** store the dynamically enhanced pixel **/
                     image_.r_.set(x, y, new_r);
@@ -710,29 +786,18 @@ public:
             double in_g = image_.g1_.samples_[i];
             double in_b = image_.b_.samples_[i];
 
-            /** ensure saturated pixels stay saturated. **/
-            double maxc = std::max(std::max(in_r, in_g), in_b);
-            double out_r;
-            double out_g;
-            double out_b;
-            if (maxc > 65525.0) {
-                out_r = 65535.0;
-                out_g = 65535.0;
-                out_b = 65535.0;
-            } else {
-                /** transform by matrix multiplication. **/
-                out_r = mat[0][0]*in_r + mat[0][1]*in_g + mat[0][2]*in_b;
-                out_g = mat[1][0]*in_r + mat[1][1]*in_g + mat[1][2]*in_b;
-                out_b = mat[2][0]*in_r + mat[2][1]*in_g + mat[2][2]*in_b;
+            /** transform by matrix multiplication. **/
+            double out_r = mat[0][0]*in_r + mat[0][1]*in_g + mat[0][2]*in_b;
+            double out_g = mat[1][0]*in_r + mat[1][1]*in_g + mat[1][2]*in_b;
+            double out_b = mat[2][0]*in_r + mat[2][1]*in_g + mat[2][2]*in_b;
 
-                /** ensure we don't change the color on overflow. **/
-                maxc = std::max(std::max(out_r, out_g), out_b);
-                if (maxc > 65525.0) {
-                    double factor = 65535.0 / maxc;
-                    out_r *= factor;
-                    out_g *= factor;
-                    out_b *= factor;
-                }
+            /** ensure we don't change color on overflow. **/
+            int maxc = std::max(std::max(out_r, out_g), out_b);
+            if (maxc > 65535.0) {
+                double factor = 65535.0 / maxc;
+                out_r *= factor;
+                out_g *= factor;
+                out_b *= factor;
             }
 
             /** overwrite old values. **/
