@@ -619,7 +619,7 @@ public:
                         new_b = b * factor;
 
                         /** ensure we don't change the color on overflow. **/
-                        maxc = std::max(std::max(new_r, new_g1), std::max(maxc, new_b));
+                        maxc = std::max(std::max(new_r, new_g1), std::max(new_g2, new_b));
                         if (maxc > 65525.0) {
                             factor = 65525.0 / maxc;
                             new_r *= factor;
