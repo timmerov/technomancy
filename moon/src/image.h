@@ -25,7 +25,7 @@ public:
     int get(int x, int y);
 
     /** scale low to 0 and multiply by the factor. **/
-    void scale(int low, float factor);
+    void scale(int low, double factor);
 
     /** crop to rectangle **/
     void crop(int left, int top, int right, int bottom);

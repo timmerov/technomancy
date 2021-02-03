@@ -155,7 +155,7 @@ const char *kOutputFilename = "/home/timmer/Pictures/2021-01-29/santa.png";
 //const char *kInputFilename = "/home/timmer/Pictures/2020-07-11/IMG_0481.CR2";
 //const char *kOutputFilename = "comet2.png";
 
-class Black {
+class RggbPixel {
 public:
     int r_ = 0;
     int g1_ = 0;
@@ -185,9 +185,11 @@ public:
     LibRaw raw_image_;
     bool is_loaded_ = false;
     Image image_;
-    Black black_;
+    RggbPixel black_;
     int noise_;
     std::vector<int> gamma_curve_;
+    RggbPixel saturation_;
+    std::vector<int> histogram_;
 
     int run(
         const char *in_filename,
@@ -202,6 +204,8 @@ public:
         copy_raw_to_image();
         determine_black();
         crop_black();
+        determine_saturation();
+        white_saturated_pixels();
         scale_image();
         adjust_dynamic_range();
         interpolate();
@@ -334,6 +338,120 @@ public:
         **/
         /** left, top, right, bottom **/
         image_.crop(38, 18, image_.r_.width_, image_.r_.height_);
+        LOG("cropped width ="<<image_.r_.width_);
+        LOG("cropped height="<<image_.r_.height_);
+    }
+
+    void determine_saturation() {
+        LOG("determining saturation...");
+        /**
+        the camera sensor saturates at less than the maximum value.
+        **/
+        saturation_.r_ = determine_saturation(image_.r_);
+        saturation_.g1_ = determine_saturation(image_.g1_);
+        saturation_.g2_ = determine_saturation(image_.g2_);
+        saturation_.b_ = determine_saturation(image_.b_);
+        LOG("saturation is: "<<saturation_.r_<<" "<<saturation_.g1_<<" "<<saturation_.g2_<<" "<<saturation_.b_);
+    }
+
+    int determine_saturation(
+        Plane &plane
+    ) {
+        /**
+        libraw gives us a maximum value=16383.
+        however, the actual saturation point is less than that.
+        it's around 13583.
+        but we will need to determine the exact values.
+        dump pixels into a histogram centered around 13583.
+        if there are no saturated pixels then we should have a long tail.
+        otherwise, there will be a spike at the end of the tail.
+        ie we need to find the thagomizer.
+        **/
+        const int kSatMax = 16383;
+        const int kSatExpected = 13583;
+        const int kSatDiff = kSatMax - kSatExpected;
+        const int kSatSize = 2*kSatDiff;
+        const int kSatThreshold = kSatMax - kSatSize;
+
+        histogram_.clear();
+        histogram_.resize(kSatSize, 0);
+        int sz = plane.width_ * plane.height_;
+        for (int i = 0; i < sz; ++i) {
+            int c = plane.samples_[i];
+            c -= kSatThreshold;
+            if (c >= 0 && c < kSatSize) {
+                ++histogram_[c ];
+            }
+        }
+
+        /** skip trailing zeros. **/
+        int saturation = kSatSize-1;
+        for (; saturation >= 0; --saturation) {
+            if (histogram_[saturation] > 0) {
+                break;
+            }
+        }
+
+        /** for very black pictures, use the expected value. **/
+        if (saturation < 12) {
+            return kSatExpected;
+        }
+
+        /**
+        look at the previous 12 values.
+
+        if they kinda tail away then no pixels are saturated.
+        use max of saturation+1 and expectation.
+
+        if they're mostly small values but there's a big jump.
+        then set the saturation before the big jump.
+        **/
+        int idx = saturation - 12;
+        int c0 = histogram_[idx];
+        c0 = std::min(c0, 100);
+        for (++idx; idx <= saturation; ++idx) {
+            int c1 = histogram_[idx];
+            if (c1 > 3*c0) {
+                /**
+                we found a big jump.
+                idx is the saturation value.
+                might as well back it off a bit.
+                **/
+                saturation = idx - 2;
+                saturation += kSatThreshold;
+                return saturation;
+            }
+        }
+
+        /** no big jump. **/
+        saturation += 2;
+        saturation += kSatThreshold;
+        saturation = std::max(saturation, kSatExpected);
+        return saturation;
+    }
+
+    void white_saturated_pixels() {
+        LOG("setting saturated pixels to white...");
+        /**
+        if any component is saturated...
+        then we saturate all components.
+        **/
+        int sz = image_.r_.width_ * image_.r_.height_;
+        for (int i = 0; i < sz; ++i) {
+            int r = image_.r_.samples_[i];
+            int g1 = image_.g1_.samples_[i];
+            int g2 = image_.g2_.samples_[i];
+            int b = image_.b_.samples_[i];
+            if (r >= saturation_.r_
+            ||  g1 >= saturation_.g1_
+            ||  g2 >= saturation_.g2_
+            ||  b >= saturation_.b_) {
+                image_.r_.samples_[i] = saturation_.r_;
+                image_.g1_.samples_[i] = saturation_.g1_;
+                image_.g2_.samples_[i] = saturation_.g2_;
+                image_.b_.samples_[i] = saturation_.b_;
+            }
+        }
     }
 
     void scale_image() {
@@ -368,16 +486,17 @@ public:
         cam_mul.g2_ /= f;
         cam_mul.b_ /= f;
         //LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
+        LOG("white balance R="<<cam_mul.r_<<" B="<<cam_mul.b_);
 
         /**
-        adjust so maximum=16383 scales to 1.0 when cam_mul is 1.0.
+        adjust so fully saturated scales to 1.0 when cam_mul is 1.0.
         (16383 - black) * cam_mul_new = 1.0 = cam_mul_org
         cam_mul_new = cam_mul_org / (16383 - black)
         **/
-        cam_mul.r_ /= 16383.0 - black_.r_;
-        cam_mul.g1_ /= 16383.0 - black_.g1_;
-        cam_mul.g2_ /= 16383.0 - black_.g2_;
-        cam_mul.b_ /= 16383.0 - black_.b_;
+        cam_mul.r_ /= saturation_.r_ - black_.r_;
+        cam_mul.g1_ /= saturation_.g1_ - black_.g1_;
+        cam_mul.g2_ /= saturation_.g2_ - black_.g2_;
+        cam_mul.b_ /= saturation_.b_ - black_.b_;
         //LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /** adjust to span full 32 bit range. **/
@@ -466,34 +585,48 @@ public:
             for (int x = 0; x < wd; ++x) {
                 int lum = luminance.get(x, y);
                 if (lum >= noise) {
-                    /** rescale the average luminance. **/
-                    double avg_lum = average.get(x, y);
-                    double new_lum = (avg_lum - 0x8000)*kShift + 0x8000;
+                    double new_r;
+                    double new_g1;
+                    double new_g2;
+                    double new_b;
 
-                    /** move the colors of this pixel away from the average luminance. **/
-                    double target_lum = new_lum + kDrama*(lum - avg_lum);
-
-                    /** scale the components. **/
-                    double factor = target_lum / lum;
                     int r = image_.r_.get(x, y);
                     int g1 = image_.g1_.get(x, y);
                     int g2 = image_.g2_.get(x, y);
                     int b = image_.b_.get(x, y);
-                    double new_r = r * factor;
-                    double new_g1 = g1 * factor;
-                    double new_g2 = g2 * factor;
-                    double new_b = b * factor;
 
-                    /** ensure we don't change the color on overflow. **/
-                    double maxc = std::max(new_r, new_g1);
-                    maxc = std::max(maxc, new_g2);
-                    maxc = std::max(maxc, new_b);
-                    if (maxc > 65535.0) {
-                        factor = 65535.0 / maxc;
-                        new_r *= factor;
-                        new_g1 *= factor;
-                        new_g2 *= factor;
-                        new_b *= factor;
+                    /** ensure saturated pixels stay saturated. **/
+                    double maxc = std::max(std::max(r, g1), std::max(g2, b));
+                    if (maxc > 65525.0) {
+                        new_r = 65535.0;
+                        new_g1 = 65535.0;
+                        new_g2 = 65535.0;
+                        new_b = 65535.0;
+                    } else {
+                        /** rescale the average luminance. **/
+                        double avg_lum = average.get(x, y);
+                        double new_lum = (avg_lum - 0x8000)*kShift + 0x8000;
+
+                        /** move the colors of this pixel away from the average luminance. **/
+                        double target_lum = new_lum + kDrama*(lum - avg_lum);
+
+                        /** scale the components. **/
+                        double factor = target_lum / lum;
+
+                        new_r = r * factor;
+                        new_g1 = g1 * factor;
+                        new_g2 = g2 * factor;
+                        new_b = b * factor;
+
+                        /** ensure we don't change the color on overflow. **/
+                        maxc = std::max(std::max(new_r, new_g1), std::max(maxc, new_b));
+                        if (maxc > 65525.0) {
+                            factor = 65525.0 / maxc;
+                            new_r *= factor;
+                            new_g1 *= factor;
+                            new_g2 *= factor;
+                            new_b *= factor;
+                        }
                     }
 
                     /** store the dynamically enhanced pixel **/
@@ -542,6 +675,9 @@ public:
         image_.g1_.crop(1, 0, wd+1, ht);
         image_.g2_.crop(0, 1, wd, ht+1);
         image_.b_.crop(1, 1, wd+1, ht+1);
+
+        LOG("interpolated width ="<<image_.r_.width_);
+        LOG("interpolated height="<<image_.r_.height_);
     }
 
     void combine_greens() {
@@ -550,7 +686,7 @@ public:
         for (int i = 0; i < sz; ++i) {
             int g1 = image_.g1_.samples_[i];
             int g2 = image_.g2_.samples_[i];
-            image_.g1_.samples_[i] = (g1 + g2)/2;
+            image_.g1_.samples_[i] = (g1 + g2 + 1)/2;
         }
     }
 
@@ -574,19 +710,29 @@ public:
             double in_g = image_.g1_.samples_[i];
             double in_b = image_.b_.samples_[i];
 
-            /** transform by matrix multiplication. **/
-            double out_r = mat[0][0]*in_r + mat[0][1]*in_g + mat[0][2]*in_b;
-            double out_g = mat[1][0]*in_r + mat[1][1]*in_g + mat[1][2]*in_b;
-            double out_b = mat[2][0]*in_r + mat[2][1]*in_g + mat[2][2]*in_b;
+            /** ensure saturated pixels stay saturated. **/
+            double maxc = std::max(std::max(in_r, in_g), in_b);
+            double out_r;
+            double out_g;
+            double out_b;
+            if (maxc > 65525.0) {
+                out_r = 65535.0;
+                out_g = 65535.0;
+                out_b = 65535.0;
+            } else {
+                /** transform by matrix multiplication. **/
+                out_r = mat[0][0]*in_r + mat[0][1]*in_g + mat[0][2]*in_b;
+                out_g = mat[1][0]*in_r + mat[1][1]*in_g + mat[1][2]*in_b;
+                out_b = mat[2][0]*in_r + mat[2][1]*in_g + mat[2][2]*in_b;
 
-            /** ensure we don't change the color on overflow. **/
-            double maxc = std::max(out_r, out_g);
-            maxc = std::max(maxc, out_b);
-            if (maxc > 65535.0) {
-                double factor = 65535.0 / maxc;
-                out_r *= factor;
-                out_g *= factor;
-                out_b *= factor;
+                /** ensure we don't change the color on overflow. **/
+                maxc = std::max(std::max(out_r, out_g), out_b);
+                if (maxc > 65525.0) {
+                    double factor = 65535.0 / maxc;
+                    out_r *= factor;
+                    out_g *= factor;
+                    out_b *= factor;
+                }
             }
 
             /** overwrite old values. **/
@@ -665,7 +811,7 @@ public:
 
     void scale_to_8bits() {
         LOG("scaling to 8 bits per sample..");
-        double factor = 1.0/256.0;
+        double factor = 255.0/65535.0;
         image_.r_.scale(0, factor);
         image_.g1_.scale(0, factor);
         image_.b_.scale(0, factor);

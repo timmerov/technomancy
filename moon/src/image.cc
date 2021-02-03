@@ -13,18 +13,6 @@ data structures for image processing.
 
 namespace {
 
-int pin32bits(
-    agm::int64 x
-) {
-    if (x < 0) {
-        return 0;
-    }
-    if (x > 65535) {
-        return 65535;
-    }
-    return (int) x;
-}
-
 }
 
 Plane::Plane() {
@@ -63,13 +51,13 @@ int Plane::get(
 
 void Plane::scale(
     int low,
-    float factor
+    double factor
 ) {
     int sz = width_ * height_;
     for (int i = 0; i < sz; ++i) {
         agm::int64 x = samples_[i];
         x = (x - low) * factor;
-        samples_[i] = pin32bits(x);
+        samples_[i] = x;
     }
 }
 
