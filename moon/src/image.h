@@ -35,6 +35,7 @@ public:
 
     /** interpolate intermediate horizontal pixels. **/
     void interpolate_horz_1331();
+    void interpolate_horz_1331(int sat);
 
     /** downsample by 2x. **/
     void downsample(Plane &src);

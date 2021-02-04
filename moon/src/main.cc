@@ -192,6 +192,7 @@ public:
     std::vector<int> gamma_curve_;
     RggbPixel saturation_;
     std::vector<int> histogram_;
+    RggbPixel saturated_;
 
     int run(
         const char *in_filename,
@@ -209,7 +210,7 @@ public:
         determine_saturation();
         desaturate_pixels();
         scale_image();
-        adjust_dynamic_range();
+        //adjust_dynamic_range();
         interpolate();
         combine_greens();
         convert_to_srgb();
@@ -217,6 +218,16 @@ public:
         scale_to_8bits();
         write_png();
         return 0;
+    }
+
+    void show_special_pixel() {
+        int x = 656;
+        int y = 133;
+        int r = image_.r_.get(x, y);
+        int g1 = image_.g1_.get(x, y);
+        int g2 = image_.g2_.get(x, y);
+        int b = image_.b_.get(x, y);
+        LOG("special pixel x,y="<<x<<","<<y<<" rggb="<<r<<" "<<g1<<" "<<g2<<" "<<b);
     }
 
     void load_raw_image() {
@@ -354,6 +365,9 @@ public:
         saturation_.g2_ = determine_saturation(image_.g2_);
         saturation_.b_ = determine_saturation(image_.b_);
         LOG("saturation is: "<<saturation_.r_<<" "<<saturation_.g1_<<" "<<saturation_.g2_<<" "<<saturation_.b_);
+
+        /** the fully saturated values will be modified. **/
+        saturated_ = saturation_;
     }
 
     int determine_saturation(
@@ -434,9 +448,8 @@ public:
 
     void desaturate_pixels() {
         LOG("setting saturated pixels to white...");
-        /**
-        mark saturated pixels in the red component.
-        **/
+        /** if any component is saturated then saturate all components. **/
+        int count = 0;
         int wd = image_.r_.width_;
         int ht = image_.r_.height_;
         int sz = wd * ht;
@@ -445,114 +458,19 @@ public:
             int g1 = image_.g1_.samples_[i];
             int g2 = image_.g2_.samples_[i];
             int b = image_.b_.samples_[i];
-            if (r >= saturation_.r_
-            ||  g1 >= saturation_.g1_
-            ||  g2 >= saturation_.g2_
-            ||  b >= saturation_.b_) {
-                image_.r_.samples_[i] = kFullySaturated;
+            if (r >= saturated_.r_
+            ||  g1 >= saturated_.g1_
+            ||  g2 >= saturated_.g2_
+            ||  b >= saturated_.b_) {
+                image_.r_.samples_[i] = saturated_.r_;
+                image_.g1_.samples_[i] = saturated_.g1_;
+                image_.g2_.samples_[i] = saturated_.g2_;
+                image_.b_.samples_[i] = saturated_.b_;
+                ++count;
             }
         }
-
-        /** any saturated pixels on the edges are full white. **/
-        for (int y = 0; y < ht; y += ht-1) {
-            for (int x = 0; x < wd; ++x) {
-                int r = image_.r_.get(x, y);
-                if (r == kFullySaturated) {
-                    image_.r_.set(x, y, saturation_.r_);
-                    image_.g1_.set(x, y, saturation_.g1_);
-                    image_.g2_.set(x, y, saturation_.g2_);
-                    image_.b_.set(x, y, saturation_.b_);
-                }
-            }
-        }
-        for (int x = 0; x < wd; x += wd-1) {
-            for (int y = 1; y < ht-1; ++y) {
-                int r = image_.r_.get(x, y);
-                if (r == kFullySaturated) {
-                    image_.r_.set(x, y, saturation_.r_);
-                    image_.g1_.set(x, y, saturation_.g1_);
-                    image_.g2_.set(x, y, saturation_.g2_);
-                    image_.b_.set(x, y, saturation_.b_);
-                }
-            }
-        }
-
-        /** fill in the saturated pixels with not-saturated pixels. **/
-        for (int y = 1; y < ht-1; ++y) {
-            desaturate_pixels(y);
-        }
-    }
-
-    void desaturate_pixels(
-        int y
-    ) {
-        int wd = image_.r_.width_;
-        for(;;) {
-            int x0 = -1;
-            for (int x = 0; x < wd; ++x) {
-                int r = image_.r_.get(x, y);
-                if (r == kFullySaturated) {
-                    x0 = x;
-                    break;
-                }
-            }
-            if (x0 < 0) {
-                break;
-            }
-
-            int x1 = -1;
-            for (int x = x0; x < wd; ++x) {
-                int r = image_.r_.get(x, y);
-                if (r != kFullySaturated) {
-                    x1 = x;
-                    break;
-                }
-            }
-
-            /** x0 is fully saturated. x0-1 is not. **/
-            int lr = image_.r_.get(x0-1, y);
-            int lg1 = image_.g1_.get(x0-1, y);
-            int lg2 = image_.g2_.get(x0-1, y);
-            int lb = image_.b_.get(x0-1, y);
-
-            /** x1 is not fully saturated. **/
-            int rr = image_.r_.get(x1, y);
-            int rg1 = image_.g1_.get(x1, y);
-            int rg2 = image_.g2_.get(x1, y);
-            int rb = image_.b_.get(x1, y);
-
-            /** desaturate the pixels in this segment. **/
-            int denom = x1 - x0 + 1;
-            for (int x = x0; x < x1; ++x) {
-                /** compute the left/right weights. **/
-                int rwt = x - x0 + 1;
-                int lwt = denom - rwt;
-
-                /** weight the left and right non-saturated pixels. **/
-                int r = lr * lwt + rr * rwt;
-                int g1 = lg1 * lwt + rg1 * rwt;
-                int g2 = lg2 * lwt + rg2 * rwt;
-                int b = lb * lwt + rb * rwt;
-
-                /** accumulate the pixel above. **/
-                r += denom * image_.r_.get(x, y-1);
-                g1 += denom * image_.g1_.get(x, y-1);
-                g2 += denom * image_.g2_.get(x, y-1);
-                b += denom * image_.b_.get(x, y-1);
-
-                /** normalize. **/
-                r = (r + denom) / (2*denom);
-                g1 = (g1 + denom) / (2*denom);
-                g2 = (g2 + denom) / (2*denom);
-                b = (b + denom) / (2*denom);
-
-                /** save **/
-                image_.r_.set(x, y, r);
-                image_.g1_.set(x, y, g1);
-                image_.g2_.set(x, y, g2);
-                image_.b_.set(x, y, b);
-            }
-        }
+        double pct = 100.0 * double(count) / double(sz);
+        LOG("saturated pixels: "<<count<<" "<<pct<<"%");
     }
 
     void scale_image() {
@@ -607,11 +525,18 @@ public:
         cam_mul.b_ *= 65535.0;
         //LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
-        /** subtract black and white balance **/
+        /** subtract black and white balance. **/
         image_.r_.scale(black_.r_, cam_mul.r_);
         image_.g1_.scale(black_.g1_, cam_mul.g1_);
         image_.g2_.scale(black_.g2_, cam_mul.g2_);
         image_.b_.scale(black_.b_, cam_mul.b_);
+
+        /** update the saturated values. **/
+        saturated_.r_ = (saturated_.r_ - black_.r_) * cam_mul.r_;
+        saturated_.g1_ = (saturated_.g1_ - black_.g1_) * cam_mul.g1_;
+        saturated_.g2_ = (saturated_.g2_ - black_.g2_) * cam_mul.g2_;
+        saturated_.b_ = (saturated_.b_ - black_.b_) * cam_mul.b_;
+        //LOG("saturated="<<saturation_.r_<<" "<<saturation_.g1_<<" "<<saturation_.g2_<<" "<<saturation_.b_);
     }
 
     void adjust_dynamic_range() {
@@ -668,6 +593,9 @@ public:
             luminance.samples_[i] = lum;
         }
 
+        /** compute the saturated luminance. **/
+        int sat_lum = saturated_.r_*rx + saturated_.g1_*gx + saturated_.g2_*gx + saturated_.b_*bx;
+
         /** downsample luminance a few times to get the average luminance. **/
         Plane average(luminance);
         average.gaussian(32);
@@ -675,47 +603,68 @@ public:
         /** expand the noise floor a bit. **/
         int noise = noise_ * 150 / 100;
 
-        /**
-        dramatically move a pixel from its average luminance.
-        and shift the average lumance towards 50%.
-        **/
-        const double kShift = 1.0;
+        /** dramatically move a pixel from its average luminance. **/
         const double kDrama = 1.5;
 
         for (int y = 0; y < ht; ++y) {
             for (int x = 0; x < wd; ++x) {
                 int lum = luminance.get(x, y);
-                if (lum >= noise) {
-                    int r = image_.r_.get(x, y);
-                    int g1 = image_.g1_.get(x, y);
-                    int g2 = image_.g2_.get(x, y);
-                    int b = image_.b_.get(x, y);
 
-                    /** rescale the average luminance. **/
-                    double avg_lum = average.get(x, y);
-                    double new_lum = (avg_lum - 0x8000)*kShift + 0x8000;
-
-                    /** move the colors of this pixel away from the average luminance. **/
-                    double target_lum = new_lum + kDrama*(lum - avg_lum);
-
-                    /** scale the components. **/
-                    double factor = target_lum / lum;
-                    double new_r = r * factor;
-                    double new_g1 = g1 * factor;
-                    double new_g2 = g2 * factor;
-                    double new_b = b * factor;
-
-                    /** store the dynamically enhanced pixel **/
-                    image_.r_.set(x, y, new_r);
-                    image_.g1_.set(x, y, new_g1);
-                    image_.g2_.set(x, y, new_g2);
-                    image_.b_.set(x, y, new_b);
+                /** ignore pixels below the noise floor. **/
+                if (lum <= noise) {
+                    continue;
                 }
+                /** ignore pixels below the noise floor and above the saturation level. **/
+                if (lum >= sat_lum) {
+                    continue;
+                }
+
+                /** rescale the average luminance. **/
+                double avg_lum = average.get(x, y);
+
+                /** move the colors of this pixel away from the average luminance. **/
+                double target_lum = avg_lum + kDrama*(lum - avg_lum);
+
+                /** get the components. **/
+                double r = image_.r_.get(x, y);
+                double g1 = image_.g1_.get(x, y);
+                double g2 = image_.g2_.get(x, y);
+                double b = image_.b_.get(x, y);
+
+                /** scale the components. **/
+                double factor = target_lum / lum;
+                r *= factor;
+                g1 *= factor;
+                g2 *= factor;
+                b *= factor;
+
+                /** store the dynamically enhanced pixel **/
+                image_.r_.set(x, y, r);
+                image_.g1_.set(x, y, g1);
+                image_.g2_.set(x, y, g2);
+                image_.b_.set(x, y, b);
             }
         }
     }
 
     void interpolate() {
+        /**
+        how do we keep saturated pixels from bleeding into other pixels
+        and becoming not-saturated hot pink?
+
+        n n n s s s s n n n
+        1 3 3 1     1 3 3 1
+           ?           ?
+
+        n n s s s s s s n n
+        1 3 3 1     1 3 3 1
+           ?           ?
+
+        n s s s s s s s s n
+        1 3 3 1     1 3 3 1
+           ?           ?
+        **/
+
         LOG("interpolating pixels...");
         /**
         applying the 1331 filter is really fast for horizontal pixels.
@@ -725,9 +674,9 @@ public:
         add pixels horizontally again.
         **/
         image_.transpose();
-        image_.interpolate_horz_1331();
+        interpolate_horz_1331();
         image_.transpose();
-        image_.interpolate_horz_1331();
+        interpolate_horz_1331();
 
         /**
         at this point we have alignment issues.
@@ -747,13 +696,23 @@ public:
         **/
         int wd = image_.r_.width_ - 1;
         int ht = image_.r_.height_ - 1;
-        image_.r_.crop(0, 0, wd, ht);
+        image_.r_.crop(1, 1, wd+1, ht+1);
         image_.g1_.crop(1, 0, wd+1, ht);
         image_.g2_.crop(0, 1, wd, ht+1);
-        image_.b_.crop(1, 1, wd+1, ht+1);
+        image_.b_.crop(0, 0, wd, ht);
 
         LOG("interpolated width ="<<image_.r_.width_);
         LOG("interpolated height="<<image_.r_.height_);
+
+        /** redo-desaturation after crop-shifting. **/
+        desaturate_pixels();
+    }
+
+    void interpolate_horz_1331() {
+        image_.r_.interpolate_horz_1331(saturated_.r_);
+        image_.g1_.interpolate_horz_1331(saturated_.g1_);
+        image_.g2_.interpolate_horz_1331(saturated_.g2_);
+        image_.b_.interpolate_horz_1331(saturated_.b_);
     }
 
     void combine_greens() {
@@ -764,6 +723,10 @@ public:
             int g2 = image_.g2_.samples_[i];
             image_.g1_.samples_[i] = (g1 + g2 + 1)/2;
         }
+
+        /** update the saturated values. **/
+        saturated_.g1_ = (saturated_.g1_ + saturated_.g2_ + 1)/2;
+        //LOG("saturated="<<saturation_.r_<<" "<<saturation_.g1_<<" "<<saturation_.g2_<<" "<<saturation_.b_);
     }
 
     void convert_to_srgb() {
@@ -779,25 +742,39 @@ public:
             {-0.229410, +1.659384, -0.429974},
             {+0.042001, -0.519143, +1.477141}
         };
+
         int sz = image_.r_.width_ * image_.r_.height_;
         for (int i = 0; i < sz; ++i) {
             /** start with the original rgb. **/
-            double in_r = image_.r_.samples_[i];
-            double in_g = image_.g1_.samples_[i];
-            double in_b = image_.b_.samples_[i];
+            int in_r = image_.r_.samples_[i];
+            int in_g = image_.g1_.samples_[i];
+            int in_b = image_.b_.samples_[i];
 
-            /** transform by matrix multiplication. **/
-            double out_r = mat[0][0]*in_r + mat[0][1]*in_g + mat[0][2]*in_b;
-            double out_g = mat[1][0]*in_r + mat[1][1]*in_g + mat[1][2]*in_b;
-            double out_b = mat[2][0]*in_r + mat[2][1]*in_g + mat[2][2]*in_b;
+            double out_r;
+            double out_g;
+            double out_b;
 
-            /** ensure we don't change color on overflow. **/
-            int maxc = std::max(std::max(out_r, out_g), out_b);
-            if (maxc > 65535.0) {
-                double factor = 65535.0 / maxc;
-                out_r *= factor;
-                out_g *= factor;
-                out_b *= factor;
+            /** ensure saturated pixels stay saturated. **/
+            if (in_r >= saturated_.r_
+            &&  in_g >= saturated_.g1_
+            &&  in_b >= saturated_.b_) {
+                out_r = 65535.0;
+                out_g = 65535.0;
+                out_b = 65535.0;
+            } else {
+                /** transform by matrix multiplication. **/
+                out_r = mat[0][0]*in_r + mat[0][1]*in_g + mat[0][2]*in_b;
+                out_g = mat[1][0]*in_r + mat[1][1]*in_g + mat[1][2]*in_b;
+                out_b = mat[2][0]*in_r + mat[2][1]*in_g + mat[2][2]*in_b;
+
+                /** ensure we don't change color on overflow. **/
+                int maxc = std::max(std::max(out_r, out_g), out_b);
+                if (maxc > 65535.0) {
+                    double factor = 65535.0 / maxc;
+                    out_r *= factor;
+                    out_g *= factor;
+                    out_b *= factor;
+                }
             }
 
             /** overwrite old values. **/
