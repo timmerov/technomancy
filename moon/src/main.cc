@@ -603,7 +603,7 @@ public:
         /** compute the saturated luminance. **/
         int sat_lum = saturated_.r_*rx + saturated_.g1_*gx + saturated_.g2_*gx + saturated_.b_*bx;
 
-        /** downsample luminance a few times to get the average luminance. **/
+        /** apply gaussian blur to get average lumance. **/
         Plane average(luminance);
         average.gaussian(32);
 
