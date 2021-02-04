@@ -167,10 +167,10 @@ public:
 
 class Balance {
 public:
-    float r_ = 1.0;
-    float g1_ = 1.0;
-    float g2_ = 1.0;
-    float b_ = 1.0;
+    double r_ = 1.0;
+    double g1_ = 1.0;
+    double g2_ = 1.0;
+    double b_ = 1.0;
 };
 
 class Rawsome {
@@ -207,27 +207,34 @@ public:
         copy_raw_to_image();
         determine_black();
         crop_black();
+        show_special_pixel();
         determine_saturation();
         desaturate_pixels();
+        show_special_pixel();
         scale_image();
-        //adjust_dynamic_range();
+        show_special_pixel();
+        adjust_dynamic_range();
+        show_special_pixel();
         interpolate();
         combine_greens();
+        show_special_pixel();
         convert_to_srgb();
+        show_special_pixel();
         apply_gamma();
+        show_special_pixel();
         scale_to_8bits();
         write_png();
         return 0;
     }
 
     void show_special_pixel() {
-        int x = 656;
-        int y = 133;
+        /*int x = 2346;
+        int y = 1186;
         int r = image_.r_.get(x, y);
         int g1 = image_.g1_.get(x, y);
         int g2 = image_.g2_.get(x, y);
         int b = image_.b_.get(x, y);
-        LOG("special pixel x,y="<<x<<","<<y<<" rggb="<<r<<" "<<g1<<" "<<g2<<" "<<b);
+        LOG("special pixel x,y="<<x<<","<<y<<" rggb="<<r<<" "<<g1<<" "<<g2<<" "<<b);*/
     }
 
     void load_raw_image() {
@@ -495,7 +502,7 @@ public:
         //LOG("cam_mul="<<cam_mul.r_<<" "<<cam_mul.g1_<<" "<<cam_mul.g2_<<" "<<cam_mul.b_);
 
         /** find the smallest multiplier. **/
-        float f = std::min(cam_mul.r_, cam_mul.g1_);
+        double f = std::min(cam_mul.r_, cam_mul.g1_);
         f = std::min(f, cam_mul.g2_);
         f = std::min(f, cam_mul.b_);
 
@@ -536,7 +543,7 @@ public:
         saturated_.g1_ = (saturated_.g1_ - black_.g1_) * cam_mul.g1_;
         saturated_.g2_ = (saturated_.g2_ - black_.g2_) * cam_mul.g2_;
         saturated_.b_ = (saturated_.b_ - black_.b_) * cam_mul.b_;
-        //LOG("saturated="<<saturation_.r_<<" "<<saturation_.g1_<<" "<<saturation_.g2_<<" "<<saturation_.b_);
+        //LOG("saturated="<<saturated_.r_<<" "<<saturated_.g1_<<" "<<saturated_.g2_<<" "<<saturated_.b_);
     }
 
     void adjust_dynamic_range() {
@@ -697,8 +704,8 @@ public:
         int wd = image_.r_.width_ - 1;
         int ht = image_.r_.height_ - 1;
         image_.r_.crop(1, 1, wd+1, ht+1);
-        image_.g1_.crop(1, 0, wd+1, ht);
-        image_.g2_.crop(0, 1, wd, ht+1);
+        image_.g1_.crop(0, 1, wd, ht+1);
+        image_.g2_.crop(1, 0, wd+1, ht);
         image_.b_.crop(0, 0, wd, ht);
 
         LOG("interpolated width ="<<image_.r_.width_);
@@ -726,7 +733,7 @@ public:
 
         /** update the saturated values. **/
         saturated_.g1_ = (saturated_.g1_ + saturated_.g2_ + 1)/2;
-        //LOG("saturated="<<saturation_.r_<<" "<<saturation_.g1_<<" "<<saturation_.g2_<<" "<<saturation_.b_);
+        //LOG("saturated="<<saturated_.r_<<" "<<saturated_.g1_<<" "<<saturated_.g2_<<" "<<saturated_.b_);
     }
 
     void convert_to_srgb() {

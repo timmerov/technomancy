@@ -55,8 +55,12 @@ void Plane::scale(
 ) {
     int sz = width_ * height_;
     for (int i = 0; i < sz; ++i) {
-        agm::int64 x = samples_[i];
-        x = (x - low) * factor;
+        int x = samples_[i];
+        x -= low;
+        if (x < 0) {
+            x = 0;
+        }
+        x = x * factor;
         samples_[i] = x;
     }
 }
