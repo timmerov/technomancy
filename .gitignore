@@ -9,4 +9,6 @@ build-win64/
 *.tiff
 *.ppm
 *.out
+*.ods
+*.ods#
 sandbox/
