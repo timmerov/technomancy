@@ -41,7 +41,7 @@ public:
 
     double x0_ = -22.0; /// ft
     double x1_ = +22.0; /// ft
-    double y0_ = +1.5; /// ft
+    double y0_ = +2.0; /// ft
     double drag_coeff_ = 0.40;
     double air_density_ = 0.075; /// lb/ft^3
     double diameter_ = 2.9 / 12.0; /// ft
@@ -55,8 +55,8 @@ public:
     double volume_;
     double drag_a2_;
     double step_;
-    double v0_ = 54.0 * 5280 / 60 / 60;
-    double theta_ = 8.7 * M_PI / 180.0;
+    double v0_ = 50.0 * 5280 / 60 / 60;
+    double theta_ = 9.0 * M_PI / 180.0;
     double vx_;
     double vy_;
     double x_;
