@@ -47,16 +47,17 @@ public:
     double diameter_ = 2.9 / 12.0; /// ft
     double gravity_ = 32.17; /// ft/s^3
     double lift_coeff_ = 0.075;
-    double spin_ = 1200.0 / 60.0; /// revolutions per second
+    double spin_ = 300.0 / 60.0; /// revolutions per second
     double weight_ = 0.0535; /// pounds
     int partitions_ = 200;  /// partition the distance into steps
     double radius_;
     double area_;
     double volume_;
     double drag_a2_;
+    double lift_a1_;
     double step_;
-    double v0_ = 50.0 * 5280 / 60 / 60;
-    double theta_ = 9.0 * M_PI / 180.0;
+    double v0_ = 52.0 * 5280 / 60 / 60;
+    double theta_ = 10.0 * M_PI / 180.0;
     double vx_;
     double vy_;
     double x_;
@@ -77,6 +78,7 @@ public:
         area_ = M_PI * radius_ * radius_;
         volume_ = 4.0 / 3.0 * area_ * radius_;
         drag_a2_ = 0.5 * drag_coeff_ * air_density_ * area_ / weight_;
+        lift_a1_ = lift_coeff_ * volume_ * 4.0 * M_PI * spin_ * air_density_ / weight_;
         step_ = (x1_ - x0_) / double(partitions_);
 
         vx_ = v0_ * std::cos(theta_);
@@ -127,6 +129,8 @@ public:
         double drag_v = drag / v;
         double dragx = drag_v * vx_;
         double dragy = drag_v * vy_;
+        double liftx = - lift_a1_ * vy_;
+        double lifty = - lift_a1_ * vx_;
 
         ss<<"\t"<<x_;
         ss<<"\t"<<y_;
@@ -151,8 +155,8 @@ public:
         ss<<"\t"<<dt;
 
         /** acceleration **/
-        double ax = - dragx;
-        double ay = - gravity_;
+        double ax = - dragx + liftx;
+        double ay = - gravity_ + lifty;
         if (vy_ > 0.0) {
             ay -= dragy;
         } else {
