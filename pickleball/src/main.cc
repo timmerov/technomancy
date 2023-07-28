@@ -23,7 +23,13 @@ Cl = coefficient of lift = 0.075
 s = spin rate of pickleball = 1200 - 1500 RPM average paddle average player
 V = volume of pickleball
 
-w = weight pickleball
+w = weight pickleball = 0.0536 lb
+
+http://www.physics.usyd.edu.au/~cross/TRAJECTORIES/42.%20Ball%20Trajectories.pdf
+
+Cl = 1 / (2 + v/vs)
+
+vs = velocity of surface of the pickleball
 **/
 
 #include <math.h>
@@ -65,12 +71,14 @@ public:
     double elapsed_t_;
 
     void run() noexcept {
-        init();
 
-        headers();
+        init();
+        compute_drag_coefficient();
+
+        /*headers();
         for (int i = 0; i <= partitions_; ++i) {
             interval();
-        }
+        }*/
     }
 
     void init() noexcept {
@@ -177,6 +185,42 @@ public:
         ss<<"\t"<<vy_;
         /** print a row of data **/
         LOG(ss.str());
+    }
+
+    void compute_drag_coefficient() noexcept {
+        /**
+        for this experiment we recorded dropping a pickleball from a height of 57".
+        repeated 12 times.
+        average time to fall was 0.5736 seconds = 17.03 frames.
+
+        the frame when the fingers first started to move counted as an entire frame.
+        the frame when the ball lands was counted as an entire frame.
+        they should really be counted as half a frame each.
+        so the time to fall should be 0.5403 seconds.
+        which is less than the 0.5434 seconds it takes the ball to fall neglecting air resistance.
+        0.5434 seconds is 16.3 frames.
+        ergo...
+        our measurements are not sufficiently accurate to measure the drag coefficient of a pickleball.
+        **/
+        double height = 57.0 / 12.0; /// ft
+        double drag_coeff = 0.0; /// 0.40; /// 2.16;
+        double dt = 0.00001; /// s
+        double drag_a2 = 0.5 * drag_coeff * air_density_ * area_ / weight_;
+        LOG("drag_a2="<<drag_a2);
+
+        double v = 0.0;
+        double d = height;
+        for (int i = 0; i < 100000; ++i) {
+            double a = gravity_ - drag_a2 * v * v;
+            double dd = v * dt + 0.5 * a * dt * dt;
+            v += a * dt;
+            d -= dd;
+            double t = dt * double(i);
+            LOG("t="<<t<<"s  d="<<d<<"ft  v="<<v<<"ft/s  a="<<a<<"ft/s^2");
+            if (d < 0) {
+                break;
+            }
+        }
     }
 };
 
