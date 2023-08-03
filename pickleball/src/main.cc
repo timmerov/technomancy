@@ -30,15 +30,44 @@ http://www.physics.usyd.edu.au/~cross/TRAJECTORIES/42.%20Ball%20Trajectories.pdf
 Cl = 1 / (2 + v/vs)
 
 vs = velocity of surface of the pickleball
+
+https://twu.tennis-warehouse.com/learning_center/pickleball/pickleballspin.php
+
+the ball leaves the paddle at 10 degrees.
+the sweet spot to shoulder angle is about 35 degrees.
+so the paddle is travelling about 25 degrees from the direction the ball is launched.
+the above websit says typical spin rates top out at 1000 rpm.
+and obviously depend on contact angle.
+for 25 degress the spin rate is theoretically and observed to be 450 to 500 depending on paddle.
+interesting.
+so maybe 300 rpms isn't too crazy.
 **/
 
 #include <math.h>
 
 #include <sstream>
 
+#include <eigen3/Eigen/Dense>
+
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
 
+class MathTest {
+public:
+    MathTest() = default;
+    ~MathTest() = default;
+
+    void run() noexcept {
+        Eigen::VectorXd x = Eigen::VectorXd::Random(3);
+        std::cout << "x =" << std::endl << x << std::endl;
+
+        Eigen::MatrixXd m = x * x.transpose();
+        std::cout << "m =" << std::endl << m << std::endl;
+
+        Eigen::MatrixXd inv = m.inverse();
+        std::cout << "inv =" << std::endl << inv << std::endl;
+    }
+};
 
 class Pickleball {
 public:
@@ -232,7 +261,11 @@ int main(
 
     agm::log::init(AGM_TARGET_NAME ".log");
 
-    Pickleball pb;
-    pb.run();
+    MathTest mt;
+    mt.run();
+
+    /*Pickleball pb;
+    pb.run();*/
+
     return 0;
 }
