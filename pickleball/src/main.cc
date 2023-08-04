@@ -41,6 +41,34 @@ and obviously depend on contact angle.
 for 25 degress the spin rate is theoretically and observed to be 450 to 500 depending on paddle.
 interesting.
 so maybe 300 rpms isn't too crazy.
+
+so we have a model that determines how a pickleball moves through space over time.
+the function depends on a number of parameters.
+including: v0, theta, effective spin, drag coefficient.
+these are the parameters pk.
+we have some data points xj yj that we pull from the video.
+these are the data points di
+the model produces a vector of estimated data points mi.
+we have an error function which is the sum of the squares of the errors of the differences between
+the data points and the predictions from the model.
+s = sumi( (di - mi)^2 )
+the sum is a minimum when the gradients are zero.
+2 sumi( (di - m)*dmi/dpk ) = 0
+to solve we need the jacobian J.
+and its transpose Jt.
+Jik = delta(mi) / delta(pk)
+in other words...
+we're going to modify each pk by a small amount...
+run the model...
+and see how the data points change.
+then from levenberg-marquardt, we have to solve this set of equations:
+(Jt*J + lambda*I) * dp = Jt * (d - m)
+where lambda is a small factor that we tweak each iteration.
+I is the identity matrix.
+dp is the "shift vector" that we're going to add to p to hopefully converge on a solution.
+d is the vector of the di.
+m is the vector of the mi.
+p is the vector of the pk.
 **/
 
 #include <math.h>
@@ -66,6 +94,9 @@ public:
 
         Eigen::MatrixXd inv = m.inverse();
         std::cout << "inv =" << std::endl << inv << std::endl;
+    }
+
+    void error_squared() noexcept {
     }
 };
 
