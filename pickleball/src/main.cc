@@ -87,6 +87,13 @@ public:
 
     const int kNDataPoints = 3;
     const int kNParams = 2;
+    const int kMaxErrorIters = 100;
+    const int kMaxLambdaIters = 100;
+    const double kInitLambda = 1.0;
+    const double kLambdaInc = 2.0;
+    const double kLambdaDec = 0.5;
+    const double kGoodError = 0.01;
+    const double kMinErrorChange = 0.00001;
 
     Eigen::VectorXd data_x_;
     Eigen::VectorXd data_y_;
@@ -109,65 +116,80 @@ public:
         double error = calculate_error(predicted);
         LOG("error = "<<error);
 
-        /**
-        repeat the following
-        for (int j = 0; j < kMaxErrorIterations; ++j) { //=100?
-            if (error < kGoodEnough) {
+        double lambda = kInitLambda;
+        Eigen::MatrixXd jacobian(kNDataPoints, kNParams);
+        Eigen::MatrixXd jacobian_transpose(kNParams, kNDataPoints);
+        Eigen::MatrixXd jacobian_squared(kNParams, kNParams);
+        Eigen::MatrixXd diagonal(kNParams, kNParams);
+        Eigen::MatrixXd inverse(kNParams, kNParams);
+        Eigen::VectorXd residuals(kNDataPoints);
+        Eigen::VectorXd shift(kNParams);
+        Eigen::VectorXd new_guess(kNParams);
+        Eigen::VectorXd new_predicted(kNDataPoints);
+        bool done = false;
+
+        for (int err_iter = 0; err_iter < kMaxErrorIters; ++err_iter) {
+            if (done) {
                 break;
             }
-        ***/
-            Eigen::MatrixXd jacobian(kNDataPoints, kNParams);
+            if (error < kGoodError) {
+                break;
+            }
+            LOG("error iter = "<<err_iter);
+
             calculate_jacobian(current_guess, jacobian, 0.001);
-            LOG("jacobian = "<<jacobian);
+            //LOG("jacobian = "<<jacobian);
 
-            Eigen::MatrixXd jacobian_transpose = jacobian.transpose();
-            LOG("jacobian_transpose = "<<jacobian_transpose);
+            jacobian_transpose = jacobian.transpose();
+            //LOG("jacobian_transpose = "<<jacobian_transpose);
 
-            Eigen::MatrixXd jacobian_squared = jacobian_transpose * jacobian;
-            LOG("jacobian_squared = "<<jacobian_squared);
+            jacobian_squared = jacobian_transpose * jacobian;
+            //LOG("jacobian_squared = "<<jacobian_squared);
 
-            /**
-            repeat the following
-            for (int k = 0; k < kMaxLambdaIterations; ++k) { //=100?
-            **/
-                double lambda = 1.0;
-                Eigen::MatrixXd diagonal = jacobian_squared;
+            diagonal = jacobian_squared;
+
+            for (int lambda_iter = 0; lambda_iter < kMaxLambdaIters; ++lambda_iter) {
+                LOG("lambda iter = "<<lambda_iter<<" lambda = "<<lambda);
+
                 for (int i = 0; i < kNParams; ++i) {
-                    diagonal(i, i) += lambda;
+                    diagonal(i, i) = jacobian_squared(i,i) + lambda;
                 }
-                LOG("diagonal = "<<diagonal);
+                //LOG("diagonal = "<<diagonal);
 
-                Eigen::MatrixXd inverse = diagonal.inverse();
-                LOG("inverse = "<<inverse);
+                inverse = diagonal.inverse();
+                //LOG("inverse = "<<inverse);
 
-                Eigen::VectorXd residuals = data_y_- predicted;
-                LOG("residuals = "<<residuals.transpose());
+                residuals = data_y_- predicted;
+                //LOG("residuals = "<<residuals.transpose());
 
-                Eigen::VectorXd shift = inverse * jacobian_transpose * residuals;
-                LOG("shift = "<<shift.transpose());
+                shift = inverse * jacobian_transpose * residuals;
+                //LOG("shift = "<<shift.transpose());
 
-                Eigen::VectorXd new_guess = current_guess + shift;
-                LOG("new_guess = "<<new_guess.transpose());
+                new_guess = current_guess + shift;
+                //LOG("new_guess = "<<new_guess.transpose());
 
-                Eigen::VectorXd new_predicted(kNDataPoints);
                 make_prediction(new_guess, new_predicted);
 
                 double new_error = calculate_error(new_predicted);
                 LOG("new_error = "<<new_error);
 
-                /**
-                if (new_error > error) {
-                    lambda *= kIncreaseLambda; //=2?
+                if (new_error >= error) {
+                    lambda *= kLambdaInc;
                     continue;
                 }
-                else {
-                    lambda *= kDecreaseLambda; //=0.5?
-                    current_guess = new_guess;
-                    predicted = new_predicted;
-                    error = new_error;
-                    break;
+
+                double change_error = error - new_error;
+                if (change_error < kMinErrorChange) {
+                    done = true;
                 }
-                **/
+
+                lambda *= kLambdaDec;
+                std::swap(current_guess, new_guess);
+                std::swap(predicted, new_predicted);
+                error = new_error;
+                break;
+            }
+        }
     }
 
     void make_prediction(
