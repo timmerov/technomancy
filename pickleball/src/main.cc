@@ -69,6 +69,86 @@ dp is the "shift vector" that we're going to add to p to hopefully converge on a
 d is the vector of the di.
 m is the vector of the mi.
 p is the vector of the pk.
+
+for data collected 2023-08-24 of me serving.
+unfortunately the lower left marker is blocked by a bucket.
+ah well.
+here are the x,y coordinates for the rest:
+
+                pixels          feet
+left top        432,996         -22,6
+center          1501,1144       0,3
+center bottom   1499,1292       0,0
+right top       2566,1001       22,6
+right bottom    2568,1293       22,0
+
+the markers are on the wall.
+the wall is 6'5" from the first court.
+the first court is 20' wide.
+the second court is 11'6" from the first court.
+the second court is 20' wide.
+the camera is on the net line on the far side of the second court.
+the camera is 6.5+20+11.5+20=58 feet from the wall.
+
+serves were made from the far corner of the first court.
+serves were hit more/less directly down the first court sideline.
+we can assume the serve is parallel to the wall.
+
+pixel coordinates of the ball are extracted from the video frames.
+these are converted by code to feet.
+which is then scaled by the distance from the camera to the sideline (51.5 feet)
+divided by the distance from the camera to the wall (58 feet).
+
+it is assumed the camera is running at 30 fps.
+this needs to be confirmed.
+so every frame is 33.3 ms.
+
+the vector of unknowns is defined as follows:
+0: initial ball velocity - 60 fps
+1: initial angle - 10 degrees
+2: height of the ball at contact - 2 feet
+3: t0 - time zero - the time the ball was hit - 0 seconds.
+4: drag coefficient 0.40
+5: effective lift coefficient (lift times spin, we don't know spin) - 0.75 (600 rpm / 60 min/sec * 0.075)
+
+we have N data points consisting of x,y,t.
+where t is the frame number (starting at 1) times .0333 seconds per frame.
+the x,y points are extracted from the video.
+the shutter speed is pretty long.
+so the ball is a long streak in each image.
+the center of the streak is used.
+
+frame   x       y
+1       246     662
+2       320     646
+3       392     633
+4       464     622
+5       532     612
+6       no data
+7       no data
+8       730     593
+9       793     590
+10      855     589
+11      915     588
+12      973     590
+13      1030    592
+14      1086    596
+15      1141    602
+16      1194    609
+17      1246    616
+18      1298    626
+19      1347    636
+20      1395    647
+21      1443    660
+22      1488    673
+23      1534    689
+24      1577    704
+25      no data
+
+frames 5,6 are corrupted by the light pole.
+maybe put something dark on it.
+
+to do: automate the process by subtracting the reference frame and finding the centroid of the differences.
 **/
 
 #include <math.h>
