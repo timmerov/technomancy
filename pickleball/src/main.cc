@@ -149,6 +149,19 @@ frames 5,6 are corrupted by the light pole.
 maybe put something dark on it.
 
 to do: automate the process by subtracting the reference frame and finding the centroid of the differences.
+
+we don't have a way to measure spin.
+but...
+i have video of serves.
+some of which catch the paddle just as it hits the ball.
+one can extract the angle between the trajectory of the ball and the tangent to the motion of the paddle
+at the point of contact.
+it's about 14 degrees.
+we will know the speed of the pickleball at contact.
+we can assume this is the speed of the paddle normal to the face.
+the angle then gives us the tangential speed of the paddle.
+which we can assume is imparted as spin.
+the tangential speed of the paddle divided by the circumference of the pickleball is the spin rate.
 **/
 
 #include <math.h>
