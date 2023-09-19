@@ -227,6 +227,203 @@ public:
     }
 };
 
+class TransformCoordinates {
+public:
+    TransformCoordinates() = default;
+    ~TransformCoordinates() = default;
+
+    static constexpr int kNMarkers = 5;
+    static constexpr int kNDataPoints = 2*kNMarkers;
+    static constexpr int kNParams = 2*2 + 2;
+    static constexpr int kMaxErrorIters = 100;
+    static constexpr int kMaxLambdaIters = 100;
+    static constexpr double kInitLambda = 1.0;
+    static constexpr double kEpsilon = 0.00001;
+    static constexpr double kLambdaInc = 2.0;
+    static constexpr double kLambdaDec = 0.5;
+    static constexpr double kGoodError = 0.01;
+    static constexpr double kMinErrorChange = 0.00001;
+
+    Eigen::VectorXd pixels_;
+    Eigen::VectorXd markers_;
+    Eigen::VectorXd xform_;  /** 0..3 are matrix 4..5 are translation **/
+
+    void run() noexcept {
+        init();
+
+        /** start with a horrible guess. **/
+        Eigen::VectorXd current_guess(kNParams);
+        current_guess << 1.0, 0.0, 0.0, 1.0, 0.0, 0.0;
+        LOG("current_guess = "<<current_guess.transpose());
+
+        Eigen::VectorXd predicted(kNDataPoints);
+        make_prediction(current_guess, predicted);
+        LOG("predicted = "<<predicted.transpose());
+
+        double error = calculate_error(predicted);
+        LOG("error = "<<error);
+
+        double lambda = kInitLambda;
+        Eigen::MatrixXd jacobian(kNDataPoints, kNParams);
+        Eigen::MatrixXd jacobian_transpose(kNParams, kNDataPoints);
+        Eigen::MatrixXd jacobian_squared(kNParams, kNParams);
+        Eigen::MatrixXd diagonal(kNParams, kNParams);
+        Eigen::MatrixXd inverse(kNParams, kNParams);
+        Eigen::VectorXd residuals(kNDataPoints);
+        Eigen::VectorXd shift(kNParams);
+        Eigen::VectorXd new_guess(kNParams);
+        Eigen::VectorXd new_predicted(kNDataPoints);
+        bool done = false;
+
+        for (int err_iter = 0; err_iter < kMaxErrorIters; ++err_iter) {
+            if (done) {
+                break;
+            }
+            if (error < kGoodError) {
+                break;
+            }
+            LOG("error iter = "<<err_iter);
+
+            calculate_jacobian(current_guess, jacobian, kEpsilon);
+            //LOG("jacobian = "<<jacobian);
+
+            jacobian_transpose = jacobian.transpose();
+            //LOG("jacobian_transpose = "<<jacobian_transpose);
+
+            jacobian_squared = jacobian_transpose * jacobian;
+            //LOG("jacobian_squared = "<<jacobian_squared);
+
+            diagonal = jacobian_squared;
+
+            for (int lambda_iter = 0; lambda_iter < kMaxLambdaIters; ++lambda_iter) {
+                LOG("lambda iter = "<<lambda_iter<<" lambda = "<<lambda);
+
+                for (int i = 0; i < kNParams; ++i) {
+                    diagonal(i, i) = jacobian_squared(i,i) + lambda;
+                }
+                //LOG("diagonal = "<<diagonal);
+
+                inverse = diagonal.inverse();
+                //LOG("inverse = "<<inverse);
+
+                residuals = markers_ - predicted;
+                //LOG("residuals = "<<residuals.transpose());
+
+                shift = inverse * jacobian_transpose * residuals;
+                //LOG("shift = "<<shift.transpose());
+
+                new_guess = current_guess + shift;
+                LOG("new_guess = "<<new_guess.transpose());
+
+                make_prediction(new_guess, new_predicted);
+
+                double new_error = calculate_error(new_predicted);
+                LOG("new_error = "<<new_error);
+
+                if (new_error >= error) {
+                    lambda *= kLambdaInc;
+                    continue;
+                }
+
+                double change_error = error - new_error;
+                if (change_error < kMinErrorChange) {
+                    done = true;
+                }
+
+                lambda *= kLambdaDec;
+                std::swap(current_guess, new_guess);
+                std::swap(predicted, new_predicted);
+                error = new_error;
+                break;
+            }
+        }
+
+        /** brag **/
+        make_prediction(current_guess, predicted);
+        for (int i = 0; i < kNDataPoints; ++i) {
+            LOG(i<<": predicted: "<<predicted[i]<<" actual: "<<markers_[i]);
+        }
+
+        /** store the transformation matrix where the creator can access it. **/
+        std::swap(xform_, current_guess);
+
+        exit();
+    }
+
+    void init() noexcept {
+        pixels_.resize(kNDataPoints);
+        pixels_ <<
+             432.0,  996.0,
+            1501.0, 1144.0,
+            1499.0, 1292.0,
+            2566.0, 1001.0,
+            2568.0, 1293.0;
+        markers_.resize(kNDataPoints);
+        markers_ <<
+            -22.0, 6.0,
+              0.0, 3.0,
+              0.0, 0.0,
+             22.0, 6.0,
+             22.0, 0.0;
+    }
+
+    void make_prediction(
+        const Eigen::VectorXd &guess,
+        Eigen::VectorXd &predicted
+    ) const noexcept {
+        Eigen::MatrixXd xform(2, 2);
+        xform(0, 0) = guess[0];
+        xform(0, 1) = guess[1];
+        xform(1, 0) = guess[2];
+        xform(1, 1) = guess[3];
+        Eigen::VectorXd xlate(2);
+        xlate(0) = guess[4];
+        xlate(1) = guess[5];
+        Eigen::VectorXd pixel(2);
+        Eigen::VectorXd pred(2);
+        for (int i = 0; i < kNDataPoints; i += 2) {
+            pixel[0] = pixels_[i];
+            pixel[1] = pixels_[i+1];
+            pred = xform * pixel + xlate;
+            predicted[i] = pred[0];
+            predicted[i+1] = pred[1];
+        }
+    }
+
+    double calculate_error(
+        const Eigen::VectorXd &predicted
+    ) const noexcept {
+        auto residuals = markers_ - predicted;
+        double error = residuals.dot(residuals);
+        return error;
+    }
+
+    void calculate_jacobian(
+        const Eigen::VectorXd &current_guess,
+        Eigen::MatrixXd &jacobian,
+        double epsilon
+    ) const noexcept {
+        Eigen::VectorXd current_predicted(kNDataPoints);
+        make_prediction(current_guess, current_predicted);
+
+        auto guess = current_guess;
+        Eigen::VectorXd predicted(kNDataPoints);
+        for (int i = 0; i < kNParams; ++i) {
+            guess(i) += epsilon;
+            make_prediction(guess, predicted);
+            guess(i) -= epsilon;
+
+            jacobian.col(i) = (predicted - current_predicted) / epsilon;
+        }
+    }
+
+    void exit() noexcept {
+        /** release memory **/
+        pixels_.resize(0);
+        markers_.resize(0);
+    }
+};
+
 class MathTest {
 public:
     MathTest() = default;
@@ -580,8 +777,11 @@ int main(
     /*Pickleball pb;
     pb.run();*/
 
-    PickleballServe pbs;
-    pbs.run();
+    /*PickleballServe pbs;
+    pbs.run();*/
+
+    TransformCoordinates tc;
+    tc.run();
 
     return 0;
 }
