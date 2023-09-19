@@ -324,6 +324,21 @@ public:
     }
 };
 
+/**
+divine a transformation matrix M and translation vector T to convert pixel coordinates P
+to real world x,y coordinates in feet W.
+    W = M * P + T
+the data set is markers (duct tape) at known positions on the wall
+and their corresponding pixel locations in the images.
+the transformation matrix M is:
+    { a  b }
+    { c  d }
+the translation vector T is:
+    { e }
+    { f }
+the solution_ input/output field of the LevenbergMarquardt class is:
+    { a b c d e f }
+**/
 class TransformCoordinates : LevenbergMarquardt {
 public:
     TransformCoordinates() = default;
@@ -335,7 +350,10 @@ public:
     static constexpr double kEpsilon = 0.00001;
     static constexpr double kMinErrorChange = 0.00001;
 
+    /** pixel coordinates of the markers. **/
     Eigen::VectorXd pixels_;
+
+    /** outputs and used internally by the solver. **/
     Eigen::MatrixXd xform_;
     Eigen::VectorXd xlate_;
 
@@ -378,11 +396,12 @@ public:
         xlate_.resize(2);
     }
 
+    /** transform all pixels to x,y using the solution. **/
     virtual void make_prediction(
         const Eigen::VectorXd &solution,
         Eigen::VectorXd &predicted
     ) noexcept {
-        rearrange_solution(solution);
+        to_xform_xlate(solution);
         Eigen::VectorXd pixel(2);
         Eigen::VectorXd pred(2);
         for (int i = 0; i < kNDataPoints; i += 2) {
@@ -394,7 +413,7 @@ public:
         }
     }
 
-    void rearrange_solution(
+    void to_xform_xlate(
         const Eigen::VectorXd &solution
     ) noexcept {
         xform_(0, 0) = solution[0];
@@ -410,7 +429,7 @@ public:
         pixels_.resize(0);
 
         /** copy the solution to a well-defined place. **/
-        rearrange_solution(solution_);
+        to_xform_xlate(solution_);
     }
 };
 
@@ -662,11 +681,11 @@ int main(
     /*Pickleball pb;
     pb.run();*/
 
-    /*PickleballServe pbs;
-    pbs.run();*/
-
     TransformCoordinates tc;
     tc.run();
+
+    /*PickleballServe pbs;
+    pbs.run();*/
 
     return 0;
 }
