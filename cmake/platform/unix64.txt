@@ -27,9 +27,9 @@ message("-- Stop compiling after ${AGM_MAX_ERRORS} errors.")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fmax-errors=${AGM_MAX_ERRORS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmax-errors=${AGM_MAX_ERRORS}")
 
-# enable c++11.
-message( "-- Enable c++11." )
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+# enable c++17.
+message( "-- Enable c++17." )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
 # disable run-time type information
 #message("-- Run-time type information is disabled.")

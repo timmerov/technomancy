@@ -167,11 +167,65 @@ the tangential speed of the paddle divided by the circumference of the picklebal
 #include <math.h>
 
 #include <sstream>
+#include <vector>
 
 #include <eigen3/Eigen/Dense>
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
+
+class PickleballServe {
+public:
+    PickleballServe() = default;
+    ~PickleballServe() = default;
+
+    class PositionData {
+    public:
+        double t_;
+        double x_;
+        double y_;
+    };
+
+    std::vector<PositionData> positions_;
+
+    void run() noexcept {
+        init();
+    }
+
+    void init() noexcept {
+        /** frame, x pixels, y pixels **/
+        PositionData positions[] = {
+            { 1, 246, 662 },
+            { 2, 320, 646 },
+            { 3, 392, 633 },
+            { 4, 464, 622 },
+            { 5, 532, 612 },
+            { 8, 730, 593 },
+            { 9, 793, 590 },
+            { 10, 855, 589 },
+            { 11, 915, 588 },
+            { 12, 973, 590 },
+            { 13, 1030, 592 },
+            { 14, 1086, 596 },
+            { 15, 1141, 602 },
+            { 16, 1194, 609 },
+            { 17, 1246, 616 },
+            { 18, 1298, 626 },
+            { 19, 1347, 636 },
+            { 20, 1395, 647 },
+            { 21, 1443, 660 },
+            { 22, 1488, 673 },
+            { 23, 1534, 689 },
+            { 24, 1577, 704 }
+        };
+
+        for (auto pos : positions) {
+            positions_.push_back(pos);
+        }
+        int sz = positions_.size();
+        LOG("positions.size="<<sz);
+    }
+};
 
 class MathTest {
 public:
@@ -520,11 +574,14 @@ int main(
 
     agm::log::init(AGM_TARGET_NAME ".log");
 
-    MathTest mt;
-    mt.run();
+    /*MathTest mt;
+    mt.run();*/
 
     /*Pickleball pb;
     pb.run();*/
+
+    PickleballServe pbs;
+    pbs.run();
 
     return 0;
 }
