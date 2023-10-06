@@ -189,6 +189,16 @@ public:
     /** set this to the target values. **/
     Eigen::VectorXd targets_;
 
+    /** verbosity level **/
+    enum class Verbosity {
+        kQuiet,
+        kResultsOnly,
+        kDetailedResults,
+        kIterations,
+        kDebug
+    };
+    Verbosity verbosity_ = Verbosity::kResultsOnly;
+
     /** tweaking these are optional. **/
     int max_error_iters_ = 100;
     int max_lambda_iters_ = 100;
@@ -209,10 +219,14 @@ public:
     void solve() noexcept {
         Eigen::VectorXd predicted(ndata_points_);
         make_prediction(solution_, predicted);
-        LOG("predicted = "<<predicted.transpose());
+        if (verbosity_ >= Verbosity::kIterations) {
+            LOG("predicted = "<<predicted.transpose());
+        }
 
         double error = calculate_error(predicted);
-        LOG("error = "<<error);
+        if (verbosity_ >= Verbosity::kIterations) {
+            LOG("error = "<<error);
+        }
 
         double lambda = init_lambda_;
         Eigen::MatrixXd jacobian(ndata_points_, nparams_);
@@ -233,43 +247,65 @@ public:
             if (error < good_error_) {
                 break;
             }
-            LOG("error iter = "<<err_iter);
+            if (verbosity_ >= Verbosity::kIterations) {
+                LOG("error iter = "<<err_iter);
+            }
 
             calculate_jacobian(jacobian, epsilon_);
-            //LOG("jacobian = "<<jacobian);
+            if (verbosity_ >= Verbosity::kDebug) {
+                LOG("jacobian = "<<jacobian);
+            }
 
             jacobian_transpose = jacobian.transpose();
-            //LOG("jacobian_transpose = "<<jacobian_transpose);
+            if (verbosity_ >= Verbosity::kDebug) {
+                LOG("jacobian_transpose = "<<jacobian_transpose);
+            }
 
             jacobian_squared = jacobian_transpose * jacobian;
-            //LOG("jacobian_squared = "<<jacobian_squared);
+            if (verbosity_ >= Verbosity::kDebug) {
+                LOG("jacobian_squared = "<<jacobian_squared);
+            }
 
             diagonal = jacobian_squared;
 
             for (int lambda_iter = 0; lambda_iter < max_lambda_iters_; ++lambda_iter) {
-                LOG("lambda iter = "<<lambda_iter<<" lambda = "<<lambda);
+                if (verbosity_ >= Verbosity::kIterations) {
+                    LOG("lambda iter = "<<lambda_iter<<" lambda = "<<lambda);
+                }
 
                 for (int i = 0; i < nparams_; ++i) {
                     diagonal(i, i) = jacobian_squared(i,i) + lambda;
                 }
-                //LOG("diagonal = "<<diagonal);
+                if (verbosity_ >= Verbosity::kDebug) {
+                    LOG("diagonal = "<<diagonal);
+                }
 
                 inverse = diagonal.inverse();
-                //LOG("inverse = "<<inverse);
+                if (verbosity_ >= Verbosity::kDebug) {
+                    LOG("inverse = "<<inverse);
+                }
 
                 residuals = targets_ - predicted;
-                //LOG("residuals = "<<residuals.transpose());
+                if (verbosity_ >= Verbosity::kDebug) {
+                    LOG("residuals = "<<residuals.transpose());
+                }
 
                 shift = inverse * jacobian_transpose * residuals;
-                //LOG("shift = "<<shift.transpose());
+                if (verbosity_ >= Verbosity::kDebug) {
+                    LOG("shift = "<<shift.transpose());
+                }
 
                 new_solution = solution_ + shift;
-                LOG("new_solution = "<<new_solution.transpose());
+                if (verbosity_ >= Verbosity::kIterations) {
+                    LOG("new_solution = "<<new_solution.transpose());
+                }
 
                 make_prediction(new_solution, new_predicted);
 
                 double new_error = calculate_error(new_predicted);
-                LOG("new_error = "<<new_error);
+                if (verbosity_ >= Verbosity::kIterations) {
+                    LOG("new_error = "<<new_error);
+                }
 
                 if (new_error >= error) {
                     lambda *= lambda_inc_;
@@ -289,10 +325,19 @@ public:
             }
         }
 
+        /** results **/
+        if (verbosity_ >= Verbosity::kResultsOnly
+        &&  verbosity_ <= Verbosity::kDetailedResults) {
+            LOG("error = "<<error);
+            LOG("solution = "<<solution_.transpose());
+        }
+
         /** brag **/
-        make_prediction(solution_, predicted);
-        for (int i = 0; i < ndata_points_; ++i) {
-            LOG(i<<": predicted: "<<predicted[i]<<" target: "<<targets_[i]);
+        if (verbosity_ >= Verbosity::kDetailedResults) {
+            make_prediction(solution_, predicted);
+            for (int i = 0; i < ndata_points_; ++i) {
+                LOG(i<<": predicted: "<<predicted[i]<<" target: "<<targets_[i]);
+            }
         }
     }
 
@@ -368,6 +413,7 @@ public:
         ndata_points_ = kNDataPoints;
         nparams_ = kNParams;
         /** configuration **/
+        verbosity_ = Verbosity::kDetailedResults;
         epsilon_ = kEpsilon;
         min_error_change_ = kMinErrorChange;
 
