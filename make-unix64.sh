@@ -7,7 +7,7 @@ BUILD_DIR_RELEASE=build-$TARGET_CPU-release
 GEN_CMD=gen-$TARGET_CPU.sh
 CORES=-j$(grep -c ^processor /proc/cpuinfo)
 
-echo Building and installing third party products...
+echo Building...
 #. ./$GEN_CMD
 pushd $BUILD_DIR_DEBUG
 make $CORES
