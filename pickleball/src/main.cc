@@ -336,7 +336,10 @@ public:
         if (verbosity_ >= Verbosity::kDetailedResults) {
             make_prediction(solution_, predicted);
             for (int i = 0; i < ndata_points_; ++i) {
-                LOG(i<<": predicted: "<<predicted[i]<<" target: "<<targets_[i]);
+                double p = predicted[i];
+                double t = targets_[i];
+                double d = p - t;
+                LOG(i<<": predicted: "<<p<<" target: "<<t<<" diff: "<<d);
             }
         }
     }
@@ -479,10 +482,27 @@ public:
     }
 };
 
-class PickleballServe {
+/**
+divine a set of parameters for the physics model that match the observed positions.
+
+params(6):
+0: height at x=-22 ft.
+1: time at x=-22 ft.
+2: velocity at x=-22 ft.
+3: angle at x=-22 ft.
+4: drag coefficient
+5: effective lift = spin rate * lift coefficient
+**/
+class PickleballServe : LevenbergMarquardt {
 public:
     PickleballServe() = default;
     ~PickleballServe() = default;
+
+    static constexpr int kNParams = 6;
+    static constexpr double kEpsilon = 0.00001;
+    static constexpr double kMinErrorChange = 0.00001;
+    static constexpr double kFPS = 30;
+    static constexpr double kFrameTime = 1.0/kFPS;
 
     class PositionData {
     public:
@@ -523,12 +543,41 @@ public:
             { 23, 1534, 689 },
             { 24, 1577, 704 }
         };
+        int npts = sizeof(positions) / sizeof(PositionData);
+        LOG("npts="<<npts);
 
-        for (auto pos : positions) {
-            positions_.push_back(pos);
+        /** mandatory **/
+        ndata_points_ = 3 * npts;
+        nparams_ = kNParams;
+
+        /** configuration **/
+        verbosity_ = Verbosity::kDetailedResults;
+        epsilon_ = kEpsilon;
+        min_error_change_ = kMinErrorChange;
+
+        /** set the initial horrible guess: identity transform and no translation. **/
+        solution_.resize(kNParams);
+        solution_ << 1.0;
+
+        /** set the source and target values. **/
+        targets_.resize(ndata_points_);
+        for ( int i = 0; i < npts; ++i) {
+            auto& pos = positions[i];
+            auto tgt = &targets_[3*i];
+            tgt[0] = pos.t_ * kFrameTime;
+            /** =TSC= transform pixels to feet. **/
+            tgt[1] = pos.x_;
+            tgt[2] = pos.y_;
         }
-        int sz = positions_.size();
-        LOG("positions.size="<<sz);
+    }
+
+    /**  **/
+    virtual void make_prediction(
+        const Eigen::VectorXd &solution,
+        Eigen::VectorXd &predicted
+    ) noexcept {
+        (void) solution;
+        (void) predicted;
     }
 };
 
@@ -730,8 +779,8 @@ int main(
     TransformCoordinates tc;
     tc.run();
 
-    /*PickleballServe pbs;
-    pbs.run();*/
+    PickleballServe pbs;
+    pbs.run();
 
     return 0;
 }
