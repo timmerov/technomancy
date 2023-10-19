@@ -573,7 +573,9 @@ public:
 
     void run() noexcept {
         init();
+        LOG("initial solution: "<<solution_.transpose());
         solve();
+        LOG("final solution: "<<solution_.transpose());
     }
 
     void init() noexcept {
@@ -634,19 +636,27 @@ public:
         Eigen::VectorXd xy(2);
         for ( int i = 0; i < npts; ++i) {
             auto& pos = positions[i];
-            auto tgt = &targets_[2*i];
 
             /** scale frame number to seconds. **/
             times_[i] = pos.t_ * kFrameTime;
 
             /** transform pixels to feet. **/
-            pixel[0] = pos.x_;
-            pixel[1] = pos.y_;
+            /**
+            ah crap.
+            it looks like the calibration is from a still image that is
+            twice the resolution of the video.
+            add the 2.0x fudge factor.
+            **/
+            pixel[0] = 2.0 * pos.x_;
+            pixel[1] = 2.0 * pos.y_;
             xy = xform_ * pixel + xlate_;
 
             /** move the x,y positions from the wall to the sideline. **/
-            tgt[0] = kScalingFactor * xy[0];
-            tgt[1] = kScalingFactor * (xy[1] - kCameraHeight) + kCameraHeight;
+            int k = 2*i;
+            targets_[k+0] = kScalingFactor * xy[0];
+            targets_[k+1] = kScalingFactor * (xy[1] - kCameraHeight) + kCameraHeight;
+
+            LOG("wall x,y="<<xy[0]<<","<<xy[1]<<" scaled x,y="<<targets_[k+0]<<","<<targets_[k+1]);
         }
     }
 
@@ -668,16 +678,20 @@ public:
         double theta = solution[3];
         vx_ = v0 * std::cos(theta);
         vy_ = v0 * std::sin(theta);
-        drag_ = solution[4];
-        lift_ = solution[5];
+        drag_ = kDragFactor * solution[4];
+        lift_ = kLiftFactor * solution[5];
+
+        LOG("t="<<t_<<" x="<<x_<<" y="<<y_<<" vx="<<vx_<<" vy="<<vy_);
 
         int npts = times_.size();
         for (end_pt_ = 0; end_pt_ < npts; ++end_pt_) {
             interval();
-        }
 
-        /** =TSC= copy the targets to the prediction. **/
-        predicted = targets_;
+            /** save the position. **/
+            int k = 2 * end_pt_;
+            predicted[k+0] = x_;
+            predicted[k+1] = y_;
+        }
     }
 
     /** advance the model to the time of the next data point. **/
@@ -699,8 +713,39 @@ public:
 
     /** advance the model one step. **/
     void advance() noexcept {
+
+        /** deceleration due to drag **/
+        double v2 = vx_*vx_ + vy_*vy_;
+        double v = std::sqrt(v2);
+        /**
+        drag is drag factor * v^2
+        dragx is drag * vx / v
+        cancel some v's.
+        **/
+        double drag_v = drag_ * v;
+        double dragx = drag_v * vx_;
+        double dragy = drag_v * vy_;
+        double liftx = - lift_ * vy_;
+        double lifty = - lift_ * vx_;
+
+        /** acceleration **/
+        double ax = - dragx + liftx;
+        double ay = - kGravity + lifty;
+        if (vy_ > 0.0) {
+            ay -= dragy;
+        } else {
+            ay += dragy;
+        }
+
+        /** update variables **/
         t_ += dt_;
-        LOG("t="<<t_);
+        double dt2 = dt_ * dt_;
+        x_ += vx_ * dt_ + 0.5 * ax * dt2;
+        y_ += vy_ * dt_ + 0.5 * ay * dt2;
+        vx_ += ax * dt_;
+        vy_ += ay * dt_;
+
+        LOG("t="<<t_<<" x="<<x_<<" y="<<y_<<" vx="<<vx_<<" vy="<<vy_);
     }
 };
 
