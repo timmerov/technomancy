@@ -88,7 +88,9 @@ the first court is 20' wide.
 the second court is 11'6" from the first court.
 the second court is 20' wide.
 the camera is on the net line on the far side of the second court.
-the camera is 6.5+20+11.5+20=58 feet from the wall.
+the camera is 3' above the playing surface.
+the camera is 20+11.5+20=51.5 feet from the plane the ball travels in.
+the camera is 51.5+6.5=58 feet from the wall.
 
 serves were made from the far corner of the first court.
 serves were hit more/less directly down the first court sideline.
@@ -486,12 +488,35 @@ public:
 divine a set of parameters for the physics model that match the observed positions.
 
 params(6):
-0: height at x=-22 ft.
-1: time at x=-22 ft.
-2: velocity at x=-22 ft.
-3: angle at x=-22 ft.
-4: drag coefficient
-5: effective lift = spin rate * lift coefficient
+0: height at x=-22 ft = 2'
+1: time at x=-22 ft = 0 seconds.
+2: velocity at x=-22 ft = 52.0 mph.
+3: angle at x=-22 ft = 10 degrees.
+4: drag coefficient = 0.40.
+5: effective lift = spin rate * lift coefficient = 500 rpm * 0.075.
+
+we have data for a tracked pickleball: t, x, y
+we assume t is measured perfectly.
+and we predict x,y for every t.
+otherwise it's kinda hard to calculate the error.
+cause the error is dt^2 + dx^2 + dy^2.
+and we kinda have a units problem.
+we could scale dt by the velocity.
+but which velocity: the initial guess, the instantaneous?
+but that's probably complexity we don't need.
+ergo, the targets are:
+0: x
+1: y
+and we keep t in seconds separately.
+assume the t's increase monotonically.
+
+the transformed x,y positions put the ball on the wall.
+but the ball is 6.5' closer to the camera.
+the camera is 58' from the wall.
+it's easy to write down the forward transformation:
+observed = (actual -3') * 58'/51.5' + 3'
+inverting that gives the tranformation we want:
+actual = (observed - 3') * 51.5'/58' + 3'
 **/
 class PickleballServe : LevenbergMarquardt {
 public:
@@ -504,6 +529,13 @@ public:
     static constexpr double kFPS = 30;
     static constexpr double kFrameTime = 1.0/kFPS;
 
+    static constexpr double kScalingFactor = 51.5 / 58.0;
+    static constexpr double kCameraHeight = 3.0;
+
+    /** translate pixels to x,y coordinates **/
+    Eigen::MatrixXd xform_;
+    Eigen::VectorXd xlate_;
+
     class PositionData {
     public:
         double t_;
@@ -511,7 +543,8 @@ public:
         double y_;
     };
 
-    std::vector<PositionData> positions_;
+    /** times in seconds. **/
+    Eigen::VectorXd times_;
 
     void run() noexcept {
         init();
@@ -547,7 +580,7 @@ public:
         LOG("npts="<<npts);
 
         /** mandatory **/
-        ndata_points_ = 3 * npts;
+        ndata_points_ = 2 * npts;
         nparams_ = kNParams;
 
         /** configuration **/
@@ -557,17 +590,37 @@ public:
 
         /** set the initial horrible guess: identity transform and no translation. **/
         solution_.resize(kNParams);
-        solution_ << 1.0;
+        solution_ <<
+            2.0, // starting height
+            0.0, // starting time
+             // starting velocity
+            52.0 /*mph*/ * 5280 /*ft/mi*/ / 60 /*m/h*/ / 60 /*s/m*/,
+            // starting angle
+            10.0 * M_PI / 180.0,
+            0.40, // drag coefficient
+            // effect lift = spin rate * lift coefficient
+            500 /*rpm*/ / 60 /*m/s*/ * 0.075;
 
         /** set the source and target values. **/
         targets_.resize(ndata_points_);
+        times_.resize(npts);
+        Eigen::VectorXd pixel(2);
+        Eigen::VectorXd xy(2);
         for ( int i = 0; i < npts; ++i) {
             auto& pos = positions[i];
-            auto tgt = &targets_[3*i];
-            tgt[0] = pos.t_ * kFrameTime;
-            /** =TSC= transform pixels to feet. **/
-            tgt[1] = pos.x_;
-            tgt[2] = pos.y_;
+            auto tgt = &targets_[2*i];
+
+            /** scale frame number to seconds. **/
+            times_[i] = pos.t_ * kFrameTime;
+
+            /** transform pixels to feet. **/
+            pixel[0] = pos.x_;
+            pixel[1] = pos.y_;
+            xy = xform_ * pixel + xlate_;
+
+            /** move the x,y positions from the wall to the sideline. **/
+            tgt[0] = kScalingFactor * xy[0];
+            tgt[1] = kScalingFactor * (xy[1] - kCameraHeight) + kCameraHeight;
         }
     }
 
@@ -773,13 +826,12 @@ int main(
 
     agm::log::init(AGM_TARGET_NAME ".log");
 
-    /*Pickleball pb;
-    pb.run();*/
-
     TransformCoordinates tc;
     tc.run();
 
     PickleballServe pbs;
+    pbs.xform_ = tc.xform_;
+    pbs.xlate_ = tc.xlate_;
     pbs.run();
 
     return 0;
