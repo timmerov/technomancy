@@ -523,14 +523,27 @@ public:
     PickleballServe() = default;
     ~PickleballServe() = default;
 
+    /** configuration of the solver. **/
     static constexpr int kNParams = 6;
     static constexpr double kEpsilon = 0.00001;
     static constexpr double kMinErrorChange = 0.00001;
     static constexpr double kFPS = 30;
     static constexpr double kFrameTime = 1.0/kFPS;
 
+    /** transform from wall coordinates to sideline coordinates. **/
     static constexpr double kScalingFactor = 51.5 / 58.0;
     static constexpr double kCameraHeight = 3.0;
+
+    /** pickleball physics. **/
+    static constexpr double kAirDensity = 0.075; /// lb/ft^3
+    static constexpr double kDiameter = 2.9 / 12.0; /// ft
+    static constexpr double kGravity = 32.17; /// ft/s^3
+    static constexpr double kWeight = 0.0535; /// pounds
+    static constexpr double kRadius = kDiameter / 2.0;
+    static constexpr double kArea = M_PI * kRadius * kRadius;
+    static constexpr double kVolume = 4.0 / 3.0 * kArea * kRadius;
+    static constexpr double kDragFactor = 0.5 * kAirDensity * kArea / kWeight;
+    static constexpr double kLiftFactor = kVolume * 4.0 * M_PI * kAirDensity / kWeight;
 
     /** translate pixels to x,y coordinates **/
     Eigen::MatrixXd xform_;
@@ -548,6 +561,7 @@ public:
 
     void run() noexcept {
         init();
+        solve();
     }
 
     void init() noexcept {
@@ -584,7 +598,7 @@ public:
         nparams_ = kNParams;
 
         /** configuration **/
-        verbosity_ = Verbosity::kDetailedResults;
+        verbosity_ = Verbosity::kDebug; //kDetailedResults;
         epsilon_ = kEpsilon;
         min_error_change_ = kMinErrorChange;
 
@@ -630,7 +644,9 @@ public:
         Eigen::VectorXd &predicted
     ) noexcept {
         (void) solution;
-        (void) predicted;
+
+        /** =TSC= copy the targets to the prediction. **/
+        predicted = targets_;
     }
 };
 
