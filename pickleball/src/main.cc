@@ -488,8 +488,8 @@ public:
 divine a set of parameters for the physics model that match the observed positions.
 
 params(6):
-0: height at x=-22 ft = 2'
-1: time at x=-22 ft = 0 seconds.
+0: time at x=-22 ft = 0 seconds.
+1: height at x=-22 ft = 2'
 2: velocity at x=-22 ft = 52.0 mph.
 3: angle at x=-22 ft = 10 degrees.
 4: drag coefficient = 0.40.
@@ -535,6 +535,7 @@ public:
     static constexpr double kCameraHeight = 3.0;
 
     /** pickleball physics. **/
+    static constexpr double kX0 = -22.0; // ft
     static constexpr double kAirDensity = 0.075; /// lb/ft^3
     static constexpr double kDiameter = 2.9 / 12.0; /// ft
     static constexpr double kGravity = 32.17; /// ft/s^3
@@ -558,6 +559,17 @@ public:
 
     /** times in seconds. **/
     Eigen::VectorXd times_;
+
+    /** used to advance the model one step. **/
+    double t_ = 0.0;
+    double x_ = 0.0;
+    double y_ = 0.0;
+    double vx_ = 0.0;
+    double vy_ = 0.0;
+    double drag_ = 0.0;
+    double lift_ = 0.0;
+    int end_pt_ = 0;
+    double dt_ = 0.0;
 
     void run() noexcept {
         init();
@@ -605,8 +617,8 @@ public:
         /** set the initial horrible guess: identity transform and no translation. **/
         solution_.resize(kNParams);
         solution_ <<
-            2.0, // starting height
             0.0, // starting time
+            2.0, // starting height
              // starting velocity
             52.0 /*mph*/ * 5280 /*ft/mi*/ / 60 /*m/h*/ / 60 /*s/m*/,
             // starting angle
@@ -638,15 +650,57 @@ public:
         }
     }
 
-    /**  **/
+    /**
+    pickleball physics.
+    the time step should move the ball about one diameter.
+    divide the time interval to the next data point into a good number of steps.
+    advance the state one step at a time.
+    record the x,y positions.
+    **/
     virtual void make_prediction(
         const Eigen::VectorXd &solution,
         Eigen::VectorXd &predicted
     ) noexcept {
-        (void) solution;
+        t_ = solution[0];
+        x_ = kX0;
+        y_ = solution[1];
+        double v0 = solution[2];
+        double theta = solution[3];
+        vx_ = v0 * std::cos(theta);
+        vy_ = v0 * std::sin(theta);
+        drag_ = solution[4];
+        lift_ = solution[5];
+
+        int npts = times_.size();
+        for (end_pt_ = 0; end_pt_ < npts; ++end_pt_) {
+            interval();
+        }
 
         /** =TSC= copy the targets to the prediction. **/
         predicted = targets_;
+    }
+
+    /** advance the model to the time of the next data point. **/
+    void interval() noexcept {
+        double t1 = times_[end_pt_];
+        double delta_t = t1 - t_;
+        double delta_x = delta_t * vx_;
+        int steps = (int) std::round(delta_x / kDiameter);
+        if (steps < 1) {
+            steps = 1;
+        }
+        dt_ = delta_t / steps;
+        LOG("end_pt_="<<end_pt_<<" t0="<<t_<<" t1="<<t1<<" steps="<<steps<<" dt="<<dt_);
+
+        for (int i = 0; i < steps; ++i) {
+            advance();
+        }
+    }
+
+    /** advance the model one step. **/
+    void advance() noexcept {
+        t_ += dt_;
+        LOG("t="<<t_);
     }
 };
 
