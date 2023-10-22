@@ -70,17 +70,17 @@ d is the vector of the di.
 m is the vector of the mi.
 p is the vector of the pk.
 
-for data collected 2023-08-24 of me serving.
+for data collected 2023-08-24 of me serving - movie 5173 frame 0816.
 unfortunately the lower left marker is blocked by a bucket.
 ah well.
 here are the x,y coordinates for the rest:
 
                 pixels          feet
-left top        432,996         -22,6
-center          1501,1144       0,3
-center bottom   1499,1292       0,0
-right top       2566,1001       22,6
-right bottom    2568,1293       22,0
+left top        280,542         -22,6
+center          968,637         0,3
+center bottom   966,732         0,0
+right top       1652,545        22,6
+right bottom    1653,733        22,0
 
 the markers are on the wall.
 the wall is 6'5" from the first court.
@@ -113,6 +113,7 @@ the vector of unknowns is defined as follows:
 4: drag coefficient 0.40
 5: effective lift coefficient (lift times spin, we don't know spin) - 0.75 (600 rpm / 60 min/sec * 0.075)
 
+the data was collected on 2023-06-24 movie 5173 frames 806 through 829.
 we have N data points consisting of x,y,t.
 where t is the frame number (starting at 1) times .0333 seconds per frame.
 the x,y points are extracted from the video.
@@ -429,11 +430,11 @@ public:
         /** set the source and target values. **/
         pixels_.resize(kNDataPoints);
         pixels_ <<
-             432.0,  996.0,
-            1501.0, 1144.0,
-            1499.0, 1292.0,
-            2566.0, 1001.0,
-            2568.0, 1293.0;
+             280.0, 542.0,
+             968.0, 637.0,
+             966.0, 732.0,
+            1652.0, 545.0,
+            1653.0, 733.0;
         targets_.resize(kNDataPoints);
         targets_ <<
             -22.0, 6.0,
@@ -641,14 +642,8 @@ public:
             times_[i] = pos.t_ * kFrameTime;
 
             /** transform pixels to feet. **/
-            /**
-            ah crap.
-            it looks like the calibration is from a still image that is
-            twice the resolution of the video.
-            add the 2.0x fudge factor.
-            **/
-            pixel[0] = 2.0 * pos.x_;
-            pixel[1] = 2.0 * pos.y_;
+            pixel[0] = pos.x_;
+            pixel[1] = pos.y_;
             xy = xform_ * pixel + xlate_;
 
             /** move the x,y positions from the wall to the sideline. **/
