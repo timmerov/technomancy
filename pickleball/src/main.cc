@@ -539,11 +539,15 @@ public:
     static constexpr double kX0 = -22.0; // ft
     static constexpr double kAirDensity = 0.075; /// lb/ft^3
     static constexpr double kDiameter = 2.9 / 12.0; /// ft
-    static constexpr double kGravity = 32.17; /// ft/s^3
+    static constexpr double kGravity = -32.17; /// ft/s^3 down
     static constexpr double kWeight = 0.0535; /// pounds
     static constexpr double kRadius = kDiameter / 2.0;
     static constexpr double kArea = M_PI * kRadius * kRadius;
     static constexpr double kVolume = 4.0 / 3.0 * kArea * kRadius;
+    /**
+    Fdrag = _(1/2 * p * A)_ * Cd * v^2
+    Flift = _((4/3 * pi * r^3) * 4 * pi * p)_ * s * Cl * v
+    **/
     static constexpr double kDragFactor = 0.5 * kAirDensity * kArea / kWeight;
     static constexpr double kLiftFactor = kVolume * 4.0 * M_PI * kAirDensity / kWeight;
 
@@ -577,6 +581,23 @@ public:
         LOG("initial solution: "<<solution_.transpose());
         solve();
         LOG("final solution: "<<solution_.transpose());
+
+        double y0 = solution_[1];
+        double v0 = solution_[2];
+        double angle = solution_[3];
+        double cd = solution_[4];
+        double effective_spin = solution_[5];
+
+        /** convert units **/
+        v0 = v0 / 5280 /*ft/mi*/ * 60 /*s/m*/ * 60 /*m/h*/;
+        angle = angle * 180.0 / M_PI;
+        double spin = effective_spin / 0.075 * 60 /*s/m*/;
+
+        LOG("initial height  : "<<y0<<" ft");
+        LOG("velocity        : "<<v0<<" mph");
+        LOG("angle           : "<<angle<<" degrees");
+        LOG("drag coefficient: "<<cd);
+        LOG("spin            : "<<spin<<" rpm");
     }
 
     void init() noexcept {
@@ -606,14 +627,14 @@ public:
             { 24, 1577, 704 }
         };
         int npts = sizeof(positions) / sizeof(PositionData);
-        LOG("npts="<<npts);
+        //LOG("npts="<<npts);
 
         /** mandatory **/
         ndata_points_ = 2 * npts;
         nparams_ = kNParams;
 
         /** configuration **/
-        verbosity_ = Verbosity::kDebug; //kDetailedResults;
+        verbosity_ = Verbosity::kIterations;
         epsilon_ = kEpsilon;
         min_error_change_ = kMinErrorChange;
 
@@ -651,7 +672,7 @@ public:
             targets_[k+0] = kScalingFactor * xy[0];
             targets_[k+1] = kScalingFactor * (xy[1] - kCameraHeight) + kCameraHeight;
 
-            LOG("wall x,y="<<xy[0]<<","<<xy[1]<<" scaled x,y="<<targets_[k+0]<<","<<targets_[k+1]);
+            //LOG("wall x,y="<<xy[0]<<","<<xy[1]<<" scaled x,y="<<targets_[k+0]<<","<<targets_[k+1]);
         }
     }
 
@@ -673,10 +694,15 @@ public:
         double theta = solution[3];
         vx_ = v0 * std::cos(theta);
         vy_ = v0 * std::sin(theta);
+        /**
+        Fdrag = (1/2 * p * A) * _Cd_ * v^2
+        Flift = ((4/3 * pi * r^3) * 4 * pi * p) * _(s * Cl)_ * v
+        **/
         drag_ = kDragFactor * solution[4];
         lift_ = kLiftFactor * solution[5];
+        //LOG("drag_="<<drag_<<" lift_="<<lift_);
 
-        LOG("t="<<t_<<" x="<<x_<<" y="<<y_<<" vx="<<vx_<<" vy="<<vy_);
+        //LOG("t="<<t_<<" x="<<x_<<" y="<<y_<<" vx="<<vx_<<" vy="<<vy_);
 
         int npts = times_.size();
         for (end_pt_ = 0; end_pt_ < npts; ++end_pt_) {
@@ -699,7 +725,7 @@ public:
             steps = 1;
         }
         dt_ = delta_t / steps;
-        LOG("end_pt_="<<end_pt_<<" t0="<<t_<<" t1="<<t1<<" steps="<<steps<<" dt="<<dt_);
+        //LOG("end_pt_="<<end_pt_<<" t0="<<t_<<" t1="<<t1<<" steps="<<steps<<" dt="<<dt_);
 
         for (int i = 0; i < steps; ++i) {
             advance();
@@ -709,28 +735,35 @@ public:
     /** advance the model one step. **/
     void advance() noexcept {
 
-        /** deceleration due to drag **/
+        /** acceleration due to drag and lift **/
         double v2 = vx_*vx_ + vy_*vy_;
         double v = std::sqrt(v2);
         /**
+        Fdrag = (1/2 * p * A) * Cd * _(v^2)_
+        Flift = ((4/3 * pi * r^3) * 4 * pi * p) * (s * Cl) * _v_
+
         drag is drag factor * v^2
         dragx is drag * vx / v
         cancel some v's.
         **/
         double drag_v = drag_ * v;
-        double dragx = drag_v * vx_;
-        double dragy = drag_v * vy_;
-        double liftx = - lift_ * vy_;
+        /** drag is opposite to velocity. **/
+        double dragx = - drag_v * vx_;
+        double dragy = - drag_v * vy_;
+        /** if vy > 0 then liftx > 0 **/
+        /** if vy < 0 then liftx < 0 **/
+        double liftx = + lift_ * vy_;
+        /** if vx > 0 then lifty < 0 **/
         double lifty = - lift_ * vx_;
+        //LOG("dragx="<<dragx<<" dragy="<<dragy<<" liftx="<<liftx<<" lifty="<<lifty);
 
-        /** acceleration **/
-        double ax = - dragx + liftx;
-        double ay = - kGravity + lifty;
-        if (vy_ > 0.0) {
-            ay -= dragy;
-        } else {
-            ay += dragy;
-        }
+        /**
+        acceleration
+        gravity is down = -32 ft/s^2.
+        **/
+        double ax = dragx + liftx;
+        double ay = dragy + lifty + kGravity;
+        //LOG("ax="<<ax<<" ay="<<ay);
 
         /** update variables **/
         t_ += dt_;
@@ -740,7 +773,7 @@ public:
         vx_ += ax * dt_;
         vy_ += ay * dt_;
 
-        LOG("t="<<t_<<" x="<<x_<<" y="<<y_<<" vx="<<vx_<<" vy="<<vy_);
+        //LOG("t="<<t_<<" x="<<x_<<" y="<<y_<<" vx="<<vx_<<" vy="<<vy_);
     }
 };
 
