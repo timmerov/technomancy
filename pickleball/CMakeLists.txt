@@ -29,11 +29,14 @@ target_compile_definitions(${THIS_TARGET_NAME} PRIVATE AGM_TARGET=${THIS_TARGET_
 set(INCS
     ${CMAKE_SOURCE_DIR}/${THIS_TARGET_NAME}
     ${CMAKE_SOURCE_DIR}/agm/inc
+    ${CMAKE_SOURCE_DIR}/common/inc
 )
 include_directories(${INCS})
 
 # add the libraries
 set(LIBS
     agm
+    common
+    png
 )
 target_link_libraries(${THIS_TARGET_NAME} ${LIBS})

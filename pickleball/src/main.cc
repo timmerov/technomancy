@@ -113,7 +113,7 @@ the vector of unknowns is defined as follows:
 4: drag coefficient 0.40
 5: effective lift coefficient (lift times spin, we don't know spin) - 0.75 (600 rpm / 60 min/sec * 0.075)
 
-the data was collected on 2023-06-24 movie 5173 frames 806 through 829.
+the data was collected on 2023-08-24 movie 5173 frames 806 through 829.
 we have N data points consisting of x,y,t.
 where t is the frame number (starting at 1) times .0333 seconds per frame.
 the x,y points are extracted from the video.
@@ -176,6 +176,8 @@ the tangential speed of the paddle divided by the circumference of the picklebal
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
+#include <common/png.h>
+
 
 class LevenbergMarquardt {
 public:
@@ -430,7 +432,7 @@ public:
         /** set the source and target values. **/
         pixels_.resize(kNDataPoints);
         targets_.resize(kNDataPoints);
-        #include "data/2023-06-24-5173-0816.hpp"
+        #include "data/2023-08-24-5173-0816.hpp"
 
         /** size the outputs. **/
         xform_.resize(2, 2);
@@ -592,8 +594,8 @@ public:
     void init() noexcept {
         /** frame, x pixels, y pixels **/
         PositionData positions[] = {
-            #include "data/2023-06-24-5173-0564-0588.hpp"
-            //#include "data/2023-06-24-5173-0806-0829.hpp"
+            #include "data/2023-08-24-5173-0564-0588.hpp"
+            //#include "data/2023-08-24-5173-0806-0829.hpp"
         };
         int npts = sizeof(positions) / sizeof(PositionData);
         //LOG("npts="<<npts);
@@ -746,6 +748,147 @@ public:
     }
 };
 
+/**
+all files must be numbered sequentially.
+open every file between first and last.
+diff with first.
+save max pixel values in out.
+**/
+class GenerateTrackedImage {
+public:
+    GenerateTrackedImage() = default;
+    ~GenerateTrackedImage() = default;
+
+    /** inputs **/
+    std::string first_;
+    std::string last_;
+    std::string out_;
+
+    /** private **/
+    std::string cur_;
+    int inc_ = 0;
+    Png first_png_;
+    Png cur_png_;
+    Png out_png_;
+
+    void run() noexcept {
+        LOG("first: "<<first_);
+        LOG("last : "<<last_);
+        LOG("out  : "<<out_);
+
+        /** sanity check **/
+        int len0 = first_.size();
+        int len1 = last_.size();
+        if (len0 != len1) {
+            show_error();
+            exit(0);
+        }
+
+        /**
+        find the last changed character between first and last.
+        it must be a digit.
+        **/
+        inc_ = len0;
+        for(;;) {
+            --inc_;
+            if (inc_ <= 0) {
+                show_error();
+                exit(0);
+            }
+
+            if (first_[inc_] != last_[inc_]) {
+                int ch = first_[inc_];
+                if (ch < '0' || ch > '9') {
+                    show_error();
+                    exit(0);
+                }
+                break;
+            }
+        }
+
+        /** load the first png. **/
+        first_png_.read(first_.c_str());
+
+        /** create the output png. **/
+        int wd = first_png_.wd_;
+        int ht = first_png_.ht_;
+        out_png_.init(wd, ht);
+        int bytes = ht * out_png_.stride_;
+        std::memset(out_png_.data_, 0, bytes);
+
+        /**
+        load all images from first to last.
+        diff them with first.
+        save the max to out.
+        **/
+        cur_ = first_;
+        for(;;) {
+            advance_cur();
+            LOG("cur_ = "<<cur_);
+            if (cur_ == last_) {
+                break;
+            }
+            update_output();
+        }
+
+        /** write the output file. **/
+        out_png_.write(out_.c_str());
+    }
+
+    void show_error() {
+        LOG("Something went wrong.");
+        LOG("We expect to find a sequence of numbered filenames e.g.:");
+        LOG("path/0001 path/0002 path/0003 path/0004 etc...");
+        LOG("The filenames should all be the same length.");
+    }
+
+    void advance_cur() noexcept {
+        int ix = inc_;
+        for(;;) {
+            if (ix < 0) {
+                show_error();
+                exit(0);
+            }
+            int ch = cur_[ix];
+            if (ch < '0' || ch > '9') {
+                show_error();
+                exit(0);
+            }
+            if (ch < '9') {
+                cur_[ix] = ch + 1;
+                break;
+            }
+            cur_[ix] = '0';
+            --ix;
+        }
+    }
+
+    void update_output() noexcept {
+        /** read the current file. **/
+        cur_png_.read(cur_.c_str());
+
+        /** for each r,g,b pixels **/
+        int wd = cur_png_.wd_ * 3;
+        int ht = cur_png_.ht_;
+        int stride = cur_png_.stride_;
+        for (int y = 0; y < ht; ++y) {
+            int iy = y * stride;
+            for (int x = 0; x < wd; ++x) {
+                int ix = iy + x;
+                int p0 = first_png_.data_[ix];
+                int p1 = cur_png_.data_[ix];
+                int p2 = out_png_.data_[ix];
+                /** diff between first and cur image **/
+                int df = std::abs(p1 - p0);
+                if (p2 < df) {
+                    /** overwrite with the maximum. **/
+                    out_png_.data_[ix] = df;
+                }
+            }
+        }
+    }
+};
+
 int main(
     int argc, char *argv[]
 ) noexcept {
@@ -753,6 +896,27 @@ int main(
     (void) argv;
 
     agm::log::init(AGM_TARGET_NAME ".log");
+
+    if (argc >= 2) {
+        std::string what(argv[1]);
+        if (what == "-h" || what == "--help") {
+            auto app = argv[0];
+            LOG("Usage:");
+            LOG("$ "<<app<<" -h, --help");
+            LOG("$ "<<app<<"  # use data in the code.");
+            LOG("$ "<<app<<" first.png last.png out.png # diff first from others save max pixels in out.");
+            return 0;
+        }
+    }
+
+    if (argc >= 4) {
+        GenerateTrackedImage gti;
+        gti.first_ = argv[1];
+        gti.last_ = argv[2];
+        gti.out_ = argv[3];
+        gti.run();
+        return 0;
+    }
 
     TransformCoordinates tc;
     tc.run();
