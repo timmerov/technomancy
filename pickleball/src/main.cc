@@ -73,14 +73,7 @@ p is the vector of the pk.
 for data collected 2023-08-24 of me serving - movie 5173 frame 0816.
 unfortunately the lower left marker is blocked by a bucket.
 ah well.
-here are the x,y coordinates for the rest:
-
-                pixels          feet
-left top        280,542         -22,6
-center          968,637         0,3
-center bottom   966,732         0,0
-right top       1652,545        22,6
-right bottom    1653,733        22,0
+the x,y coordinates for the markers are in a separate data file that must be compiled in.
 
 the markers are on the wall.
 the wall is 6'5" from the first court.
@@ -113,45 +106,27 @@ the vector of unknowns is defined as follows:
 4: drag coefficient 0.40
 5: effective lift coefficient (lift times spin, we don't know spin) - 0.75 (600 rpm / 60 min/sec * 0.075)
 
+todo: the ball should spin slower over time. model this as a spin rate deceleration.
+todo: the laminar and turbulent drag coefficients are likely to be very different.
+model this with two coefficients and a cutoff velocity.
+physics says the drag coefficient is about what we expect for laminar flow.
+back of the envelope calculations suggest the transition is right around the speed at which i'm hitting the ball.
+some people hit the ball a lot harder than i do.
+so their pickleballs might be in the turbulent drag zone.
+
 the data was collected on 2023-08-24 movie 5173 frames 806 through 829.
 we have N data points consisting of x,y,t.
 where t is the frame number (starting at 1) times .0333 seconds per frame.
 the x,y points are extracted from the video.
 the shutter speed is pretty long.
 so the ball is a long streak in each image.
-the center of the streak is used.
+for some data, the center of the streak is used.
+i wrote some code code to diff and stack frames from the video.
+in this case it's much easier to use the breaks between the streaks.
+the times and x,y pixels are are in a separate data file that must be compiled in.
 
-frame   x       y
-1       246     662
-2       320     646
-3       392     633
-4       464     622
-5       532     612
-6       no data
-7       no data
-8       730     593
-9       793     590
-10      855     589
-11      915     588
-12      973     590
-13      1030    592
-14      1086    596
-15      1141    602
-16      1194    609
-17      1246    616
-18      1298    626
-19      1347    636
-20      1395    647
-21      1443    660
-22      1488    673
-23      1534    689
-24      1577    704
-25      no data
-
-frames 5,6 are corrupted by the light pole.
+some frames are corrupted by the light pole.
 maybe put something dark on it.
-
-to do: automate the process by subtracting the reference frame and finding the centroid of the differences.
 
 we don't have a way to measure spin.
 but...
@@ -906,6 +881,8 @@ public:
     ~GraphResults() = default;
 
     /** input **/
+    std::string in_file_;
+    std::string out_file_;
     Eigen::MatrixXd xform_;
     Eigen::VectorXd xlate_;
     Eigen::VectorXd observed_;
@@ -914,23 +891,51 @@ public:
     /** transform from wall coordinates to sideline coordinates. **/
     static constexpr double kScalingFactor = 58.0 / 51.5;
     static constexpr double kCameraHeight = 3.0;
+    static constexpr double kDiameter = 2.9 / 12.0; /// ft
+    static constexpr double kRadius = kDiameter / 2.0;
 
     Eigen::MatrixXd inverse_;
+    Png in_png_;
+    Png out_png_;
 
     void graph() noexcept {
+        /** open the input png. **/
+        in_png_.read(in_file_.c_str());
+        int wd = in_png_.wd_;
+        int ht = in_png_.ht_;
+
+        /** copy it to the out png. **/
+        out_png_.init(wd, ht);
+        int stride = out_png_.stride_;
+        int sz = stride * ht;
+        std::memcpy(out_png_.data_, in_png_.data_, sz);
+
         /** invert the matrix **/
         inverse_ = xform_.inverse();
         /** target x,y modelled xy **/
         Eigen::VectorXd txy(2);
         Eigen::VectorXd mxy(2);
 
-        int sz = observed_.size();
+        /** find the radius of the pickleball in pixels. **/
+        to_pixels(txy, 0, 0);
+        to_pixels(mxy, kRadius, 0);
+        double radius = mxy[0] - txy[0];
+        LOG("radius="<<radius<<" pixels");
+
+        /** map the target and modelled points to the image. **/
+        sz = observed_.size();
         for (int i = 0; i < sz; i += 2) {
             to_pixels(txy, observed_[i+0], observed_[i+1]);
             to_pixels(mxy, modelled_[i+0], modelled_[i+1]);
 
+            draw_dot(mxy, radius, 255, 0, 0);
+            draw_dot(txy, 1.5, 255, 255, 255);
+
             LOG("observed_="<<txy.transpose()<<" modelled_="<<mxy.transpose());
         }
+
+        /** write the output png. **/
+        out_png_.write(out_file_.c_str());
     }
 
     void to_pixels(
@@ -949,6 +954,48 @@ public:
         xy[0] = x - xlate_[0];
         xy[1] = y - xlate_[1];
         xy = inverse_ * xy;
+    }
+
+    void draw_dot(
+        Eigen::VectorXd& xy,
+        double radius,
+        int r,
+        int g,
+        int b
+    ) noexcept {
+        int wd = out_png_.wd_;
+        int ht = out_png_.ht_;
+        int stride = out_png_.stride_;
+        double dx = xy[0];
+        double dy = xy[1];
+        int x = std::round(dx);
+        int y = std::round(dy);
+        int ir = std::ceil(radius);
+        int x0 = x - ir;
+        int x1 = x + ir;
+        int y0 = y - ir;
+        int y1 = y + ir;
+        if (x0 < 0 || x1 >= wd) {
+            return;
+        }
+        if (y0 < 0 || y1 >= ht) {
+            return;
+        }
+        double r2 = radius * radius;
+        for (y = y0; y <= y1; ++y) {
+            for (x = x0; x <= x1; ++x) {
+                double ddx = double(x) - dx;
+                double ddy = double(y) - dy;
+                double dr2 = ddx * ddx + ddy * ddy;
+                if (dr2 < r2) {
+                    int ix = 3 * x + stride * y;
+                    auto pixel = out_png_.data_ + ix;
+                    pixel[0] = r;
+                    pixel[1] = g;
+                    pixel[2] = b;
+                }
+            }
+        }
     }
 };
 
@@ -989,12 +1036,16 @@ int main(
     pbs.xlate_ = tc.xlate_;
     pbs.run();
 
-    GraphResults gr;
-    gr.xform_ = pbs.xform_;
-    gr.xlate_ = pbs.xlate_;
-    gr.observed_ = pbs.targets_;
-    gr.modelled_ = pbs.modelled_;
-    gr.graph();
+    if (argc == 3) {
+        GraphResults gr;
+        gr.in_file_ = argv[1];
+        gr.out_file_ = argv[2];
+        gr.xform_ = pbs.xform_;
+        gr.xlate_ = pbs.xlate_;
+        gr.observed_ = pbs.targets_;
+        gr.modelled_ = pbs.modelled_;
+        gr.graph();
+    }
 
     return 0;
 }
