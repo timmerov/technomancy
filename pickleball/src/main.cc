@@ -392,7 +392,7 @@ the translation vector T is:
 the solution_ input/output field of the LevenbergMarquardt class is:
     { a b c d e f }
 **/
-class TransformCoordinates : LevenbergMarquardt {
+class TransformCoordinates : public LevenbergMarquardt {
 public:
     TransformCoordinates() = default;
     ~TransformCoordinates() = default;
@@ -510,7 +510,7 @@ observed = (actual -3') * 58'/51.5' + 3'
 inverting that gives the tranformation we want:
 actual = (observed - 3') * 51.5'/58' + 3'
 **/
-class PickleballServe : LevenbergMarquardt {
+class PickleballServe : public LevenbergMarquardt {
 public:
     PickleballServe() = default;
     ~PickleballServe() = default;
@@ -555,6 +555,8 @@ public:
 
     /** times in seconds. **/
     Eigen::VectorXd times_;
+    /** best fit for the model. **/
+    Eigen::VectorXd modelled_;
 
     /** used to advance the model one step. **/
     double t_ = 0.0;
@@ -589,6 +591,10 @@ public:
         LOG("angle           : "<<angle<<" degrees");
         LOG("drag coefficient: "<<cd);
         LOG("spin            : "<<spin<<" rpm");
+
+        /** save the modelled values. **/
+        modelled_.resize(ndata_points_);
+        make_prediction(solution_, modelled_);
     }
 
     void init() noexcept {
@@ -889,6 +895,63 @@ public:
     }
 };
 
+/**
+load the input picture.
+draw a large red dot where we model the ball to be.
+draw a small white dot where we observed the ball to be.
+**/
+class GraphResults {
+public:
+    GraphResults() = default;
+    ~GraphResults() = default;
+
+    /** input **/
+    Eigen::MatrixXd xform_;
+    Eigen::VectorXd xlate_;
+    Eigen::VectorXd observed_;
+    Eigen::VectorXd modelled_;
+
+    /** transform from wall coordinates to sideline coordinates. **/
+    static constexpr double kScalingFactor = 58.0 / 51.5;
+    static constexpr double kCameraHeight = 3.0;
+
+    Eigen::MatrixXd inverse_;
+
+    void graph() noexcept {
+        /** invert the matrix **/
+        inverse_ = xform_.inverse();
+        /** target x,y modelled xy **/
+        Eigen::VectorXd txy(2);
+        Eigen::VectorXd mxy(2);
+
+        int sz = observed_.size();
+        for (int i = 0; i < sz; i += 2) {
+            to_pixels(txy, observed_[i+0], observed_[i+1]);
+            to_pixels(mxy, modelled_[i+0], modelled_[i+1]);
+
+            LOG("observed_="<<txy.transpose()<<" modelled_="<<mxy.transpose());
+        }
+    }
+
+    void to_pixels(
+        Eigen::VectorXd& xy,
+        double x,
+        double y
+    ) noexcept {
+        /**
+        convert from sideline coordinates to wall coordinates.
+        observed = (actual - 3') * 58'/51.5' + 3'
+        **/
+        x = x * kScalingFactor;
+        y = (y - kCameraHeight) * kScalingFactor + kCameraHeight;
+
+        /** convert feet to pixels. **/
+        xy[0] = x - xlate_[0];
+        xy[1] = y - xlate_[1];
+        xy = inverse_ * xy;
+    }
+};
+
 int main(
     int argc, char *argv[]
 ) noexcept {
@@ -925,6 +988,13 @@ int main(
     pbs.xform_ = tc.xform_;
     pbs.xlate_ = tc.xlate_;
     pbs.run();
+
+    GraphResults gr;
+    gr.xform_ = pbs.xform_;
+    gr.xlate_ = pbs.xlate_;
+    gr.observed_ = pbs.targets_;
+    gr.modelled_ = pbs.modelled_;
+    gr.graph();
 
     return 0;
 }
