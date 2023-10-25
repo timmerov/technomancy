@@ -103,10 +103,18 @@ the vector of unknowns is defined as follows:
 1: initial angle - 10 degrees
 2: height of the ball at contact - 2 feet
 3: t0 - time zero - the time the ball was hit - 0 seconds.
-4: drag coefficient 0.40
-5: effective lift coefficient (lift times spin, we don't know spin) - 0.75 (600 rpm / 60 min/sec * 0.075)
+4: laminar drag coefficient 0.40
+5: turbulent drag coefficient 0.25
+6: critical velocity transitions from turbulent to laminar - 60 fps
+7: effective lift coefficient (lift times spin, we don't know spin) - 0.75 (600 rpm / 60 min/sec * 0.075)
+8: spin slowdown - rps per second
 
 todo: the ball should spin slower over time. model this as a spin rate deceleration.
+i tried this.
+the best fit had the ball spin faster as it went.
+a LOT faster.
+hrm...
+
 todo: the laminar and turbulent drag coefficients are likely to be very different.
 model this with two coefficients and a cutoff velocity.
 physics says the drag coefficient is about what we expect for laminar flow.
@@ -455,12 +463,15 @@ public:
 divine a set of parameters for the physics model that match the observed positions.
 
 params(6):
-0: time at x=-22 ft = 0 seconds.
-1: height at x=-22 ft = 2'
-2: velocity at x=-22 ft = 52.0 mph.
-3: angle at x=-22 ft = 10 degrees.
-4: drag coefficient = 0.40.
-5: effective lift = spin rate * lift coefficient = 500 rpm * 0.075.
+0: initial ball velocity - 60 fps
+1: initial angle - 10 degrees
+2: height of the ball at contact - 2 feet
+3: t0 - time zero - the time the ball was hit - 0 seconds.
+4: laminar drag coefficient 0.40
+5: turbulent drag coefficient 0.25
+6: critical velocity - 60 fps
+7: effective lift coefficient (lift times spin, we don't know spin) - 0.75 (600 rpm / 60 min/sec * 0.075)
+8: spin slowdown - rps per second
 
 we have data for a tracked pickleball: t, x, y
 we assume t is measured perfectly.
@@ -491,7 +502,7 @@ public:
     ~PickleballServe() = default;
 
     /** configuration of the solver. **/
-    static constexpr int kNParams = 6;
+    static constexpr int kNParams = 9;
     static constexpr double kEpsilon = 0.00001;
     static constexpr double kMinErrorChange = 0.00001;
     static constexpr double kFPS = 30;
@@ -539,8 +550,11 @@ public:
     double y_ = 0.0;
     double vx_ = 0.0;
     double vy_ = 0.0;
-    double drag_ = 0.0;
+    double drag_laminar_ = 0.0;
+    double drag_turbulent_ = 0.0;
+    double critical_v_ = 0.0;
     double lift_ = 0.0;
+    double dlift_ = 0.0;
     int end_pt_ = 0;
     double dt_ = 0.0;
 
@@ -553,19 +567,32 @@ public:
         double y0 = solution_[1];
         double v0 = solution_[2];
         double angle = solution_[3];
-        double cd = solution_[4];
-        double effective_spin = solution_[5];
+        double cd_lam = solution_[4];
+        double cd_turb = solution_[5];
+        double v_critical = solution_[6];
+        double effective_spin = solution_[7];
+        double delta_eff_spin = solution_[8];
 
         /** convert units **/
         v0 = v0 / 5280 /*ft/mi*/ * 60 /*s/m*/ * 60 /*m/h*/;
         angle = angle * 180.0 / M_PI;
+        v_critical = v_critical / 5280 /*ft/mi*/ * 60 /*s/m*/ * 60 /*m/h*/;
         double spin = effective_spin / 0.075 * 60 /*s/m*/;
+        double dspin = delta_eff_spin / 0.075 * 60 /*s/m*/;
 
-        LOG("initial height  : "<<y0<<" ft");
-        LOG("velocity        : "<<v0<<" mph");
-        LOG("angle           : "<<angle<<" degrees");
-        LOG("drag coefficient: "<<cd);
-        LOG("spin            : "<<spin<<" rpm");
+        LOG("initial height            : "<<y0<<" ft");
+        LOG("velocity                  : "<<v0<<" mph");
+        LOG("angle                     : "<<angle<<" degrees");
+        LOG("laminar drag coefficient  : "<<cd_lam);
+        if (v0 <= v_critical) {
+            LOG("turbulent drag coefficient: n/a");
+            LOG("critical velocity         : n/a");
+        } else {
+            LOG("turbulent drag coefficient: "<<cd_turb);
+            LOG("critical velocity         : "<<v_critical<<" mph");
+        }
+        LOG("spin                      : "<<spin<<" rpm");
+        LOG("spin decay                : "<<dspin<<" rpm per second");
 
         /** save the modelled values. **/
         modelled_.resize(ndata_points_);
@@ -592,16 +619,19 @@ public:
 
         /** set the initial horrible guess: identity transform and no translation. **/
         solution_.resize(kNParams);
+        double init_v = 52.0 /*mph*/ * 5280 /*ft/mi*/ / 60 /*m/h*/ / 60 /*s/m*/;
+
         solution_ <<
             0.0, // starting time
             2.0, // starting height
-             // starting velocity
-            52.0 /*mph*/ * 5280 /*ft/mi*/ / 60 /*m/h*/ / 60 /*s/m*/,
-            // starting angle
-            10.0 * M_PI / 180.0,
-            0.40, // drag coefficient
+            init_v, // starting velocity
+            10.0 * M_PI / 180.0, // starting angle
+            0.40, // laminar drag coefficient
+            0.25, // turnbulent drag coefficient
+            0.95 * init_v, // critical velocity
             // effect lift = spin rate * lift coefficient
-            500 /*rpm*/ / 60 /*m/s*/ * 0.075;
+            500 /*rpm*/ / 60 /*m/s*/ * 0.075,
+            0.0; // spin slowdown
 
         /** set the source and target values. **/
         targets_.resize(ndata_points_);
@@ -650,8 +680,13 @@ public:
         Fdrag = (1/2 * p * A) * _Cd_ * v^2
         Flift = ((4/3 * pi * r^3) * 4 * pi * p) * _(s * Cl)_ * v
         **/
-        drag_ = kDragFactor * solution[4];
-        lift_ = kLiftFactor * solution[5];
+        drag_laminar_ = kDragFactor * solution[4];
+        drag_turbulent_ = kDragFactor * solution[5];
+        critical_v_ = solution[6];
+
+        lift_ = kLiftFactor * solution[7];
+        dlift_ = kLiftFactor * solution[8];
+
         //LOG("drag_="<<drag_<<" lift_="<<lift_);
 
         //LOG("t="<<t_<<" x="<<x_<<" y="<<y_<<" vx="<<vx_<<" vy="<<vy_);
@@ -690,6 +725,13 @@ public:
         /** acceleration due to drag and lift **/
         double v2 = vx_*vx_ + vy_*vy_;
         double v = std::sqrt(v2);
+        /** drag cooeficient depends on velocity. **/
+        double drag;
+        if (v < critical_v_) {
+            drag = drag_laminar_;
+        } else {
+            drag = drag_turbulent_;
+        }
         /**
         Fdrag = (1/2 * p * A) * Cd * _(v^2)_
         Flift = ((4/3 * pi * r^3) * 4 * pi * p) * (s * Cl) * _v_
@@ -698,7 +740,7 @@ public:
         dragx is drag * vx / v
         cancel some v's.
         **/
-        double drag_v = drag_ * v;
+        double drag_v = drag * v;
         /** drag is opposite to velocity. **/
         double dragx = - drag_v * vx_;
         double dragy = - drag_v * vy_;
@@ -717,13 +759,16 @@ public:
         double ay = dragy + lifty + kGravity;
         //LOG("ax="<<ax<<" ay="<<ay);
 
-        /** update variables **/
+        /** update position speed variables **/
         t_ += dt_;
         double dt2 = dt_ * dt_;
         x_ += vx_ * dt_ + 0.5 * ax * dt2;
         y_ += vy_ * dt_ + 0.5 * ay * dt2;
         vx_ += ax * dt_;
         vy_ += ay * dt_;
+
+        /** update the effective spin **/
+        lift_ -= dlift_ * dt_;
 
         //LOG("t="<<t_<<" x="<<x_<<" y="<<y_<<" vx="<<vx_<<" vy="<<vy_);
     }
