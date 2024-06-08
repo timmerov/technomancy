@@ -30,6 +30,17 @@ cause if it does we're done.
 it's pretty easy to find the number of stairs you need to climb.
 but that's pretty useless.
 you really need to know where to drop the bulbs.
+a list of the floor at which you drop the bulbs is printed.
+
+this problem lends itself well to dynamic programming.
+it's recursive.
+so we'd be calculating and recalculating functions with the same parameters.
+which is dumb.
+but...
+the list of floor drops is not saved in the cache.
+so...
+you can either have super fast execution time.
+or you can have the full answer.
 **/
 
 #include <sstream>
@@ -85,7 +96,7 @@ public:
 
     void print_costs() noexcept {
         std::stringstream ss2;
-        ss2<<"cost2LightBulbs:";
+        ss2<<"cost2LightBulbs:   ";
         for (int i = 0; i < n_floors_; ++i) {
             ss2<<" "<<cache2_[i];
         }
@@ -219,7 +230,7 @@ public:
             if (best_answer > test_answer) {
                 best_answer = test_answer;
                 if (verbose_) {
-                    LOG("("<<highest_good<<", "<<n_floors_<<") floors_to_test="<<floors_to_test
+                    LOG("("<<highest_good<<") floors_to_test="<<floors_to_test
                         <<" i="<<i<<" cost_broke="<<cost_broke<<" cost_good="<<cost_good
                         <<" answer="<<best_answer);
                 }
