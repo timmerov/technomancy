@@ -50,17 +50,29 @@ or you can have the full answer.
 #include <aggiornamento/log.h>
 
 namespace {
+/**
+for tall buildings we call the cost functions many times with the same parameters.
+cache the results for 200x speedup.
+**/
+class Cache {
+public:
+    Cache() = default;
+    ~Cache() = default;
+
+    int cost_ = -1;
+    int floor_ = -1;
+};
+
 class LightBulb {
 public:
     LightBulb() = default;
     ~LightBulb() = default;
 
-    int n_floors_ = 30;
+    int n_floors_ = 100;
     bool verbose_ = false;
-    bool use_cache_ = false;
-    std::vector<int> floors_;
-    std::vector<int> cache1_;
-    std::vector<int> cache2_;
+    bool use_cache_ = true;
+    std::vector<Cache> cache1_;
+    std::vector<Cache> cache2_;
 
     void run() noexcept {
         init();
@@ -69,56 +81,65 @@ public:
         int n_stairs = cost2LightBulbs(0);
         LOG("Answer: "<<n_stairs<<" flights of stairs.");
         print_floors();
-        print_costs();
+        //print_caches();
     }
 
     void print_floors() noexcept {
-        /**
-        if we are using the cache...
-        then we don't have floor information.
-        **/
-        if (use_cache_) {
-            return;
-        }
-
         std::stringstream ss;
-        ss<<"Drop bulbs from these floors:";
-        int sz = floors_.size();
-        for (int i = 0; i < sz; ++i) {
-            ss<<" "<<floors_[i];
+        ss<<"Drop bulbs from these floors: 0";
+
+        /**
+        bounce between cache2 and cache1.
+        updating floor as we go.
+        stop when we hit the top floor.
+        **/
+        int floor = 0;
+        int top_floor = n_floors_ - 1;
+        for(;;) {
+            floor = cache2_[floor].floor_;
+            if (floor < 0 || floor > top_floor) {
+                break;
+            }
+            ss<<" "<<floor;
+
+            floor = cache2_[floor].floor_;
+            if (floor < 0 || floor > top_floor) {
+                break;
+            }
+            ss<<" "<<floor;
         }
-        ss<<".";
+        if (floor != top_floor) {
+            ss<<" "<<top_floor;
+        }
         LOG(ss.str());
         LOG("Drop bulbs in pairs in the order specified.");
         LOG("If the first breaks, descend to the lowest unknown floor and drop the second.");
         LOG("When you have a broken bulb, test all unknown floors in ascending order.");
     }
 
-    void print_costs() noexcept {
-        std::stringstream ss2;
-        ss2<<"cost2LightBulbs:   ";
+    void print_caches() noexcept {
+        LOG("");
+        LOG("cost2LightBulbs:");
         for (int i = 0; i < n_floors_; ++i) {
-            ss2<<" "<<cache2_[i];
+            auto& cache = cache2_[i];
+            LOG(" "<<i<<": cost="<<cache.cost_<<" floor="<<cache.floor_);
         }
-        LOG(ss2.str());
-        std::stringstream ss1;
-        ss1<<"cost1of2LightBulbs:";
+        LOG("cost1of2LightBulbs:");
         for (int i = 0; i < n_floors_; ++i) {
-            ss1<<" "<<cache1_[i];
+            auto& cache = cache1_[i];
+            LOG(" "<<i<<": cost="<<cache.cost_<<" floor="<<cache.floor_);
         }
-        LOG(ss1.str());
     }
 
     /**
     initialize the answer cache.
     **/
     void init() noexcept {
+        /**
+        the constructor initializes these vector elements to -1,-1.
+        **/
         cache1_.resize(n_floors_);
         cache2_.resize(n_floors_);
-        for (int i = 0; i < n_floors_; ++i) {
-            cache1_[i] = -1;
-            cache2_[i] = -1;
-        }
     }
 
     /**
@@ -132,7 +153,7 @@ public:
         check the cache.
         **/
         if (use_cache_) {
-            int answer = cache2_[highest_good];
+            int answer = cache2_[highest_good].cost_;
             if (answer >= 0) {
                 return answer;
             }
@@ -171,13 +192,6 @@ public:
         }
 
         /**
-        we need to record the floors from which we dropped bulbs.
-        **/
-        int sz = floors_.size();
-        floors_.push_back(-1);
-        auto best_floors = floors_;
-
-        /**
         we have 2 light bulbs.
         we know we have at least 3 floors to test.
         try dropping the first bulb from most floors.
@@ -192,6 +206,7 @@ public:
         int start_test = first_to_test + 1;
         int end_test = n_floors_ - 2;
         int best_answer = 0x7FFFFFFF;
+        int best_floor = -1;
         for (int i = start_test; i <= end_test; ++i) {
             /**
             drop the first bulb from floor i.
@@ -229,33 +244,21 @@ public:
             **/
             if (best_answer > test_answer) {
                 best_answer = test_answer;
+                best_floor = i;
                 if (verbose_) {
                     LOG("("<<highest_good<<") floors_to_test="<<floors_to_test
                         <<" i="<<i<<" cost_broke="<<cost_broke<<" cost_good="<<cost_good
                         <<" answer="<<best_answer);
                 }
-
-                /**
-                update the local list of best floors.
-                **/
-                best_floors = floors_;
-                best_floors[sz] = i;
             }
-            /**
-            truncate the global list of floors.
-            **/
-            floors_.resize(sz+1);
         }
-
-        /**
-        update the floors list.
-        **/
-        floors_ = std::move(best_floors);
 
         /**
         update the cache.
         **/
-        cache2_[highest_good] = best_answer;
+        auto& cache = cache2_[highest_good];
+        cache.cost_ = best_answer;
+        cache.floor_ = best_floor;
 
         return best_answer;
     }
@@ -273,24 +276,18 @@ public:
         check the cache.
         **/
         if (use_cache_) {
-            int answer = cache1_[highest_good];
+            int answer = cache1_[highest_good].cost_;
             if (answer >= 0) {
                 return answer;
             }
         }
 
         /**
-        we need to record the floors from which we dropped bulbs.
-        **/
-        int sz = floors_.size();
-        floors_.push_back(-1);
-        auto best_floors = floors_;
-
-        /**
         try dropping the bulb from each floor.
         **/
         int first_to_test = highest_good + 1;
         int best_answer = 0x7FFFFFFF;
+        int best_floor = -1;
         for (int i = first_to_test; i < n_floors_; ++i) {
             /**
             drop the second bulb from floor i.
@@ -324,33 +321,21 @@ public:
             **/
             if (best_answer > test_answer) {
                 best_answer = test_answer;
+                best_floor = i;
                 if (verbose_) {
                     LOG("("<<highest_good<<") "
                         <<" i="<<i<<" cost_broke="<<cost_broke<<" cost_good="<<cost_good
                         <<" answer="<<best_answer);
                 }
-
-                /**
-                update the local list of best floors.
-                **/
-                best_floors = floors_;
-                best_floors[sz] = i;
             }
-            /**
-            truncate the global list of floors.
-            **/
-            floors_.resize(sz+1);
         }
-
-        /**
-        update the floors list.
-        **/
-        floors_ = std::move(best_floors);
 
         /**
         update the cache.
         **/
-        cache1_[highest_good] = best_answer;
+        auto& cache = cache1_[highest_good];
+        cache.cost_ = best_answer;
+        cache.floor_ = best_floor;
 
         return best_answer;
     }
