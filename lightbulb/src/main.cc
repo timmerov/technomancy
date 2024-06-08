@@ -46,6 +46,7 @@ public:
 
     int n_floors_ = 30;
     bool verbose_ = false;
+    bool use_cache_ = false;
     std::vector<int> floors_;
     std::vector<int> cache1_;
     std::vector<int> cache2_;
@@ -61,6 +62,14 @@ public:
     }
 
     void print_floors() noexcept {
+        /**
+        if we are using the cache...
+        then we don't have floor information.
+        **/
+        if (use_cache_) {
+            return;
+        }
+
         std::stringstream ss;
         ss<<"Drop bulbs from these floors:";
         int sz = floors_.size();
@@ -108,6 +117,16 @@ public:
     int cost2LightBulbs(
         int highest_good
     ) noexcept {
+        /**
+        check the cache.
+        **/
+        if (use_cache_) {
+            int answer = cache2_[highest_good];
+            if (answer >= 0) {
+                return answer;
+            }
+        }
+
         int first_to_test = highest_good + 1;
         int floors_to_test = n_floors_ - first_to_test;
 
@@ -239,6 +258,16 @@ public:
     int cost1of2LightBulbs(
         int highest_good
     ) noexcept {
+        /**
+        check the cache.
+        **/
+        if (use_cache_) {
+            int answer = cache1_[highest_good];
+            if (answer >= 0) {
+                return answer;
+            }
+        }
+
         /**
         we need to record the floors from which we dropped bulbs.
         **/
