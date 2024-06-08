@@ -47,12 +47,17 @@ public:
     int n_floors_ = 30;
     bool verbose_ = false;
     std::vector<int> floors_;
+    std::vector<int> cache1_;
+    std::vector<int> cache2_;
 
     void run() noexcept {
+        init();
+
         LOG("How many stairs do you need to climb to find the breaking floor of a "<<n_floors_<<" story building?");
         int n_stairs = cost2LightBulbs(0);
         LOG("Answer: "<<n_stairs<<" flights of stairs.");
         print_floors();
+        print_costs();
     }
 
     void print_floors() noexcept {
@@ -67,6 +72,33 @@ public:
         LOG("Drop bulbs in pairs in the order specified.");
         LOG("If the first breaks, descend to the lowest unknown floor and drop the second.");
         LOG("When you have a broken bulb, test all unknown floors in ascending order.");
+    }
+
+    void print_costs() noexcept {
+        std::stringstream ss2;
+        ss2<<"cost2LightBulbs:";
+        for (int i = 0; i < n_floors_; ++i) {
+            ss2<<" "<<cache2_[i];
+        }
+        LOG(ss2.str());
+        std::stringstream ss1;
+        ss1<<"cost1of2LightBulbs:";
+        for (int i = 0; i < n_floors_; ++i) {
+            ss1<<" "<<cache1_[i];
+        }
+        LOG(ss1.str());
+    }
+
+    /**
+    initialize the answer cache.
+    **/
+    void init() noexcept {
+        cache1_.resize(n_floors_);
+        cache2_.resize(n_floors_);
+        for (int i = 0; i < n_floors_; ++i) {
+            cache1_[i] = -1;
+            cache2_[i] = -1;
+        }
     }
 
     /**
@@ -124,7 +156,7 @@ public:
         because if the bulb breaks on first+1...
         then we can test the only remaining floor (first) for free.
         we also don't have to test the last floor.
-        because if the buld does not break on last-1...
+        because if the bulb does not break on last-1...
         we can test last with the second bulb.
         **/
         int start_test = first_to_test + 1;
@@ -165,7 +197,7 @@ public:
             /**
             save the best answer so far.
             **/
-            if (best_answer >= test_answer) {
+            if (best_answer > test_answer) {
                 best_answer = test_answer;
                 if (verbose_) {
                     LOG("("<<highest_good<<", "<<n_floors_<<") floors_to_test="<<floors_to_test
@@ -189,6 +221,11 @@ public:
         update the floors list.
         **/
         floors_ = std::move(best_floors);
+
+        /**
+        update the cache.
+        **/
+        cache2_[highest_good] = best_answer;
 
         return best_answer;
     }
@@ -245,7 +282,7 @@ public:
             /**
             save the best answer so far.
             **/
-            if (best_answer >= test_answer) {
+            if (best_answer > test_answer) {
                 best_answer = test_answer;
                 if (verbose_) {
                     LOG("("<<highest_good<<") "
@@ -269,6 +306,11 @@ public:
         update the floors list.
         **/
         floors_ = std::move(best_floors);
+
+        /**
+        update the cache.
+        **/
+        cache1_[highest_good] = best_answer;
 
         return best_answer;
     }
