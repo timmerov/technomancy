@@ -185,7 +185,7 @@ void Png::init(
     destruct();
     wd_ = width;
     ht_ = height;
-    stride_ = (3 * wd_ + 31) / 32 * 32;
+    stride_ = (3 * wd_ + 3) / 4 * 4;
     int size = stride_ * ht_;
     data_ = new(std::nothrow) png_byte[size];
 }

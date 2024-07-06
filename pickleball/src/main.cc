@@ -814,10 +814,10 @@ public:
         for(;;) {
             advance_cur();
             LOG("cur_ = "<<cur_);
+            update_output();
             if (cur_ == last_) {
                 break;
             }
-            update_output();
         }
 
         /** write the output file. **/
