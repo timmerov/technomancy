@@ -380,7 +380,9 @@ public:
     TransformCoordinates() = default;
     ~TransformCoordinates() = default;
 
-    static constexpr int kNMarkers = 5;
+    /** the 2024-08 data only used 5 of the 6 markers. **/
+    //static constexpr int kNMarkers = 5;
+    static constexpr int kNMarkers = 6;
     static constexpr int kNDataPoints = 2*kNMarkers;
     static constexpr int kNParams = 2*2 + 2;
     static constexpr double kEpsilon = 0.00001;
@@ -415,7 +417,9 @@ public:
         /** set the source and target values. **/
         pixels_.resize(kNDataPoints);
         targets_.resize(kNDataPoints);
-        #include "data/2023-08-24-5173-0816.hpp"
+        //#include "data/2023-08-24-5173-0816.hpp"
+        //#include "data/2024-05-05-5422-0289.hpp"
+        #include "data/2024-07-29.hpp"
 
         /** size the outputs. **/
         xform_.resize(2, 2);
@@ -459,6 +463,15 @@ public:
     }
 };
 
+class PositionData {
+public:
+    double t_;
+    double x_;
+    double y_;
+};
+using PositionsData = std::vector<PositionData>;
+
+
 /**
 divine a set of parameters for the physics model that match the observed positions.
 
@@ -492,11 +505,14 @@ it's easy to write down the forward transformation:
 observed = (actual -3') * 58'/51.5' + 3'
 inverting that gives the tranformation we want:
 actual = (observed - 3') * 51.5'/58' + 3'
+
+am also using this for the drop shot.
+which starts at x0=-12 ft instead of x0=-22 ft.
 **/
-class PickleballServe : public LevenbergMarquardt {
+class TrackPickleball : public LevenbergMarquardt {
 public:
-    PickleballServe() = default;
-    ~PickleballServe() = default;
+    TrackPickleball() = default;
+    ~TrackPickleball() = default;
 
     /** configuration of the solver. **/
     static constexpr int kNParams = 6;
@@ -511,6 +527,7 @@ public:
 
     /** pickleball physics. **/
     static constexpr double kX0 = -22.0; // ft
+    //static constexpr double kX0 = -15.0; // ft
     static constexpr double kAirDensity = 0.075; /// lb/ft^3
     static constexpr double kDiameter = 2.9 / 12.0; /// ft
     static constexpr double kGravity = -32.17; /// ft/s^3 down
@@ -525,16 +542,11 @@ public:
     static constexpr double kDragFactor = 0.5 * kAirDensity * kArea / kWeight;
     static constexpr double kLiftFactor = kVolume * 4.0 * M_PI * kAirDensity / kWeight;
 
+    /** inputs **/
     /** translate pixels to x,y coordinates **/
     Eigen::MatrixXd xform_;
     Eigen::VectorXd xlate_;
-
-    class PositionData {
-    public:
-        double t_;
-        double x_;
-        double y_;
-    };
+    PositionsData positions_;
 
     /** times in seconds. **/
     Eigen::VectorXd times_;
@@ -582,11 +594,7 @@ public:
 
     void init() noexcept {
         /** frame, x pixels, y pixels **/
-        PositionData positions[] = {
-            #include "data/2023-08-24-5173-0564-0588.hpp"
-            //#include "data/2023-08-24-5173-0806-0829.hpp"
-        };
-        int npts = sizeof(positions) / sizeof(PositionData);
+        int npts = positions_.size();
         //LOG("npts="<<npts);
 
         /** mandatory **/
@@ -617,7 +625,7 @@ public:
         Eigen::VectorXd pixel(2);
         Eigen::VectorXd xy(2);
         for ( int i = 0; i < npts; ++i) {
-            auto& pos = positions[i];
+            auto& pos = positions_[i];
 
             /** scale frame number to seconds. **/
             times_[i] = pos.t_ * kFrameTime;
@@ -743,10 +751,10 @@ open every file between first and last.
 diff with first.
 save max pixel values in out.
 **/
-class GenerateTrackedImage {
+class GenerateDiffImage {
 public:
-    GenerateTrackedImage() = default;
-    ~GenerateTrackedImage() = default;
+    GenerateDiffImage() = default;
+    ~GenerateDiffImage() = default;
 
     /** inputs **/
     std::string first_;
@@ -1007,53 +1015,166 @@ public:
     }
 };
 
+/**
+the user generated a diff image using the -d option.
+then the user placed a single pixel dot where the user estimated the ball is.
+and saved the result in a different file.
+find where the images are different.
+those are the marks.
+assume there is a mark for every frame.
+assume the ball travels left to right.
+
+to do: sanity check the user's work.
+to do: identify where the user did not or could not place a mark for the time interval.
+**/
+class FindMarks {
+public:
+    FindMarks() = default;
+    ~FindMarks() = default;
+
+    /** inputs **/
+    std::string source_;
+    std::string marked_;
+    /** outputs **/
+    PositionsData positions_;
+
+    void run() {
+        Png src_png;
+        Png mrk_png;
+
+        /** open the files. **/
+        src_png.read(source_.c_str());
+        mrk_png.read(marked_.c_str());
+
+        int wd = std::min(src_png.wd_, mrk_png.wd_);
+        int ht = std::min(src_png.ht_, mrk_png.ht_);
+        LOG("wd="<<wd);
+        LOG("ht="<<ht);
+
+        int time = 1;
+        auto src_row = src_png.data_;
+        auto mrk_row = mrk_png.data_;
+        for (int x = 0; x < wd; ++x) {
+            auto src = src_row;
+            auto mrk = mrk_row;
+            for (int y = 0; y < ht; ++y) {
+                int dr = std::abs(src[0] - mrk[0]);
+                int dg = std::abs(src[1] - mrk[1]);
+                int db = std::abs(src[2] - mrk[2]);
+                int diff = std::max(dr, std::max(dg, db));
+                if (diff > 10) {
+                    PositionData position;
+                    position.t_ = time++;
+                    position.x_ = x;
+                    position.y_ = y;
+                    positions_.push_back(position);
+                    LOG("found user mark at t="<<time<<" x="<<x<<" y="<<y);
+                }
+                src += src_png.stride_;
+                mrk += mrk_png.stride_;
+            }
+            src_row += 3;
+            mrk_row += 3;
+        }
+        int sz = positions_.size();
+        LOG("Found "<<sz<<" user marks.");
+    }
+};
+
+class Main {
+public:
+    Main() = default;
+    ~Main() = default;
+
+    int argc_ = 0;
+    char **argv_ = nullptr;
+
+    void run() noexcept {
+        if (argc_ < 2) {
+            show_usage();
+            return;
+        }
+
+        std::string what(argv_[1]);
+        if (what == "-d" || what == "--diff") {
+            if (argc_ == 5) {
+                generate_diff_image();
+                return;
+            }
+        } else if (what == "-a" || what == "--analyze") {
+            if (argc_ == 5) {
+                track_pickleball();
+                return;
+            }
+        }
+
+        /** something went wrong. **/
+        show_usage();
+    }
+
+    void show_usage() noexcept {
+        auto app = argv_[0];
+        LOG("Usage:");
+        LOG("$ "<<app<<"  # calibration data is in the code.");
+        LOG("$ "<<app<<" -d [--diff] first####.png last####.png out.png");
+        LOG("$ "<<app<<"    read a sequence of images.");
+        LOG("$ "<<app<<"    diff all pixels from each image with the first image.");
+        LOG("$ "<<app<<"    save the maximum difference in the output image.");
+        LOG("$ "<<app<<" -a [--analyze] diff.png marked.png out.png");
+        LOG("$ "<<app<<"    diff.png is the output of the -d option.");
+        LOG("$ "<<app<<"    find the single pixels changed by the user in marked.png.");
+        LOG("$ "<<app<<"    best fit the parameters to the physics model.");
+        LOG("$ "<<app<<"    annotate diff.png with the user markers and the model predictions.");
+    }
+
+    void generate_diff_image() noexcept {
+        GenerateDiffImage diff;
+        diff.first_ = argv_[2];  /** first image in sequence. **/
+        diff.last_ = argv_[3];   /** last image in sequence. **/
+        diff.out_ = argv_[4];    /** output image is max of diffs. **/
+        diff.run();
+    }
+
+    void track_pickleball() noexcept {
+        /** transform hard-coded pixel markers to real world dimensions. **/
+        TransformCoordinates tc;
+        tc.run();
+
+        /** find where the user marked the source image. **/
+        FindMarks marks;
+        marks.source_ = argv_[2];
+        marks.marked_ = argv_[3];
+        marks.run();
+
+        /** best fit the physics model. **/
+        TrackPickleball track;
+        track.xform_ = tc.xform_;
+        track.xlate_ = tc.xlate_;
+        track.positions_ = std::move(marks.positions_);
+        track.run();
+
+        /** add markers to the source image. **/
+        GraphResults gr;
+        gr.in_file_ = argv_[2];
+        gr.out_file_ = argv_[4];
+        gr.xform_ = tc.xform_;
+        gr.xlate_ = tc.xlate_;
+        gr.observed_ = track.targets_;
+        gr.modelled_ = track.modelled_;
+        gr.graph();
+    }
+};
+
 int main(
     int argc, char *argv[]
 ) noexcept {
-    (void) argc;
-    (void) argv;
 
     agm::log::init(AGM_TARGET_NAME ".log");
 
-    if (argc >= 2) {
-        std::string what(argv[1]);
-        if (what == "-h" || what == "--help") {
-            auto app = argv[0];
-            LOG("Usage:");
-            LOG("$ "<<app<<" -h, --help");
-            LOG("$ "<<app<<"  # use data in the code.");
-            LOG("$ "<<app<<" first.png last.png out.png # diff first from others save max pixels in out.");
-            return 0;
-        }
-    }
-
-    if (argc >= 4) {
-        GenerateTrackedImage gti;
-        gti.first_ = argv[1];
-        gti.last_ = argv[2];
-        gti.out_ = argv[3];
-        gti.run();
-        return 0;
-    }
-
-    TransformCoordinates tc;
-    tc.run();
-
-    PickleballServe pbs;
-    pbs.xform_ = tc.xform_;
-    pbs.xlate_ = tc.xlate_;
-    pbs.run();
-
-    if (argc == 3) {
-        GraphResults gr;
-        gr.in_file_ = argv[1];
-        gr.out_file_ = argv[2];
-        gr.xform_ = pbs.xform_;
-        gr.xlate_ = pbs.xlate_;
-        gr.observed_ = pbs.targets_;
-        gr.modelled_ = pbs.modelled_;
-        gr.graph();
-    }
+    Main program;
+    program.argc_ = argc;
+    program.argv_ = argv;
+    program.run();
 
     return 0;
 }
