@@ -13,3 +13,5 @@ build-win64/
 *.ods#
 *.jpg
 sandbox/
+outputs/
+
