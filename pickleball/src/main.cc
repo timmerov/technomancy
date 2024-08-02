@@ -785,23 +785,7 @@ public:
         find the last changed character between first and last.
         it must be a digit.
         **/
-        inc_ = len0;
-        for(;;) {
-            --inc_;
-            if (inc_ <= 0) {
-                show_error();
-                exit(0);
-            }
-
-            if (first_[inc_] != last_[inc_]) {
-                int ch = first_[inc_];
-                if (ch < '0' || ch > '9') {
-                    show_error();
-                    exit(0);
-                }
-                break;
-            }
-        }
+        find_counter();
 
         /** load the first png. **/
         first_png_.read(first_.c_str());
@@ -828,6 +812,9 @@ public:
             }
         }
 
+        /** re-add the first image. **/
+        add_dimmed_first();
+
         /** write the output file. **/
         out_png_.write(out_.c_str());
     }
@@ -837,6 +824,28 @@ public:
         LOG("We expect to find a sequence of numbered filenames e.g.:");
         LOG("path/0001 path/0002 path/0003 path/0004 etc...");
         LOG("The filenames should all be the same length.");
+    }
+
+    void find_counter() noexcept {
+        inc_ = first_.size();
+        for(;;) {
+            --inc_;
+            if (inc_ <= 0) {
+                show_error();
+                exit(0);
+            }
+
+            int fch = first_[inc_];
+            int lch = last_[inc_];
+
+            if (isdigit(fch) && isdigit(lch)) {
+                break;
+            }
+            if (fch != lch) {
+                show_error();
+                exit(0);
+            }
+        }
     }
 
     void advance_cur() noexcept {
@@ -881,6 +890,23 @@ public:
                     /** overwrite with the maximum. **/
                     out_png_.data_[ix] = df;
                 }
+            }
+        }
+    }
+
+    void add_dimmed_first() noexcept {
+        int wd = first_png_.wd_ * 3;
+        int ht = first_png_.ht_;
+        int stride = first_png_.stride_;
+        for (int y = 0; y < ht; ++y) {
+            int iy = y * stride;
+            for (int x = 0; x < wd; ++x) {
+                int ix = iy + x;
+                int p0 = first_png_.data_[ix];
+                int p1 = out_png_.data_[ix];
+                int p2 = p0 * 30 / 100 + p1;
+                p2 = std::min(p2, 255);
+                out_png_.data_[ix] = p2;
             }
         }
     }
