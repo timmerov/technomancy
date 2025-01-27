@@ -1,9 +1,15 @@
 /*
-Copyright (C) 2012-2020 tim cotter. All rights reserved.
+Copyright (C) 2012-2025 tim cotter. All rights reserved.
 */
 
 /**
-reverse rank order voting.
+compare voting systems:
+- condorcet
+- first past the post
+- ranked choice voting
+- reverse rank order voting
+- approval voting
+- contingent proxy voting
 
 generate data sets.
 
@@ -32,25 +38,6 @@ run one trial and log the details.
 run many trials and log only the summary.
 
 results:
-
-10k trials, expectation utility:
-Condorcet           : A=84.45% B=8.86% C=6.69%
-First Past Post     : A=80.16% B=16.58% C=3.26%
-Ranked Choice Voting: A=85.61% B=13.07% C=1.32%
-Reverse Rank Order  : A=83.41% B=15.14% C=1.45%
-
-10k trials, bell-shaped utility N=3:
-Condorcet           : A=69.12% B=19.4% C=11.48%
-First Past Post     : A=68.87% B=23.19% C=7.94%
-Ranked Choice Voting: A=71.48% B=21.6% C=6.92%
-Reverse Rank Order  : A=70.2% B=22.68% C=7.12%
-
-10k trials, flat utility:
-Condorcet           : A=58.49% B=24.67% C=16.84%
-First Past Post     : A=59.06% B=27.26% C=13.68%
-Ranked Choice Voting: A=60.65% B=27.11% C=12.24%
-Reverse Rank Order  : A=59.59% B=27.97% C=12.44%
-
 
 todo:
 model partisan, swing, and non- voters.
@@ -82,9 +69,9 @@ model and/or estimate benefit from strategic voting.
 namespace {
 
 /** number of trials to run. **/
-//constexpr int kNVoteTrials = 1;
+constexpr int kNVoteTrials = 1;
 //constexpr int kNVoteTrials = 100;
-constexpr int kNVoteTrials = 10*1000;
+//constexpr int kNVoteTrials = 10*1000;
 //constexpr int kNVoteTrials = 1000*1000;
 
 /** uniform utilities or not. **/
@@ -256,7 +243,7 @@ public:
     int result_fpp_con_ = 0;
     int result_fpp_strategic_ = 0;
     int result_fpp_counter_= 0;
-    int ranked_choice_voting_ = 0;
+    int ranked_choice_ = 0;
     int result_rcv_a_ = 0;
     int result_rcv_b_ = 0;
     int result_rcv_c_ = 0;
@@ -283,6 +270,14 @@ public:
     int result_app_strategic_ = 0;
     int result_app_alternate_ = 0;
     int result_app_collude_ = 0;
+    int contingent_proxy_ = 0;
+    int result_cpv_a_ = 0;
+    int result_cpv_b_ = 0;
+    int result_cpv_c_ = 0;
+    int result_cpv_con_ = 0;
+    int result_cpv_fpp_ = 0;
+    int result_cpv_rcv_ = 0;
+    int result_cpv_strategic_ = 0;
     int result_nwinners_1_ = 0;
     int result_nwinners_2_ = 0;
     int result_nwinners_3_ = 0;
@@ -313,6 +308,7 @@ public:
             ranked_choice_voting();
             reverse_rank_order();
             approval_voting();
+            contingent_proxy_voting();
             analyze();
         }
 
@@ -685,7 +681,7 @@ public:
             a_plus = 0.0;
         }
         auto round2 = create_results(a_plus, b_plus, c_plus);
-        ranked_choice_voting_ = round2[2].idx_;
+        ranked_choice_ = round2[2].idx_;
         if (kNVoteTrials == 1) {
             LOG("Ranked Choice Voting Round 1:"
                 <<" "<<round1[2].name_<<"="<<round1[2].score_
@@ -979,6 +975,98 @@ public:
         **/
     }
 
+    void contingent_proxy_voting() noexcept {
+        /** first place votes **/
+        double front_a = p_.abc_ + p_.acb_ + p_.axx_;
+        double front_b = p_.bac_ + p_.bca_ + p_.bxx_;
+        double front_c = p_.cab_ + p_.cba_ + p_.cxx_;
+        LOG("A="<<front_a<<" B="<<front_b<<" C="<<front_c);
+        auto front_results = create_results(front_a, front_b, front_c);
+        int front_winner = front_results[2].idx_;
+        double front_score = front_results[2].score_;
+
+        /** if someone has a majority of the votes, they win. **/
+        if (front_score > 0.50) {
+            contingent_proxy_ = front_winner;
+            if (kNVoteTrials == 1) {
+                LOG("Contingent Proxy Front-runner Wins: "
+                    <<front_results[2].name_<<" "<<front_score);
+            }
+            return;
+        }
+
+        /**
+        contingent election. no candidate has a majority.
+        every candidate becomes a proxy for their voters.
+        candidate A will cast all of his votes against C if abc > acb.
+            abc=front_a, acb=0.
+        otherwise A will cast all of his votes against B.
+            abc=0, acb=front_a
+        **/
+        double abc = 0.0;
+        double acb = 0.0;
+        if (p_.abc_ > p_.acb_) {
+            abc = front_a;
+        } else {
+            acb = front_a;
+        }
+        double bac = 0.0;
+        double bca = 0.0;
+        if (p_.bac_ > p_.bca_) {
+            bac = front_b;
+        } else {
+            bca = front_b;
+        }
+        double cab = 0.0;
+        double cba = 0.0;
+        if (p_.cab_ > p_.cba_) {
+            cab = front_c;
+        } else {
+            cba = front_c;
+        }
+\
+        /** count last place votes **/
+        double last_a = bca + cba;
+        double last_b = acb + cab;
+        double last_c = bac + abc;
+        auto round1 = create_results(last_a, last_b, last_c);
+        /** eliminate the candidate with the most last place votes. **/
+        int loser = round1[2].idx_;
+        double round2_a = front_a;
+        double round2_b = front_b;
+        double round2_c = front_c;
+        if (loser == 2) {
+            /** C was eliminated **/
+            round2_a += cab;
+            round2_b += cba;
+            round2_c = 0.0;
+        } else if (loser == 1) {
+            /** B was eliminated **/
+            round2_a += bac;
+            round2_c += bca;
+            round2_b = 0.0;
+        } else {
+            /** A was eliminated **/
+            round2_b += abc;
+            round2_c += acb;
+            round2_a = 0.0;
+        }
+        auto round2 = create_results(round2_a, round2_b, round2_c);
+        int cpv_winner = round2[2].idx_;
+
+        /** determine winner **/
+        contingent_proxy_ = cpv_winner;
+        if (kNVoteTrials == 1) {
+            LOG("Contingent Proxy Round 1:"
+                <<" "<<round1[0].name_<<"="<<round1[0].score_
+                <<" "<<round1[1].name_<<"="<<round1[1].score_
+                <<" "<<round1[2].name_<<"="<<round1[2].score_);
+            LOG("Contingent Proxy Winner:"
+                <<" "<<round2[2].name_<<"="<<round2[2].score_
+                <<" "<<round2[1].name_<<"="<<round2[1].score_);
+        }
+    }
+
     void normalize_electorate(
         Results& results
     ) noexcept {
@@ -1024,7 +1112,7 @@ public:
             ++result_fpp_c_;
             break;
         }
-        switch (ranked_choice_voting_) {
+        switch (ranked_choice_) {
         case 0:
             ++result_rcv_a_;
             break;
@@ -1060,7 +1148,7 @@ public:
         if (first_past_post_ == condorcet_) {
             ++result_fpp_con_;
         }
-        if (ranked_choice_voting_ == condorcet_) {
+        if (ranked_choice_ == condorcet_) {
             ++result_rcv_con_;
         }
         if (reverse_rank_order_ == condorcet_) {
@@ -1075,7 +1163,7 @@ public:
             ++result_rev_con_;
             ++result_app_con_;
         }
-        if (ranked_choice_voting_ == first_past_post_) {
+        if (ranked_choice_ == first_past_post_) {
             ++result_rcv_fpp_;
         }
         if (reverse_rank_order_ == first_past_post_) {
@@ -1084,10 +1172,10 @@ public:
         if (approval_ == first_past_post_) {
             ++result_app_fpp_;
         }
-        if (reverse_rank_order_ == ranked_choice_voting_) {
+        if (reverse_rank_order_ == ranked_choice_) {
             ++result_rev_rcv_;
         }
-        if (approval_ == ranked_choice_voting_) {
+        if (approval_ == ranked_choice_) {
             ++result_app_rcv_;
         }
         if (approval_ == reverse_rank_order_) {
@@ -1096,7 +1184,7 @@ public:
         std::vector<int> candidates(4, 0);
         ++candidates[condorcet_];
         ++candidates[first_past_post_];
-        ++candidates[ranked_choice_voting_];
+        ++candidates[ranked_choice_];
         ++candidates[reverse_rank_order_];
         int nwinners = 0;
         for (int i = 0; i < 3; ++i) {
@@ -1117,12 +1205,12 @@ public:
         }
         if (kVerbose
         &&  reverse_rank_order_ != first_past_post_
-        &&  reverse_rank_order_ != ranked_choice_voting_) {
+        &&  reverse_rank_order_ != ranked_choice_) {
 
             LOG(trial_<<": nwinners="<<nwinners
                 <<" CON="<<condorcet_
                 <<" FPP="<<first_past_post_
-                <<" RCV="<<ranked_choice_voting_
+                <<" RCV="<<ranked_choice_
                 <<" REV="<<reverse_rank_order_);
             p_.print();
         }
