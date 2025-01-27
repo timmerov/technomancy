@@ -592,17 +592,17 @@ namespace {
 				));
 			}
 
-            glm::mat4 view_mat = std::move(glm::lookAt(
+            glm::mat4 view_mat = glm::lookAt(
                 glm::vec3(8.0f, 8.0f, 8.0f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
-            ));
-            glm::mat4 proj_mat = std::move(glm::perspective(
+            );
+            glm::mat4 proj_mat = glm::perspective(
                 glm::radians(26.0f),  // fov
                 float(width_)/float(height_),   // aspect ratio
                 0.1f,  // near clipping plane
                 30.0f  // far  clipping plane
-            ));
+            );
             glm::mat4 proj_view_mat = proj_mat * view_mat;
 
             glViewport(0, 0, width_, height_);
@@ -641,10 +641,10 @@ namespace {
 		) noexcept {
 			for (int i = start; i < stop; ++i) {
 				auto& s = state_.pieces_[i];
-				glm::mat4 temp_mat = std::move(glm::translate(
+				glm::mat4 temp_mat = glm::translate(
 					rot_mat,
 					g_xyz[i]
-				));
+				);
 				glm::mat4 model_mat = temp_mat * g_rot_table[s.orient_];
 				glUniformMatrix4fv(model_mat_loc_, 1, GL_FALSE, &model_mat[0][0]);
 				draw1Cube();

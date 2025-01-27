@@ -335,24 +335,24 @@ namespace {
         void drawWorld(
             int offset
         ) noexcept {
-            glm::mat4 model_mat = std::move(glm::rotate(
+            glm::mat4 model_mat = glm::rotate(
                 glm::mat4(),
                 angle_,
                 glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
-            ));
+            );
 
             float x = 3.0f*(float(offset) - 0.5f);
-            glm::mat4 view_mat = std::move(glm::lookAt(
+            glm::mat4 view_mat = glm::lookAt(
                 glm::vec3(x, 0.0f, 30.0f),  // camera location
                 glm::vec3(x, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
-            ));
-            glm::mat4 proj_mat = std::move(glm::perspective(
+            );
+            glm::mat4 proj_mat = glm::perspective(
                 glm::radians(6.0f),  // fov
                 float(width_)/float(height_),   // aspect ratio
                 1.0f,  // near clipping plane
                 100.0f  // far  clipping plane
-            ));
+            );
             glm::mat4 proj_view_mat = proj_mat * view_mat;
 
             glUseProgram(program_);
@@ -392,17 +392,17 @@ namespace {
             model_mat[3][1] = 0.0f;
             model_mat[3][2] = 0.0f;
             model_mat[3][3] = 1.0f;
-            glm::mat4 view_mat = std::move(glm::lookAt(
+            glm::mat4 view_mat = glm::lookAt(
                 glm::vec3(0.0f, 0.0f, 30.0f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
-            ));
-            glm::mat4 proj_mat = std::move(glm::perspective(
+            );
+            glm::mat4 proj_mat = glm::perspective(
                 glm::radians(6.0f),  // fov
                 float(width_)/float(height_),   // aspect ratio
                 1.0f,  // near clipping plane
                 100.0f  // far  clipping plane
-            ));
+            );
             glm::mat4 proj_view_mat = proj_mat * view_mat;
 
             glUseProgram(program_);

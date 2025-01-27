@@ -255,23 +255,23 @@ namespace {
             if (angle_ >= 2.0f*pi) {
                 angle_ -= 2.0f*pi;
             }
-            glm::mat4 model_mat = std::move(glm::rotate(
+            glm::mat4 model_mat = glm::rotate(
                 glm::mat4(),
                 angle_,
                 glm::vec3(0.0f, 1.0f, 0.0f)  // around y axis
-            ));
+            );
 
-            glm::mat4 view_mat = std::move(glm::lookAt(
+            glm::mat4 view_mat = glm::lookAt(
                 glm::vec3(0.0f, 1.0f, 2.5f),  // camera location
                 glm::vec3(0.0f, 0.0f, 0.0f),  // looking at
                 glm::vec3(0.0f, 1.0f, 0.0f)   // up direction
-            ));
-            glm::mat4 proj_mat = std::move(glm::perspective(
+            );
+            glm::mat4 proj_mat = glm::perspective(
                 glm::radians(52.0f),  // fov
                 float(width_)/float(height_),   // aspect ratio
                 0.1f,  // near clipping plane
                 30.0f  // far  clipping plane
-            ));
+            );
             glm::mat4 proj_view_mat = proj_mat * view_mat;
 
             glViewport(0, 0, width_, height_);
