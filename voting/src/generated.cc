@@ -69,9 +69,9 @@ model and/or estimate benefit from strategic voting.
 namespace {
 
 /** number of trials to run. **/
-constexpr int kNVoteTrials = 1;
+//constexpr int kNVoteTrials = 1;
 //constexpr int kNVoteTrials = 100;
-//constexpr int kNVoteTrials = 10*1000;
+constexpr int kNVoteTrials = 10*1000;
 //constexpr int kNVoteTrials = 1000*1000;
 
 /** uniform utilities or not. **/
@@ -277,10 +277,14 @@ public:
     int result_cpv_con_ = 0;
     int result_cpv_fpp_ = 0;
     int result_cpv_rcv_ = 0;
-    int result_cpv_strategic_ = 0;
+    int result_cpv_rev_ = 0;
+    int result_cpv_app_ = 0;
     int result_nwinners_1_ = 0;
     int result_nwinners_2_ = 0;
     int result_nwinners_3_ = 0;
+    int result_nwinners_4_ = 0;
+    int result_nwinners_5_ = 0;
+    int result_nwinners_6_ = 0;
     int result_rev_majority_lost_ = 0;
     int result_rev_front_runner_ = 0;
     double result_rev_majority_lost_max_ = 0.0;
@@ -979,9 +983,7 @@ public:
         /** first place votes **/
         double front_a = p_.abc_ + p_.acb_ + p_.axx_;
         double front_b = p_.bac_ + p_.bca_ + p_.bxx_;
-        double front_c = p_.cab_ + p_.cba_ + p_.cxx_;
-        LOG("A="<<front_a<<" B="<<front_b<<" C="<<front_c);
-        auto front_results = create_results(front_a, front_b, front_c);
+        double front_c = p_.cab_ + p_.cba_ + p_.cxx_;        auto front_results = create_results(front_a, front_b, front_c);
         int front_winner = front_results[2].idx_;
         double front_score = front_results[2].score_;
 
@@ -1024,7 +1026,7 @@ public:
         } else {
             cba = front_c;
         }
-\
+
         /** count last place votes **/
         double last_a = bca + cba;
         double last_b = acb + cab;
@@ -1145,6 +1147,17 @@ public:
             ++result_app_c_;
             break;
         }
+        switch (contingent_proxy_) {
+        case 0:
+            ++result_cpv_a_;
+            break;
+        case 1:
+            ++result_cpv_b_;
+            break;
+        case 2:
+            ++result_cpv_c_;
+            break;
+        }
         if (first_past_post_ == condorcet_) {
             ++result_fpp_con_;
         }
@@ -1157,11 +1170,15 @@ public:
         if (approval_ == condorcet_) {
             ++result_app_con_;
         }
+        if (contingent_proxy_ == condorcet_) {
+            ++result_cpv_con_;
+        }
         if (condorcet_ == 3) {
             ++result_fpp_con_;
             ++result_rcv_con_;
             ++result_rev_con_;
             ++result_app_con_;
+            ++result_cpv_con_;
         }
         if (ranked_choice_ == first_past_post_) {
             ++result_rcv_fpp_;
@@ -1172,22 +1189,36 @@ public:
         if (approval_ == first_past_post_) {
             ++result_app_fpp_;
         }
+        if (contingent_proxy_ == first_past_post_) {
+            ++result_cpv_fpp_;
+        }
         if (reverse_rank_order_ == ranked_choice_) {
             ++result_rev_rcv_;
         }
         if (approval_ == ranked_choice_) {
             ++result_app_rcv_;
         }
+        if (contingent_proxy_ == ranked_choice_) {
+            ++result_cpv_rcv_;
+        }
         if (approval_ == reverse_rank_order_) {
             ++result_app_rev_;
         }
-        std::vector<int> candidates(4, 0);
+        if (contingent_proxy_ == reverse_rank_order_) {
+            ++result_cpv_rev_;
+        }
+        if (contingent_proxy_ == approval_) {
+            ++result_cpv_app_;
+        }
+        std::vector<int> candidates(6, 0);
         ++candidates[condorcet_];
         ++candidates[first_past_post_];
         ++candidates[ranked_choice_];
         ++candidates[reverse_rank_order_];
+        ++candidates[approval_];
+        ++candidates[contingent_proxy_];
         int nwinners = 0;
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < 6; ++i) {
             if (candidates[i] > 0) {
                 ++nwinners;
             }
@@ -1202,17 +1233,15 @@ public:
         case 3:
             ++result_nwinners_3_;
             break;
-        }
-        if (kVerbose
-        &&  reverse_rank_order_ != first_past_post_
-        &&  reverse_rank_order_ != ranked_choice_) {
-
-            LOG(trial_<<": nwinners="<<nwinners
-                <<" CON="<<condorcet_
-                <<" FPP="<<first_past_post_
-                <<" RCV="<<ranked_choice_
-                <<" REV="<<reverse_rank_order_);
-            p_.print();
+        case 4:
+            ++result_nwinners_4_;
+            break;
+        case 5:
+            ++result_nwinners_5_;
+            break;
+        case 6:
+            ++result_nwinners_6_;
+            break;
         }
     }
 
@@ -1242,27 +1271,40 @@ public:
         double pct_app_b = 100.0 * result_app_b_ / kNVoteTrials;
         double pct_app_c = 100.0 * result_app_c_ / kNVoteTrials;
         LOG("Approval            : A="<<pct_app_a<<"% B="<<pct_app_b<<"% C="<<pct_app_c<<"%");
+        double pct_cpv_a = 100.0 * result_cpv_a_ / kNVoteTrials;
+        double pct_cpv_b = 100.0 * result_cpv_b_ / kNVoteTrials;
+        double pct_cpv_c = 100.0 * result_cpv_c_ / kNVoteTrials;
+        LOG("Contingent Proxy    : A="<<pct_cpv_a<<"% B="<<pct_cpv_b<<"% C="<<pct_cpv_c<<"%");
         LOG("");
         double pct_fpp_con = 100.0 * result_fpp_con_ / kNVoteTrials;
         double pct_rcv_con = 100.0 * result_rcv_con_ / kNVoteTrials;
         double pct_rev_con = 100.0 * result_rev_con_ / kNVoteTrials;
         double pct_app_con = 100.0 * result_app_con_ / kNVoteTrials;
+        double pct_cpv_con = 100.0 * result_cpv_con_ / kNVoteTrials;
         double pct_rcv_fpp = 100.0 * result_rcv_fpp_ / kNVoteTrials;
         double pct_rev_fpp = 100.0 * result_rev_fpp_ / kNVoteTrials;
         double pct_app_fpp = 100.0 * result_app_fpp_ / kNVoteTrials;
+        double pct_cpv_fpp = 100.0 * result_cpv_fpp_ / kNVoteTrials;
         double pct_rev_rcv = 100.0 * result_rev_rcv_ / kNVoteTrials;
         double pct_app_rcv = 100.0 * result_app_rcv_ / kNVoteTrials;
+        double pct_cpv_rcv = 100.0 * result_cpv_rcv_ / kNVoteTrials;
         double pct_app_rev = 100.0 * result_app_rev_ / kNVoteTrials;
-        LOG("Agreements          :  FPP     RCV     REV     APP");
-        LOG("Condorcet           : "<<pct_fpp_con<<"%  "<<pct_rcv_con<<"%  "<<pct_rev_con<<"%  "<<pct_app_con<<"%");
-        LOG("First Past Post     :         "<<pct_rcv_fpp<<"%  "<<pct_rev_fpp<<"%  "<<pct_app_fpp<<"%");
-        LOG("Ranked Choice Voting:                 "<<pct_rev_rcv<<"%  "<<pct_app_rcv<<"%");
-        LOG("Reverse Rank Order  :                         "<<pct_app_rev<<"%");
+        double pct_cpv_rev = 100.0 * result_cpv_rev_ / kNVoteTrials;
+        double pct_cpv_app = 100.0 * result_cpv_app_ / kNVoteTrials;
+        LOG("Agreements          :  FPP     RCV     REV     APP     CPV");
+        LOG("Condorcet           : "<<pct_fpp_con<<"%  "<<pct_rcv_con<<"%  "<<pct_rev_con<<"%  "<<pct_app_con<<"%  "<<pct_cpv_con<<"%");
+        LOG("First Past Post     :         "<<pct_rcv_fpp<<"%  "<<pct_rev_fpp<<"%  "<<pct_app_fpp<<"%  "<<pct_cpv_fpp<<"%");
+        LOG("Ranked Choice Voting:                 "<<pct_rev_rcv<<"%  "<<pct_app_rcv<<"%  "<<pct_cpv_rcv<<"%");
+        LOG("Reverse Rank Order  :                         "<<pct_app_rev<<"%  "<<pct_cpv_rev<<"%");
+        LOG("Approval            :                                 "<<pct_cpv_app<<"%");
         LOG("");
         double nwinners1 = 100.0 * result_nwinners_1_ / kNVoteTrials;
         double nwinners2 = 100.0 * result_nwinners_2_ / kNVoteTrials;
         double nwinners3 = 100.0 * result_nwinners_3_ / kNVoteTrials;
-        LOG("Unique Winners      : 1:"<<nwinners1<<"% 2:"<<nwinners2<<"% 3:"<<nwinners3<<"%");
+        double nwinners4 = 100.0 * result_nwinners_4_ / kNVoteTrials;
+        double nwinners5 = 100.0 * result_nwinners_5_ / kNVoteTrials;
+        double nwinners6 = 100.0 * result_nwinners_6_ / kNVoteTrials;
+        LOG("Unique Winners      : 1:"<<nwinners1<<"% 2:"<<nwinners2<<"% 3:"<<nwinners3<<"% 4:"<<nwinners4<<"% 5:"<<nwinners5<<"% 6:"<<nwinners6<<"%");
         LOG("");
         LOG("Strategic Voting:");
         double pct_rcv_strategic = 100.0 * result_rcv_strategic_ / kNVoteTrials;
@@ -1281,6 +1323,7 @@ public:
         LOG("Approval            : "<<pct_app_strategic<<"% alternate: "<<pct_app_alternate<<"% collude: "<<pct_app_collude<<"%");
         double pct_rev_strategic = 100.0 * result_rev_strategic_ / kNVoteTrials;
         LOG("Reverse Rank Order  : "<<pct_rev_strategic<<"%");
+        LOG("Contingent Proxy    : TBD");
         LOG("");
         LOG("Oddities:");
         LOG("Ranked Choice Voting:");
