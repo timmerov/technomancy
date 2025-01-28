@@ -499,6 +499,37 @@ public:
         }
 
         if (kNVoteTrials == 1) {
+            LOG("probability distribution ="
+                <<" "<<p_.abc_
+                <<" "<<p_.acb_
+                <<" "<<p_.axx_
+                <<" "<<p_.bac_
+                <<" "<<p_.bca_
+                <<" "<<p_.bxx_
+                <<" "<<p_.cab_
+                <<" "<<p_.cba_
+                <<" "<<p_.cxx_);
+            double a = p_.abc_ + p_.acb_ + p_.axx_;
+            double b = p_.bac_ + p_.bca_ + p_.bxx_;
+            double c = p_.cab_ + p_.cba_ + p_.cxx_;
+            LOG("favorites ="
+                <<" A="<<a
+                <<" B="<<b
+                <<" C="<<c);
+            double ma = p_.bac_ + p_.cab_;// + p_.bxx_/2.0 + p_.cxx_/2.0;
+            double mb = p_.abc_ + p_.cba_;// + p_.axx_/2.0 + p_.cxx_/2.0;
+            double mc = p_.acb_ + p_.bca_;// + p_.axx_/2.0 + p_.bxx_/2.0;
+            LOG("mids ="
+                <<" A="<<ma
+                <<" B="<<mb
+                <<" C="<<mc);
+            double la = p_.bca_ + p_.cba_;// + p_.bxx_/2.0 + p_.cxx_/2.0;
+            double lb = p_.acb_ + p_.bca_;// + p_.axx_/2.0 + p_.cxx_/2.0;
+            double lc = p_.abc_ + p_.cba_;// + p_.axx_/2.0 + p_.bxx_/2.0;
+            LOG("lasts ="
+                <<" A="<<la
+                <<" B="<<lb
+                <<" C="<<lc);
             LOG("group utility ="
                 <<" A="<<u_a
                 <<" B="<<u_b
