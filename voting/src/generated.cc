@@ -983,7 +983,8 @@ public:
         /** first place votes **/
         double front_a = p_.abc_ + p_.acb_ + p_.axx_;
         double front_b = p_.bac_ + p_.bca_ + p_.bxx_;
-        double front_c = p_.cab_ + p_.cba_ + p_.cxx_;        auto front_results = create_results(front_a, front_b, front_c);
+        double front_c = p_.cab_ + p_.cba_ + p_.cxx_;
+        auto front_results = create_results(front_a, front_b, front_c);
         int front_winner = front_results[2].idx_;
         double front_score = front_results[2].score_;
 
