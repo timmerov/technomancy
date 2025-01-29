@@ -74,9 +74,13 @@ namespace {
 constexpr int kNVoteTrials = 10*1000;
 //constexpr int kNVoteTrials = 1000*1000;
 
+/** type of electorate **/
+//constexpr int kElectorateType = 0; // random
+constexpr int kElectorateType = 1; // unit square
+
 /** uniform utilities or not. **/
-//constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
-constexpr int kNUtilityTrials = 1;
+constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.
+//constexpr int kNUtilityTrials = 1;
 //constexpr int kNUtilityTrials = 3;
 
 /** fixed seed or random seed **/
@@ -304,7 +308,7 @@ public:
         init();
 
         for (trial_ = 0; trial_ < kNVoteTrials; ++trial_) {
-            random_probabilities();
+            init_electorate();
             random_utilities();
             group_utility();
             condorcet();
@@ -361,6 +365,14 @@ public:
         return x;
     }
 
+    void init_electorate() noexcept {
+        if (kElectorateType == 0) {
+            random_probabilities();
+        } else {
+            random_unit_square();
+        }
+    }
+
     void random_probabilities() noexcept {
         double sum = 0.0;
         do {
@@ -400,6 +412,61 @@ public:
                 <<" "<<p_.cba_
                 <<" "<<p_.cxx_);
         }
+    }
+
+    void random_unit_square() noexcept {
+        /** pick three random points on the unit square **/
+        double ax = random_number();
+        double ay = random_number();
+        double bx = random_number();
+        double by = random_number();
+        double cx = random_number();
+        double cy = random_number();
+
+        /** calculate the area for each voting block. **/
+        p_.abc_ = voting_block_area(ax, ay, bx, by, cx, cy);
+        p_.acb_ = voting_block_area(ax, ay, cx, cy, bx, by);
+        p_.axx_ = 0.0;
+        p_.bac_ = voting_block_area(bx, by, ax, ay, cx, cy);
+        p_.bca_ = voting_block_area(bx, by, cx, cy, ax, ay);
+        p_.bxx_ = 0.0;
+        p_.cab_ = voting_block_area(cx, cy, ax, ay, bx, by);
+        p_.cba_ = voting_block_area(cx, cy, bx, by, ax, ay);
+        p_.cxx_ = 0.0;
+    }
+
+    double voting_block_area(
+        double ax,
+        double ay,
+        double bx,
+        double by,
+        double cx,
+        double cy
+    ) noexcept {
+        /** i'm sure there's a way to do this analytically. **/
+        int sum = 0;
+        for (int iy = 0; iy < 100; ++iy) {
+            double y = iy * 0.01 + 0.005;
+            for (int ix = 0; ix < 100; ++ix) {
+                double x = ix * 0.01 + 0.005;
+                double dx = x - ax;
+                double dy = y - ay;
+                double dist_a = dx*dx + dy*dy;
+                dx = x - bx;
+                dy = y - by;
+                double dist_b = dx*dx + dy*dy;
+                dx = x - cx;
+                dy = y - cy;
+                double dist_c = dx*dx + dy*dy;
+                if (dist_a < dist_b
+                &&  dist_a < dist_c
+                &&  dist_b < dist_c) {
+                    ++sum;
+                }
+            }
+        }
+        double result = double(sum) / 10000.0;
+        return result;
     }
 
     void random_utilities() noexcept {
@@ -1279,7 +1346,16 @@ public:
 
     void summarize() noexcept {
         LOG("Number of Trials    : "<<kNVoteTrials);
-        LOG("Utility Distribution: "<<kNUtilityTrials);
+        if (kElectorateType == 0) {
+            LOG("Electorate Model    : ad hoc");
+        } else {
+            LOG("Electorate Model    : 2 dimensional");
+        }
+        if (kNUtilityTrials == 0) {
+            LOG("Utility Distribution: expectation");
+        } else {
+            LOG("Utility Distribution: "<<kNUtilityTrials);
+        }
         LOG("");
         LOG("Agreement with Group Utility:");
         double pct_con_a = 100.0 * result_con_a_ / kNVoteTrials;
