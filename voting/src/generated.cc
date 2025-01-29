@@ -231,6 +231,11 @@ public:
     double u_cxx_c_ = 0.0;
     double u_cxx_x_ = 0.0;
 
+    /** contingent preferences **/
+    bool cpv_a_bc_ = false;
+    bool cpv_b_ac_ = false;
+    bool cpv_c_ab_ = false;
+
     /** results **/
     int condorcet_ = 0;
     int result_con_a_ = 0;
@@ -371,6 +376,19 @@ public:
         } else {
             random_unit_square();
         }
+
+        if (kNVoteTrials == 1) {
+            LOG("probability distribution ="
+                <<" "<<p_.abc_
+                <<" "<<p_.acb_
+                <<" "<<p_.axx_
+                <<" "<<p_.bac_
+                <<" "<<p_.bca_
+                <<" "<<p_.bxx_
+                <<" "<<p_.cab_
+                <<" "<<p_.cba_
+                <<" "<<p_.cxx_);
+        }
     }
 
     void random_probabilities() noexcept {
@@ -399,19 +417,6 @@ public:
         p_.cab_ /= sum;
         p_.cba_ /= sum;
         p_.cxx_ /= sum;
-
-        if (kNVoteTrials == 1) {
-            LOG("probability distribution ="
-                <<" "<<p_.abc_
-                <<" "<<p_.acb_
-                <<" "<<p_.axx_
-                <<" "<<p_.bac_
-                <<" "<<p_.bca_
-                <<" "<<p_.bxx_
-                <<" "<<p_.cab_
-                <<" "<<p_.cba_
-                <<" "<<p_.cxx_);
-        }
     }
 
     void random_unit_square() noexcept {
@@ -433,6 +438,25 @@ public:
         p_.cab_ = voting_block_area(cx, cy, ax, ay, bx, by);
         p_.cba_ = voting_block_area(cx, cy, bx, by, ax, ay);
         p_.cxx_ = 0.0;
+
+        /** set the candidate preferences **/
+        double dabx = ax - bx;
+        double daby = ay - by;
+        double dacx = ax - cx;
+        double dacy = ay - cy;
+        double dbcx = bx - cx;
+        double dbcy = by - cy;
+        double dist_ab = dabx*dabx + daby*daby;
+        double dist_ac = dacx*dacx + dacy*dacy;
+        double dist_bc = dbcx*dbcx + dbcy*dbcy;
+        cpv_a_bc_ = (dist_ab < dist_ac);
+        cpv_b_ac_ = (dist_ab < dist_bc);
+        cpv_c_ab_ = (dist_ac < dist_bc);
+
+        if (kNVoteTrials == 1) {
+            LOG("candidate positions: A="<<ax<<","<<ay<<" B="<<bx<<","<<by<<" C="<<cx<<","<<cy);
+            LOG("candidate preferences: AB="<<cpv_a_bc_<<" BA="<<cpv_b_ac_<<" CA="<<cpv_c_ab_);
+        }
     }
 
     double voting_block_area(
@@ -610,6 +634,9 @@ public:
         std::swap(p_.acb_, p_.bca_);
         std::swap(p_.axx_, p_.bxx_);
         std::swap(p_.cab_, p_.cba_);
+
+        std::swap(cpv_a_bc_, cpv_b_ac_);
+        cpv_c_ab_ = !cpv_c_ab_;
     }
 
     void swap_probabilities_b_c() noexcept {
@@ -617,6 +644,9 @@ public:
         std::swap(p_.bac_, p_.cab_);
         std::swap(p_.bca_, p_.cba_);
         std::swap(p_.bxx_, p_.cxx_);
+
+        std::swap(cpv_b_ac_, cpv_c_ab_);
+        cpv_a_bc_ = !cpv_a_bc_;
     }
 
     void condorcet() noexcept {
@@ -1106,24 +1136,44 @@ public:
         **/
         double abc = 0.0;
         double acb = 0.0;
-        if (p_.abc_ > p_.acb_) {
-            abc = front_a;
-        } else {
-            acb = front_a;
-        }
         double bac = 0.0;
         double bca = 0.0;
-        if (p_.bac_ > p_.bca_) {
-            bac = front_b;
-        } else {
-            bca = front_b;
-        }
         double cab = 0.0;
         double cba = 0.0;
-        if (p_.cab_ > p_.cba_) {
-            cab = front_c;
+        if (kElectorateType == 0) {
+            /** candidates abide by the majority of their voters. **/
+            if (p_.abc_ > p_.acb_) {
+                abc = front_a;
+            } else {
+                acb = front_a;
+            }
+            if (p_.bac_ > p_.bca_) {
+                bac = front_b;
+            } else {
+                bca = front_b;
+            }
+            if (p_.cab_ > p_.cba_) {
+                cab = front_c;
+            } else {
+                cba = front_c;
+            }
         } else {
-            cba = front_c;
+            /** candidates use their own preference. **/
+            if (cpv_a_bc_) {
+                abc = front_a;
+            } else {
+                acb = front_a;
+            }
+            if (cpv_b_ac_) {
+                bac = front_b;
+            } else {
+                bca = front_b;
+            }
+            if (cpv_c_ab_) {
+                cab = front_c;
+            } else {
+                cba = front_c;
+            }
         }
 
         /** count last place votes **/
