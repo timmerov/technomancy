@@ -75,8 +75,8 @@ constexpr int kNVoteTrials = 10*1000;
 //constexpr int kNVoteTrials = 1000*1000;
 
 /** type of electorate **/
-//constexpr int kElectorateType = 0; // random
-constexpr int kElectorateType = 1; // unit square
+constexpr int kElectorateType = 0; // random
+//constexpr int kElectorateType = 1; // unit square
 
 /** uniform utilities or not. **/
 constexpr int kNUtilityTrials = 0;  // no randomness. use expectation values.

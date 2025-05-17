@@ -77,7 +77,10 @@ proposed solution: reverse rank order voting.
 voters rank all of the candidates.
 each round, the candidate with the MOST LAST PLACE votes is eliminated.
 not to be confused with ranked choice voting.
-where each round, the candidate with the LEASE FIRST PLACE votes is eliminated.
+where each round, the candidate with the LEAST FIRST PLACE votes is eliminated.
+
+this is very similar to coombs voting.
+the difference is coombs tests for a candidate with a majority every round.
 
 passes vote splitting.
 passes partisanship.
