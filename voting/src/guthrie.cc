@@ -209,6 +209,8 @@ public:
     RandomNumberGenerator rng_;
     Electorate electorate_;
     Candidates candidates_;
+    int projected_winner_ = 0;
+    int winner_ = 0;
 
     void run() noexcept {
         LOG("Guthrie voting analysis:");
@@ -217,9 +219,11 @@ public:
         rng_.init();
         electorate_.init();
         init_candidates();
+        find_voters_choice();
 
         vote();
         find_winner();
+        check_projection();
     }
 
     void init_candidates() noexcept {
@@ -282,7 +286,6 @@ public:
         for (auto&& candidate : candidates_ ) {
             LOG(candidate.name_<<": "<<candidate.position_);
         }
-
         LOG("Candidate rankings of other candidates:");
         for (auto&& candidate : candidates_ ) {
             std::stringstream ss;
@@ -320,6 +323,46 @@ public:
             }
             distance.insert(distance.begin() + k, d);
             candidate.rankings_.insert(candidate.rankings_.begin() + k, i);
+        }
+    }
+
+    void find_voters_choice() noexcept {
+        std::vector<double> utility;
+        utility.resize(kNCandidates);
+
+        double max = 0.0;
+        double min = 10.0 * double(kNVoters);
+
+        /** sum the distance from each candidate to all voters. **/
+        for (int i = 0; i < kNCandidates; ++i) {
+            auto& candidate = candidates_[i];
+            double sum = 0;
+            for (auto&& voter : electorate_.voters_) {
+                double d = std::abs(candidate.position_ - voter.position_);
+                sum += d;
+            }
+            utility[i] = sum;
+
+            if (max < sum) {
+                max = sum;
+            }
+            if (min > sum) {
+                projected_winner_ = i;
+                min = sum;
+            }
+        }
+
+        /** scale utility **/
+        for (int i = 0; i < kNCandidates; ++i) {
+            utility[i] /= max;
+        }
+
+        /** show results **/
+        LOG("Projected winner: "<<candidates_[projected_winner_].name_);
+        LOG("Candidate suitability rating - lower is better.");
+        for (int i = 0; i < kNCandidates; ++i) {
+            auto& candidate = candidates_[i];
+            LOG(candidate.name_<<": "<<utility[i]);
         }
     }
 
@@ -386,6 +429,7 @@ public:
             /** check for majority. **/
             for (int i = 0; i < kNCandidates; ++i) {
                 if (2*counts[i] > kNVoters) {
+                    winner_ = i;
                     auto& candidate = candidates_[i];
                     LOG(candidate.name_<<" wins with a majority.");
                     return;
@@ -452,6 +496,14 @@ public:
                 }
                 LOG(ss.str());
             }
+        }
+    }
+
+    void check_projection() noexcept {
+        if (winner_ == projected_winner_) {
+            LOG("The best candidate won.");
+        } else {
+            LOG("The best candidate LOST. <<========<<");
         }
     }
 };
