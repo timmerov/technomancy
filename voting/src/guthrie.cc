@@ -110,6 +110,90 @@ increase later.
 
 namespace {
 
+/** number of voters **/
+//constexpr int kNVoters = 100;
+constexpr int kNVoters = 10*1000;
+
+/** number of candidates **/
+constexpr int kNCandidates = 3;
+
+
+class RandomNumberGenerator {
+public:
+    RandomNumberGenerator() = default;
+    ~RandomNumberGenerator() = default;
+
+    std::mt19937_64 rng_;
+    std::uniform_real_distribution<double> unif_;
+
+    void init() noexcept {
+        std::uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        std::seed_seq ss{uint32_t(seed & 0xffffffff), uint32_t(seed>>32)};
+        rng_.seed(ss);
+        unif_ = std::uniform_real_distribution<double>(0.0, 1.0);
+        LOG("Random Seed: "<<seed);
+    }
+
+    double generate() noexcept {
+        double x = unif_(rng_);
+        return x;
+    }
+};
+
+class Voter {
+public:
+    /** position along the axis ranges from 0..1 **/
+    double position_ = 0.0;
+};
+typedef std::vector<Voter> Voters;
+
+class Candidate {
+public:
+    /** generated name **/
+    char name_;
+
+    /** position along the axis ranges from 0..1 **/
+    double position_ = 0.0;
+
+    /** vote total aka asset **/
+    int support_ = 0;
+
+    /** for sorting **/
+    bool operator < (const Candidate& other) const
+    {
+        return (position_ < other.position_);
+    }
+};
+typedef std::vector<Candidate> Candidates;
+
+class Electorate {
+public:
+    Electorate() = default;
+    ~Electorate() = default;
+
+    Voters voters_;
+
+    void init() noexcept {
+        /** allocate space for the voters and candidates **/
+        voters_.resize(kNVoters);
+
+        ranked();
+    }
+
+    /**
+    evenly distribute voters from 0 to 1 along a single axis.
+    this is the simplest model of the electorate.
+    **/
+    void ranked() noexcept {
+        LOG("Electorate is uniform ranked order.");
+        constexpr double kOffset = 0.5 / double(kNVoters);
+        for (int i = 0; i < kNVoters; ++i) {
+            auto& voter = voters_[i];
+            voter.position_ = kOffset + double(i) / double(kNVoters);
+        }
+    }
+};
+
 class GuthrieImpl {
 public:
     GuthrieImpl() = default;
@@ -117,10 +201,84 @@ public:
     GuthrieImpl(GuthrieImpl &&) = delete;
     ~GuthrieImpl() = default;
 
+    RandomNumberGenerator rng_;
+    Electorate electorate_;
+    Candidates candidates_;
+
     void run() noexcept {
         LOG("Guthrie Voting Analysis");
-        LOG("");
-        LOG("Not yet implemented.");
+        LOG("Number Voters: "<<kNVoters);
+        LOG("Number Candidates: "<<kNCandidates);
+        rng_.init();
+        electorate_.init();
+        init_candidates();
+
+        vote();
+        find_winner();
+    }
+
+    void init_candidates() noexcept {
+        /** allocate space **/
+        candidates_.resize(kNCandidates);
+
+        /**
+        chose random position for each candidate.
+        sort them.
+        name them in sorted order.
+        **/
+        LOG("Candidate Positions:");
+        for (auto&& candidate : candidates_) {
+            candidate.position_ = rng_.generate();
+        }
+        std::sort(candidates_.begin(), candidates_.end());
+        for (int i = 0; i < kNCandidates; ++i) {
+            auto& candidate = candidates_[i];
+            candidate.name_ = 'A' + i;
+            LOG(candidate.name_<<": "<<candidate.position_);
+        }
+    }
+
+    void vote() noexcept {
+        /**
+        for each voter...
+        find the closest candidate.
+        increment their support.
+        **/
+        for (auto&& voter : electorate_.voters_) {
+            int favorite = find_closest_candidate(voter.position_);
+            ++candidates_[favorite].support_;
+        }
+        /** report results **/
+        LOG("Candidate Vote Totals:");
+        for (auto&& candidate : candidates_) {
+            LOG(candidate.name_<<": "<<candidate.support_);
+        }
+    }
+
+    int find_closest_candidate(
+        double position
+    ) noexcept {
+        int closest_candidate = 0;
+        double closest_distance = 2.0;
+        for (int i = 0; i < kNCandidates; ++i) {
+            auto& candidate = candidates_[i];
+            double distance = std::abs(candidate.position_ - position);
+            if (distance < closest_distance) {
+                closest_candidate = i;
+                closest_distance = distance;
+            }
+        }
+        return closest_candidate;
+    }
+
+    void find_winner() noexcept {
+        for (auto&& candidate : candidates_) {
+            if (2*candidate.support_ > kNVoters) {
+                LOG(candidate.name_<<" wins with a majority.");
+                return;
+            }
+        }
+        LOG("No candidate has a majority.");
     }
 };
 

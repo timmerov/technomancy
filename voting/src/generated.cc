@@ -301,7 +301,6 @@ public:
     double result_rev_majority_lost_last_sum_ = 0.0;
 
     /** random number generation **/
-    std::uint64_t trial_seed_;
     std::mt19937_64 rng_;
     std::uniform_real_distribution<double> unif_;
 
