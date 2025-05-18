@@ -10,6 +10,7 @@ from fixed data sets for generated data sets.
 
 #include "fixed.h"
 #include "generated.h"
+#include "guthrie.h"
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
@@ -25,8 +26,11 @@ int main(
     /*FixedDataVoting fixed;
     fixed.run();*/
 
-    GeneratedDataVoting generated;
-    generated.run();
+    /*GeneratedDataVoting generated;
+    generated.run();*/
+
+    GuthrieVoting guthrie;
+    guthrie.run();
 
     return 0;
 }
