@@ -209,7 +209,6 @@ public:
     RandomNumberGenerator rng_;
     Electorate electorate_;
     Candidates candidates_;
-    int projected_winner_ = 0;
     int winner_ = 0;
 
     void run() noexcept {
@@ -219,11 +218,10 @@ public:
         rng_.init();
         electorate_.init();
         init_candidates();
-        find_voters_choice();
 
         vote();
         find_winner();
-        check_projection();
+        check_criteria();
     }
 
     void init_candidates() noexcept {
@@ -323,46 +321,6 @@ public:
             }
             distance.insert(distance.begin() + k, d);
             candidate.rankings_.insert(candidate.rankings_.begin() + k, i);
-        }
-    }
-
-    void find_voters_choice() noexcept {
-        std::vector<double> utility;
-        utility.resize(kNCandidates);
-
-        double max = 0.0;
-        double min = 10.0 * double(kNVoters);
-
-        /** sum the distance from each candidate to all voters. **/
-        for (int i = 0; i < kNCandidates; ++i) {
-            auto& candidate = candidates_[i];
-            double sum = 0;
-            for (auto&& voter : electorate_.voters_) {
-                double d = std::abs(candidate.position_ - voter.position_);
-                sum += d;
-            }
-            utility[i] = sum;
-
-            if (max < sum) {
-                max = sum;
-            }
-            if (min > sum) {
-                projected_winner_ = i;
-                min = sum;
-            }
-        }
-
-        /** scale utility **/
-        for (int i = 0; i < kNCandidates; ++i) {
-            utility[i] /= max;
-        }
-
-        /** show results **/
-        LOG("Projected winner: "<<candidates_[projected_winner_].name_);
-        LOG("Candidate suitability rating - lower is better.");
-        for (int i = 0; i < kNCandidates; ++i) {
-            auto& candidate = candidates_[i];
-            LOG(candidate.name_<<": "<<utility[i]);
         }
     }
 
@@ -499,12 +457,143 @@ public:
         }
     }
 
-    void check_projection() noexcept {
-        if (winner_ == projected_winner_) {
-            LOG("The best candidate won.");
-        } else {
-            LOG("The best candidate LOST. <<========<<");
+    void check_criteria() noexcept {
+        LOG("");
+        LOG("Checking voting criteria.");
+        int max_utility = find_max_utility_candidate();
+        int condorcet = find_condorcet_candidate();
+
+        LOG("Voting criteria results:");
+        const char *result = nullptr;
+        result = result_to_string(winner_, max_utility);
+        LOG("Maximizes total voter utility: "<<result);
+        result = result_to_string(winner_, condorcet);
+        LOG("Condorcet majority           : "<<result);
+    }
+
+    const char *result_to_string(int winner, int expected) noexcept {
+        if (expected < 0) {
+            return "N/A";
         }
+        if (winner == expected) {
+            return "pass";
+        }
+        return "=FAIL=";
+    }
+
+    int find_max_utility_candidate() noexcept {
+        int winner = 0;
+        double max = 0.0;
+        double min = 10.0 * double(kNVoters);
+
+        std::vector<double> utility;
+        utility.resize(kNCandidates);
+
+        /** sum the distance from each candidate to all voters. **/
+        for (int i = 0; i < kNCandidates; ++i) {
+            auto& candidate = candidates_[i];
+            double sum = 0;
+            for (auto&& voter : electorate_.voters_) {
+                double d = std::abs(candidate.position_ - voter.position_);
+                sum += d;
+            }
+            utility[i] = sum;
+
+            if (max < sum) {
+                max = sum;
+            }
+            if (min > sum) {
+                winner = i;
+                min = sum;
+            }
+        }
+
+        /** scale utility **/
+        for (int i = 0; i < kNCandidates; ++i) {
+            utility[i] = 1.0 - utility[i] / max;
+        }
+
+        /** show results **/
+        LOG(candidates_[winner].name_<<" maximizes total voter utility.");
+        for (int i = 0; i < kNCandidates; ++i) {
+            auto& candidate = candidates_[i];
+            LOG(candidate.name_<<": "<<utility[i]);
+        }
+
+        return winner;
+    }
+
+    /**
+    condorcet wins the most head to head races.
+    **/
+    int find_condorcet_candidate() noexcept {
+        /** initialize number of wins for each candidate. **/
+        std::vector<int> wins;
+        wins.resize(kNCandidates);
+        for (int i = 0; i < kNCandidates; ++i) {
+            wins[i] = 0;
+        }
+
+        LOG("Condorcet results:");
+        /** count head to head victories. **/
+        for (int i = 0; i < kNCandidates; ++i) {
+            for (int k = i + 1; k < kNCandidates; ++k) {
+                bool result = head_to_head(i, k);
+                if (result) {
+                    LOG(candidates_[i].name_<<" > "<<candidates_[k].name_);
+                    ++wins[i];
+                } else {
+                    LOG(candidates_[i].name_<<" < "<<candidates_[k].name_);
+                    ++wins[k];
+                }
+            }
+        }
+
+        /** find the candidate with the most wins. **/
+        int max = -1;
+        int winner = 0;
+        bool multiple = false;
+        for (int i = 0; i < kNCandidates; ++i) {
+            int w = wins[i];
+            if (max == w) {
+                multiple = true;
+            }
+            if (max < w) {
+                winner = i;
+                multiple = false;
+                max = w;
+            }
+        }
+
+        /** no winner if there's a cycle. **/
+        if (multiple) {
+            LOG("Condorcet cycle exists.");
+            return -1;
+        }
+
+        return winner;
+    }
+
+    bool head_to_head(int a, int b) noexcept {
+        int avotes = 0;
+        int bvotes = 0;
+
+        double apos = candidates_[a].position_;
+        double bpos = candidates_[b].position_;
+
+        for (auto&& voter : electorate_.voters_) {
+            double vpos = voter.position_;
+            double adist = std::abs(apos - vpos);
+            double bdist = std::abs(bpos - vpos);
+            if (adist < bdist) {
+                ++avotes;
+            }
+        }
+        bvotes = kNVoters - avotes;
+        if (avotes > bvotes) {
+            return true;
+        }
+        return false;
     }
 };
 
