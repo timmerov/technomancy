@@ -389,7 +389,7 @@ public:
                 if (2*counts[i] > kNVoters) {
                     winner_ = i;
                     auto& candidate = candidates_[i];
-                    LOG(candidate.name_<<" wins with a majority.");
+                    LOG(candidate.name_<<" wins Guthrie voting in round "<<round<<".");
                     return;
                 }
             }
@@ -473,7 +473,7 @@ public:
 
     const char *result_to_string(int winner, int expected) noexcept {
         if (expected < 0) {
-            return "N/A";
+            return "n/a";
         }
         if (winner == expected) {
             return "pass";
@@ -543,7 +543,7 @@ public:
                     LOG(candidates_[i].name_<<" > "<<candidates_[k].name_);
                     ++wins[i];
                 } else {
-                    LOG(candidates_[i].name_<<" < "<<candidates_[k].name_);
+                    LOG(candidates_[k].name_<<" > "<<candidates_[i].name_);
                     ++wins[k];
                 }
             }
