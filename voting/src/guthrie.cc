@@ -95,7 +95,6 @@ increase later.
 3. ensure winner still wins if any other candidate drops out.
 4. identify the optimal candidate.
 5. check if a single candidate can vote strategically to get a better result.
-
 **/
 
 #include "guthrie.h"
@@ -114,11 +113,20 @@ namespace {
 //constexpr int kNVoters = 100;
 constexpr int kNVoters = 10*1000;
 
+/** options for distributing the electorate. **/
+constexpr int kElectorateUniform = 0;
+constexpr int kElectorateRandom = 1;
+constexpr int kElectorateMethod = kElectorateRandom;
+
 /** number of candidates **/
 constexpr int kNCandidates = 3;
 //constexpr int kNCandidates = 5;
 //constexpr int kNCandidates = 7;
 
+/** options for choosing candidates **/
+constexpr int kCandidatesRandom = 0;
+constexpr int kCanddiatesSingleTransferableVote = 1;
+constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
 
 class RandomNumberGenerator {
 public:
@@ -140,7 +148,14 @@ public:
         double x = unif_(rng_);
         return x;
     }
+
+    int generate(int max) noexcept {
+        double x = generate();
+        int i = std::floor(x * double(max));
+        return i;
+    }
 };
+static RandomNumberGenerator *rng_ = nullptr;
 
 class Voter {
 public:
@@ -176,13 +191,29 @@ public:
     Electorate() = default;
     ~Electorate() = default;
 
+    int nvoters_ = 0;
     Voters voters_;
 
-    void init() noexcept {
-        /** allocate space for the voters and candidates **/
-        voters_.resize(kNVoters);
+    void init(int nvoters, int method) noexcept {
+        nvoters_ = nvoters;
 
-        ranked();
+        /** allocate space for the voters and candidates **/
+        voters_.resize(nvoters);
+
+        /** distribute the voter by the chosen method. **/
+        switch (method) {
+        default:
+        case kElectorateUniform:
+            ranked();
+            break;
+
+        case kElectorateRandom:
+            random();
+            break;
+        }
+
+        /** show the distribution. **/
+        show();
     }
 
     /**
@@ -191,10 +222,43 @@ public:
     **/
     void ranked() noexcept {
         LOG("Electorate is uniform ranked order.");
-        constexpr double kOffset = 0.5 / double(kNVoters);
-        for (int i = 0; i < kNVoters; ++i) {
+        double nvoters = double(nvoters_);
+        double offset = 0.5 / nvoters;
+        for (int i = 0; i < nvoters_; ++i) {
             auto& voter = voters_[i];
-            voter.position_ = kOffset + double(i) / double(kNVoters);
+            voter.position_ = offset + double(i) / nvoters;
+        }
+    }
+
+    /**
+    randomly distribute voters along the axis.
+    **/
+    void random() noexcept {
+        LOG("Electorate is random.");
+        for (int i = 0; i < nvoters_; ++i) {
+            auto& voter = voters_[i];
+            voter.position_ = rng_->generate();
+        }
+    }
+
+    void show() noexcept {
+        LOG("Electorate distribution:");
+        constexpr int kNBins = 10;
+        std::vector<int> bins;
+        bins.resize(kNBins);
+        for (int i = 0; i < kNBins; ++i) {
+            bins[i] = 0;
+        }
+        for (auto&& voter : voters_) {
+            int i = std::floor(voter.position_ * kNBins);
+            i = std::clamp(i, 0, kNBins - 1);
+            ++bins[i];
+        }
+        double nvoters = voters_.size();
+        for (int i = 0; i < kNBins; ++i) {
+            double mx = double(i+1) / kNBins;
+            double frac = 100.0 * double(bins[i]) / nvoters;
+            LOG(mx<<": "<<bins[i]<<" "<<frac<<"%");
         }
     }
 };
@@ -206,17 +270,21 @@ public:
     GuthrieImpl(GuthrieImpl &&) = delete;
     ~GuthrieImpl() = default;
 
-    RandomNumberGenerator rng_;
     Electorate electorate_;
     Candidates candidates_;
+    int nvoters_ = kNVoters;
+    int electorate_method_ = kElectorateMethod;
+    int ncandidates_ = kNCandidates;
+    int canddiate_method_ = kCandidateMethod;
     int winner_ = 0;
 
     void run() noexcept {
         LOG("Guthrie voting analysis:");
-        LOG("Number voters: "<<kNVoters);
-        LOG("Number candidates: "<<kNCandidates);
-        rng_.init();
-        electorate_.init();
+        LOG("Number voters: "<<nvoters_);
+        LOG("Number candidates: "<<ncandidates_);
+        rng_ = new(std::nothrow) RandomNumberGenerator();
+        rng_->init();
+        electorate_.init(nvoters_, electorate_method_);
         init_candidates();
 
         vote();
@@ -225,48 +293,70 @@ public:
     }
 
     void init_candidates() noexcept {
+
+        /** choose the number of candidates based on the specified method. **/
+        int n = ncandidates_;
+        if (canddiate_method_ == kCanddiatesSingleTransferableVote) {
+            /** choose a number of candidates in the primary. **/
+            double cube_root = std::pow(double(nvoters_), 1.0/3.0);
+            n = (int) std::round(cube_root);
+
+            /** maybe increase it. **/
+            n = std::max(n, ncandidates_);
+        }
+
+        if (n > ncandidates_) {
+            LOG("Reducing the number of candidates from "<<n<<" to "<<ncandidates_<<".");
+        }
+
         /** allocate space **/
-        candidates_.resize(kNCandidates);
+        candidates_.resize(n);
 
-        int lefties = 0;
-        for(;;) {
-            /** chose random position for each candidate. **/
-            for (auto&& candidate : candidates_) {
-                candidate.position_ = rng_.generate();
-            }
-
-            /** sort them. **/
-            std::sort(candidates_.begin(), candidates_.end());
-
-            /** count the number candidates to the left. **/
-            int lefties = 0;
-            for (auto&& candidate : candidates_) {
-                if (candidate.position_ <= 0.5) {
-                    ++lefties;
+        /**
+        choose random voters as candidates.
+        do not allow duplicates.
+        **/
+        std::vector<bool> duplicates;
+        duplicates.resize(nvoters_);
+        for (int i = 0; i < nvoters_; ++i) {
+            duplicates[i] = false;
+        }
+        for (auto&& candidate : candidates_) {
+            int i = 0;
+            for(;;) {
+                i = rng_->generate(nvoters_);
+                if (duplicates[i] == false) {
+                    break;
                 }
             }
-
-            /**
-            try again if all candidates are on the same side.
-            these elections are not intesting.
-            the centrist always has a majority.
-            **/
-            if (lefties == 0) {
-                continue;
-            }
-            if (lefties == kNCandidates) {
-                continue;
-            }
-            break;
+            duplicates[i] = true;
+            candidate.position_ = electorate_.voters_[i].position_;
         }
 
-        /** normalize so a majority of candidates are to the left. **/
-        if (2*lefties < kNCandidates) {
-            for (auto&& candidate : candidates_) {
-                candidate.position_ = 1.0 - candidate.position_;
+        /**
+        reduce the number of candidates.
+        remove the ones with the lowest vote counts.
+        **/
+        for(;;) {
+            n = candidates_.size();
+            if (n <= ncandidates_) {
+                break;
             }
-            std::reverse(candidates_.begin(), candidates_.end());
+            vote();
+            int worst = 0;
+            int worst_support = 2*nvoters_;
+            for (int i = 0; i < n; ++i) {
+                auto& candidate = candidates_[i];
+                if (candidate.support_ < worst_support) {
+                    worst = i;
+                    worst_support = candidate.support_;
+                }
+            }
+            candidates_.erase(candidates_.begin() + worst);
         }
+
+        /** sort them. **/
+        std::sort(candidates_.begin(), candidates_.end());
 
         /** every candidate rank orders the others. **/
         for (auto&& candidate : candidates_) {
@@ -274,7 +364,7 @@ public:
         }
 
         /** name them in sorted normalized order **/
-        for (int i = 0; i < kNCandidates; ++i) {
+        for (int i = 0; i < ncandidates_; ++i) {
             auto& candidate = candidates_[i];
             candidate.name_ = 'A' + i;
         }
@@ -288,7 +378,7 @@ public:
         for (auto&& candidate : candidates_ ) {
             std::stringstream ss;
             ss << candidate.name_ << ":";
-            for (int i = 1; i < kNCandidates; ++i) {
+            for (int i = 1; i < ncandidates_; ++i) {
                 int rank = candidate.rankings_[i];
                 if (i > 1) {
                     ss << " >";
@@ -303,10 +393,10 @@ public:
         Candidate& candidate
     ) noexcept {
         std::vector<double> distance;
-        distance.reserve(kNCandidates);
-        candidate.rankings_.reserve(kNCandidates);
+        distance.reserve(ncandidates_);
+        candidate.rankings_.reserve(ncandidates_);
 
-        for (int i = 0; i < kNCandidates; ++i) {
+        for (int i = 0; i < ncandidates_; ++i) {
             auto& other = candidates_[i];
             double d = std::abs(candidate.position_ - other.position_);
             int k = 0;
@@ -325,6 +415,14 @@ public:
     }
 
     void vote() noexcept {
+        /**
+        clear support.
+        we may vote multiple times.
+        **/
+        for (auto&& candidate : candidates_) {
+            candidate.support_ = 0;
+        }
+
         /**
         for each voter...
         find the closest candidate.
@@ -346,7 +444,8 @@ public:
     ) noexcept {
         int closest_candidate = 0;
         double closest_distance = 2.0;
-        for (int i = 0; i < kNCandidates; ++i) {
+        int ncandidates = candidates_.size();
+        for (int i = 0; i < ncandidates; ++i) {
             auto& candidate = candidates_[i];
             double distance = std::abs(candidate.position_ - position);
             if (distance < closest_distance) {
@@ -359,15 +458,15 @@ public:
 
     void find_winner() noexcept {
         std::vector<int> counts;
-        counts.resize(kNCandidates);
+        counts.resize(ncandidates_);
 
-        for (int round = 1; round < kNCandidates; ++round) {
+        for (int round = 1; round < ncandidates_; ++round) {
             LOG("Round "<<round<<":");
 
             /** phase 1: count first place votes. **/
 
             /** initialize the counts **/
-            for (int i = 0; i < kNCandidates; ++i) {
+            for (int i = 0; i < ncandidates_; ++i) {
                 counts[i] = 0;
             }
 
@@ -379,14 +478,14 @@ public:
 
             /** show first place vote counts. **/
             LOG("First place vote counts:");
-            for (int i = 0; i < kNCandidates; ++i) {
+            for (int i = 0; i < ncandidates_; ++i) {
                 auto& candidate = candidates_[i];
                 LOG(candidate.name_<<": "<<counts[i]);
             }
 
             /** check for majority. **/
-            for (int i = 0; i < kNCandidates; ++i) {
-                if (2*counts[i] > kNVoters) {
+            for (int i = 0; i < ncandidates_; ++i) {
+                if (2*counts[i] > nvoters_) {
                     winner_ = i;
                     auto& candidate = candidates_[i];
                     LOG(candidate.name_<<" wins Guthrie voting in round "<<round<<".");
@@ -401,12 +500,12 @@ public:
             LOG("No candidate has a majority.");
 
             /** initialize the counts **/
-            for (int i = 0; i < kNCandidates; ++i) {
+            for (int i = 0; i < ncandidates_; ++i) {
                 counts[i] = 0;
             }
 
             /** count last place votes. **/
-            int last_index = kNCandidates - round;
+            int last_index = ncandidates_ - round;
             for (auto&& candidate : candidates_) {
                 int worst = candidate.rankings_[last_index];
                 counts[worst] += candidate.support_;
@@ -414,7 +513,7 @@ public:
 
             /** show last place vote counts. **/
             LOG("Last place vote counts:");
-            for (int i = 0; i < kNCandidates; ++i) {
+            for (int i = 0; i < ncandidates_; ++i) {
                 auto& candidate = candidates_[i];
                 LOG(candidate.name_<<": "<<counts[i]);
             }
@@ -422,7 +521,7 @@ public:
             /** find the candidate with the most last place votes. **/
             int loser = 0;
             int loser_count = 0;
-            for (int i = 0; i < kNCandidates; ++i) {
+            for (int i = 0; i < ncandidates_; ++i) {
                 int count = counts[i];
                 if (count > loser_count) {
                     loser = i;
@@ -484,13 +583,13 @@ public:
     int find_max_utility_candidate() noexcept {
         int winner = 0;
         double max = 0.0;
-        double min = 10.0 * double(kNVoters);
+        double min = 10.0 * double(nvoters_);
 
         std::vector<double> utility;
-        utility.resize(kNCandidates);
+        utility.resize(ncandidates_);
 
         /** sum the distance from each candidate to all voters. **/
-        for (int i = 0; i < kNCandidates; ++i) {
+        for (int i = 0; i < ncandidates_; ++i) {
             auto& candidate = candidates_[i];
             double sum = 0;
             for (auto&& voter : electorate_.voters_) {
@@ -509,13 +608,13 @@ public:
         }
 
         /** scale utility **/
-        for (int i = 0; i < kNCandidates; ++i) {
+        for (int i = 0; i < ncandidates_; ++i) {
             utility[i] = 1.0 - utility[i] / max;
         }
 
         /** show results **/
         LOG(candidates_[winner].name_<<" maximizes total voter utility.");
-        for (int i = 0; i < kNCandidates; ++i) {
+        for (int i = 0; i < ncandidates_; ++i) {
             auto& candidate = candidates_[i];
             LOG(candidate.name_<<": "<<utility[i]);
         }
@@ -529,15 +628,15 @@ public:
     int find_condorcet_candidate() noexcept {
         /** initialize number of wins for each candidate. **/
         std::vector<int> wins;
-        wins.resize(kNCandidates);
-        for (int i = 0; i < kNCandidates; ++i) {
+        wins.resize(ncandidates_);
+        for (int i = 0; i < ncandidates_; ++i) {
             wins[i] = 0;
         }
 
         LOG("Condorcet results:");
         /** count head to head victories. **/
-        for (int i = 0; i < kNCandidates; ++i) {
-            for (int k = i + 1; k < kNCandidates; ++k) {
+        for (int i = 0; i < ncandidates_; ++i) {
+            for (int k = i + 1; k < ncandidates_; ++k) {
                 bool result = head_to_head(i, k);
                 if (result) {
                     LOG(candidates_[i].name_<<" > "<<candidates_[k].name_);
@@ -553,7 +652,7 @@ public:
         int max = -1;
         int winner = 0;
         bool multiple = false;
-        for (int i = 0; i < kNCandidates; ++i) {
+        for (int i = 0; i < ncandidates_; ++i) {
             int w = wins[i];
             if (max == w) {
                 multiple = true;
@@ -589,7 +688,7 @@ public:
                 ++avotes;
             }
         }
-        bvotes = kNVoters - avotes;
+        bvotes = nvoters_ - avotes;
         if (avotes > bvotes) {
             return true;
         }

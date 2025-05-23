@@ -1,0 +1,82 @@
+
+The voting game.
+
+This is a simulation of the Guthrie voting method which is currently being developed.
+The game is to investigate what might happen in an election.
+The players are the candidates.
+Guthrie voting has a general election where voters vote for one candidate.
+Every candidate ranks the other candidatess by most favorite to least.
+After the votes are cast, the candidates get together to negotiate who wins as defined below.
+
+How to play:
+
+Step 1) Every candidate is assigned a two digit number from 10 to 99.
+This represents the number of votes the candidate received in the election.
+Be realistic.
+Maybe agree numbers should add to something convenient - like 100.
+Maybe have a steal session where whichever player who has not yet swapped and has the lowest number
+may swap it for any other player's number.
+
+Step 2) Every candidate creates a ranking of the other candidates.
+The rankings must be realistic.
+Every candidate ranks themselves first.
+It is suggested 2 players (A and D) are chosen to be the extremists.
+They agree on a rank order.
+A > B > C > D for A.
+and the reverse D > C > B > A for D.
+The other players rank each other any way they wish.
+
+Step 3) Dry run.
+Resolve the election where candidates must vote according to their fixed ranking list.
+
+Step 4) Actual result.
+Resolve the election where candidates may vote any way they wish.
+
+Resolving the election is done in rounds.
+Each round has two phases.
+For the actual result, the candidates negotiate between phases.
+When candidates vote they cast as many votes as they received in the general election.
+
+Phase 1) Candidates vote for their current favorite candidate.
+In the first round, this will be themselves.
+If any candidate has a majority of the first place votes, they win. Game over.
+
+Phase 2) Candidates vote against their current least favorite candidate.
+If any candidate has a majority of the last place votes, they are removed from the ballots
+but they continue to participate.
+In the dry run, if no candidate has a majority of the last place votes, then the candidate
+with the most last place votes is removed from the ballots.
+For the final result, if no candidate has a majorty of the last place votes, then the candidates
+negotiate and re-vote until a candidate is eliminated.
+
+Example:
+vote counts: A=42, B=26, C=15, D=17
+majority = 51.
+rankings:
+A: B > C > D
+B: C > D > A
+C: D > B > A
+D: C > B > A
+Round 1 Phase 1:
+A = 42 (from A)
+B = 26 (from B)
+C = 15 (from C)
+D = 17 (from D)
+no majority
+Round 1 Phase 2:
+A = 26 (from B) + 15 (from C) + 17 (from D) = 58
+B = 0
+C = 0
+D = 42 (from A)
+A has majority and is eliminated.
+new rankings:
+A: B > C > D
+B: C > D
+C: D > B
+D: C > B
+Round 2 Phase 1:
+A = 0
+B = 42 (from A) + 26 (from B) = 58
+C = 15 (from C)
+D = 17 (from D)
+B has majority and wins.
