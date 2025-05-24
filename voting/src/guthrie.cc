@@ -129,6 +129,10 @@ constexpr int kCandidatesRandom = 0;
 constexpr int kCanddiatesSingleTransferableVote = 1;
 constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
 
+/** option to use a fixed seed for testing. **/
+constexpr std::uint64_t kFixedSeed = 0;
+//constexpr std::uint64_t kFixedSeed = 1748115190039297588;
+
 class RandomNumberGenerator {
 public:
     RandomNumberGenerator() = default;
@@ -138,11 +142,16 @@ public:
     std::uniform_real_distribution<double> unif_;
 
     void init() noexcept {
-        std::uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        std::uint64_t seed = kFixedSeed;
+        if (seed == 0) {
+            seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+            LOG("Random seed: "<<seed);
+        } else {
+            LOG("Fixed seed: "<<seed);
+        }
         std::seed_seq ss{uint32_t(seed & 0xffffffff), uint32_t(seed>>32)};
         rng_.seed(ss);
         unif_ = std::uniform_real_distribution<double>(0.0, 1.0);
-        LOG("Random seed: "<<seed);
     }
 
     double generate() noexcept {
@@ -437,24 +446,28 @@ public:
         }
     }
 
-    void rank_candidates() noexcept {
+    void rank_candidates(
+        bool quiet = false
+    ) noexcept {
         /** every candidate rank orders the others. **/
         for (auto&& candidate : candidates_) {
             rank_other_candidates(candidate);
         }
 
-        LOG("Candidate rankings of other candidates:");
-        for (auto&& candidate : candidates_ ) {
-            std::stringstream ss;
-            ss << candidate.name_ << ":";
-            for (int i = 1; i < ncandidates_; ++i) {
-                int rank = candidate.rankings_[i];
-                if (i > 1) {
-                    ss << " >";
+        if (quiet == false) {
+            LOG("Candidate rankings of other candidates:");
+            for (auto&& candidate : candidates_ ) {
+                std::stringstream ss;
+                ss << candidate.name_ << ":";
+                for (int i = 1; i < ncandidates_; ++i) {
+                    int rank = candidate.rankings_[i];
+                    if (i > 1) {
+                        ss << " >";
+                    }
+                    ss << " " << candidates_[rank].name_;
                 }
-                ss << " " << candidates_[rank].name_;
+                LOG(ss.str());
             }
-            LOG(ss.str());
         }
     }
 
@@ -570,12 +583,20 @@ public:
         return closest_candidate;
     }
 
-    void find_winner() noexcept {
+    void find_winner(
+        bool quiet = false
+    ) noexcept {
         std::vector<int> counts;
         counts.resize(ncandidates_);
 
-        for (int round = 1; round < ncandidates_; ++round) {
-            LOG("Round "<<round<<":");
+        /**
+        normally we can find the winner in N-1 rounds.
+        unless there's a tie in the last round.
+        **/
+        for (int round = 1; /*round < ncandidates_*/; ++round) {
+            if (quiet == false) {
+                LOG("Round "<<round<<":");
+            }
 
             /** phase 1: count first place votes. **/
 
@@ -591,18 +612,22 @@ public:
             }
 
             /** show first place vote counts. **/
-            LOG("First place vote counts:");
-            for (int i = 0; i < ncandidates_; ++i) {
-                auto& candidate = candidates_[i];
-                LOG(candidate.name_<<": "<<counts[i]);
+            if (quiet == false) {
+                LOG("First place vote counts:");
+                for (int i = 0; i < ncandidates_; ++i) {
+                    auto& candidate = candidates_[i];
+                    LOG(candidate.name_<<": "<<counts[i]);
+                }
             }
 
             /** check for majority. **/
             for (int i = 0; i < ncandidates_; ++i) {
                 if (2*counts[i] > nvoters_) {
                     winner_ = i;
-                    auto& candidate = candidates_[i];
-                    LOG(candidate.name_<<" wins Guthrie voting in round "<<round<<".");
+                    if (quiet == false) {
+                        auto& candidate = candidates_[i];
+                        LOG(candidate.name_<<" wins Guthrie voting in round "<<round<<".");
+                    }
                     return;
                 }
             }
@@ -611,7 +636,6 @@ public:
             no candidate has a majority.
             proceed to phase 2: count last place votes.
             **/
-            LOG("No candidate has a majority.");
 
             /** initialize the counts **/
             for (int i = 0; i < ncandidates_; ++i) {
@@ -625,24 +649,26 @@ public:
                 counts[worst] += candidate.support_;
             }
 
-            /** show last place vote counts. **/
-            LOG("Last place vote counts:");
-            for (int i = 0; i < ncandidates_; ++i) {
-                auto& candidate = candidates_[i];
-                LOG(candidate.name_<<": "<<counts[i]);
-            }
-
             /** find the candidate with the most last place votes. **/
             int loser = 0;
             int loser_count = 0;
             for (int i = 0; i < ncandidates_; ++i) {
                 int count = counts[i];
-                if (count > loser_count) {
+
+                /** handle ties a bit more deterministically. **/
+                bool update = (count > loser_count);
+                if (count == loser_count) {
+                    double this_sat = candidates_[i].satisfaction_actual_;
+                    double loser_sat = candidates_[loser].satisfaction_actual_;
+                    if (this_sat < loser_sat) {
+                        update = true;
+                    }
+                }
+                if (update) {
                     loser = i;
                     loser_count = count;
                 }
             }
-            LOG("Candidate "<<candidates_[loser].name_<<" has the most last place votes - eliminated.");
 
             /** remove the loser from the candidate rankings. **/
             for (auto&& candidate : candidates_) {
@@ -654,18 +680,29 @@ public:
                 }
             }
 
-            LOG("Updated rankings:");
-            for (auto&& candidate : candidates_ ) {
-                std::stringstream ss;
-                ss << candidate.name_ << ":";
-                for (int i = 0; i < last_index; ++i) {
-                    int rank = candidate.rankings_[i];
-                    if (i > 0) {
-                        ss << " >";
-                    }
-                    ss << " " << candidates_[rank].name_;
+            if (quiet == false) {
+                LOG("No candidate has a majority.");
+
+                LOG("Last place vote counts:");
+                for (int i = 0; i < ncandidates_; ++i) {
+                    auto& candidate = candidates_[i];
+                    LOG(candidate.name_<<": "<<counts[i]);
                 }
-                LOG(ss.str());
+                LOG("Candidate "<<candidates_[loser].name_<<" has the most last place votes - eliminated.");
+
+                LOG("Updated rankings:");
+                for (auto&& candidate : candidates_ ) {
+                    std::stringstream ss;
+                    ss << candidate.name_ << ":";
+                    for (int i = 0; i < last_index; ++i) {
+                        int rank = candidate.rankings_[i];
+                        if (i > 0) {
+                            ss << " >";
+                        }
+                        ss << " " << candidates_[rank].name_;
+                    }
+                    LOG(ss.str());
+                }
             }
         }
     }
@@ -675,13 +712,17 @@ public:
         LOG("Checking voting criteria.");
         int max_satisfaction = find_max_satisfaction_candidate();
         int condorcet = find_condorcet_candidate();
+        int monotonicity = check_monotonicity();
 
+        LOG("");
         LOG("Voting criteria results:");
         const char *result = nullptr;
         result = result_to_string(winner_, max_satisfaction);
         LOG("Maximizes voter satisfaction: "<<result);
         result = result_to_string(winner_, condorcet);
         LOG("Condorcet majority          : "<<result);
+        result = result_to_string(winner_, monotonicity);
+        LOG("Monotonicity                : "<<result);
     }
 
     const char *result_to_string(int winner, int expected) noexcept {
@@ -779,6 +820,59 @@ public:
             return true;
         }
         return false;
+    }
+
+    int check_monotonicity() noexcept {
+        /** assume we pass. **/
+        int monotonicity = winner_;
+
+        /** save the original winner **/
+        int original_winner = winner_;
+
+        /** save the name of the original winner. **/
+        char original_winner_name = candidates_[original_winner].name_;
+
+        /** save the original candidates. **/
+        auto original_candidates = candidates_;
+
+        /** decrement the number of candidates. **/
+        int ncandidates = ncandidates_;
+        ncandidates_ = ncandidates - 1;
+
+        /** remove one of the non-winners and revote. **/
+        for (int i = 0; i < ncandidates; ++i) {
+            /** remove a non-winner. **/
+            if (i == original_winner) {
+                continue;
+            }
+            candidates_ = original_candidates;
+            candidates_.erase(candidates_.begin()+i);
+
+            /** re-vote. **/
+            rank_candidates(false);
+            vote();
+            find_winner(false);
+
+            /** check by name, not index. **/
+            char winner_name = candidates_[winner_].name_;
+            if (winner_name != original_winner_name) {
+                monotonicity = i;
+                LOG(winner_name<<" wins if "<<original_candidates[i].name_<<" doesn't run.");
+            }
+        }
+
+        /** restore the number of candidates. **/
+        ncandidates_ = ncandidates;
+
+        /** restore the original winner. **/
+        winner_ = original_winner;
+
+        /** we pass **/
+        if (monotonicity == original_winner) {
+            LOG(original_winner_name<<" wins if any other candidate doesn't run.");
+        }
+
+        return monotonicity;
     }
 };
 
