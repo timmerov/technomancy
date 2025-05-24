@@ -31,10 +31,14 @@ guthrie voting works like this:
 phase 1:
 the primary reduces a large number of candidates to a manageable number.
 but not less than 3.
+we pick a number of primary candidates equal to the cube root of the number of voters.
+voters cast a single vote for their favorite primary candidate.
+excess candidates are removed by single transferable vote.
+other culling methods are acceptable.
 
 phase 2:
-voters cast a single vote for their favorite cancidate.
-A,B,D received 35,30,25,10 votes respectively.
+voters cast a single vote for their favorite candidate.
+working example: A,B,D received 35,30,25,10 votes respectively.
 A prefers B > C > D.
 B prefers A > C > D.
 C prefers D > B > A
@@ -79,22 +83,55 @@ totals: A=35, B=65, C=35, D=0.
 B has a majority.
 B wins the election.
 
-there really isn't much motivation for voters to vote strategically.
-the only reason would be if the candidate's ranking is different from the voter's.
 
-it doesn't look like the candidates have much incentive to vote strategically either.
-though i could be wrong on this.
+there are several ways to model the electorate:
+
+1. single axis - simplest.
+2. multiple axes with equal weights.
+3. multiple axes where the weights decrease geometrically.
+
+per axis:
+
+A. uniform - distributed evenly from 0.0 to 1.0.
+B. random - placed at random.
+with large electorates, is indistinguishable from a uniform distribution.
+C. clustered - voters are normally distributed around one of several points.
+how many clusters? how much spread? to be determined.
+
+so far i've implement 1,A,B.
+
+for single axis and uniform or random distribution...
+either there's a majority.
+or there's a condorcet winner.
+we're in a nash equilibrium.
+ie there's no incentive for either the voters or the candidates to change their votes.
+ie to vote strategically instead of honestly.
+an exception would be when a candidate's preference isn't honest.
+example: A=40 B=35 C=25 where C for whatever reason prefers A>B.
+then A+C eliminate B and A wins in round 2 with votes from B.
+but if enough  voters can see this coming before the election,
+they will also vote dishonestly for their second choice, B.
+giving B a majority win in round 1.
+so C's strategy for getting a victory for A would be to lie to their constituents.
+and vote against their wishes.
+
+things done:
+
+we have made some effort to handle ties.
+we check if the winner is the condorcet winner if there is one.
+we report satisfaction (two different ways) and bayer regret.
+we find the voter that would be the optimal candidate.
+we check for monotonicity ie the winner should still win if any other candidate drops out.
+we check if the most satisfactory candidate wins.
+they don't. but that's okay.
+these are diabolical cases that cause no voting system can do better. except maybe range voting.
+
 
 things to do:
-1. start with 3 candidates.
-increase later.
-2. model the electorate so that utility is a function of distance between voter and candidate.
-    a. uniform single dimension.
-    b. clustered voters.
-    c. multiple dimensions of progressively lower utility weighting.
-3. ensure winner still wins if any other candidate drops out.
-4. identify the optimal candidate.
-5. check if a single candidate can vote strategically to get a better result.
+multiple trials with summarized results,
+clustered voters,
+multiple issue dimensions,
+check monotonicity when multiple candidates drop out.
 **/
 
 #include "guthrie.h"
@@ -131,7 +168,7 @@ constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
 
 /** option to use a fixed seed for testing. **/
 constexpr std::uint64_t kFixedSeed = 0;
-//constexpr std::uint64_t kFixedSeed = 1748115190039297588;
+//constexpr std::uint64_t kFixedSeed = 1748125938020618836;
 
 class RandomNumberGenerator {
 public:
@@ -839,14 +876,20 @@ public:
         int ncandidates = ncandidates_;
         ncandidates_ = ncandidates - 1;
 
+        /** remove the first candidate. **/
+        candidates_.erase(candidates_.begin());
+
         /** remove one of the non-winners and revote. **/
         for (int i = 0; i < ncandidates; ++i) {
+            /** remove the non-winner and replace with original. **/
+            if (i > 0) {
+                candidates_[i-1] = original_candidates[i];
+            }
+
             /** remove a non-winner. **/
             if (i == original_winner) {
                 continue;
             }
-            candidates_ = original_candidates;
-            candidates_.erase(candidates_.begin()+i);
 
             /** re-vote. **/
             rank_candidates(false);
@@ -861,13 +904,12 @@ public:
             }
         }
 
-        /** restore the number of candidates. **/
+        /** restore the original candidates, count, and winner. **/
+        std::swap(candidates_, original_candidates);
         ncandidates_ = ncandidates;
-
-        /** restore the original winner. **/
         winner_ = original_winner;
 
-        /** we pass **/
+        /** log that we passed the test. **/
         if (monotonicity == original_winner) {
             LOG(original_winner_name<<" wins if any other candidate doesn't run.");
         }
