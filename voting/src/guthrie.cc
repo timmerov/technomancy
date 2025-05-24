@@ -146,7 +146,11 @@ check monotonicity when multiple candidates drop out.
 
 namespace {
 
-/** number of voters **/
+/** number of trials. **/
+//constexpr int kNTrials = 1;
+constexpr int kNTrials = 3;
+
+/** number of voters. **/
 constexpr int kNVoters = 100;
 //constexpr int kNVoters = 10*1000;
 
@@ -167,8 +171,11 @@ constexpr int kCanddiatesSingleTransferableVote = 1;
 constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
 
 /** option to use a fixed seed for testing. **/
-constexpr std::uint64_t kFixedSeed = 0;
-//constexpr std::uint64_t kFixedSeed = 1748125938020618836;
+//constexpr std::uint64_t kFixedSeed = 0;
+constexpr std::uint64_t kFixedSeed = 1748129424077414500;
+
+/** some functions should sometimes be quiet. **/
+constexpr bool kQuiet = true;
 
 class RandomNumberGenerator {
 public:
@@ -324,6 +331,7 @@ public:
 
     Electorate electorate_;
     Candidates candidates_;
+    int ntrials_ = kNTrials;
     int nvoters_ = kNVoters;
     int electorate_method_ = kElectorateMethod;
     int ncandidates_ = kNCandidates;
@@ -332,20 +340,35 @@ public:
     double best_candidate_utility_ = 0.0;
     double random_candidate_utility_ = 0.0;
     int best_candidate_ = 0;
+    int wins_by_majority_ = 0;
 
     void run() noexcept {
         LOG("Guthrie voting analysis:");
+        LOG("Number trials: "<<ntrials_);
         LOG("Number voters: "<<nvoters_);
         LOG("Number candidates: "<<ncandidates_);
         rng_ = new(std::nothrow) RandomNumberGenerator();
         rng_->init();
-        electorate_.init(nvoters_, electorate_method_);
-        find_best_candidate();
-        init_candidates();
 
-        vote();
-        find_winner();
-        check_criteria();
+        /** run many trials. **/
+        for (int trial = 1; trial <= ntrials_; ++trial) {
+            if (ntrials_ > 1) {
+                LOG("Trial: "<<trial);
+            }
+
+            /** initialize the electorate and candidates. **/
+            electorate_.init(nvoters_, electorate_method_);
+            find_best_candidate();
+            init_candidates();
+
+            /** vote, find winner, check results. **/
+            vote();
+            find_winner();
+            check_criteria();
+        }
+
+        /** log the results. **/
+        show_summary();
     }
 
     /**
@@ -881,27 +904,23 @@ public:
 
         /** remove one of the non-winners and revote. **/
         for (int i = 0; i < ncandidates; ++i) {
-            /** remove the non-winner and replace with original. **/
-            if (i > 0) {
-                candidates_[i-1] = original_candidates[i];
+            /** skip the winner. **/
+            if (i != original_winner) {
+                /** re-vote. **/
+                rank_candidates(kQuiet);
+                vote();
+                find_winner(kQuiet);
+
+                /** check by name, not index. **/
+                char winner_name = candidates_[winner_].name_;
+                if (winner_name != original_winner_name) {
+                    monotonicity = i;
+                    LOG(winner_name<<" wins if "<<original_candidates[i].name_<<" doesn't run.");
+                }
             }
 
-            /** remove a non-winner. **/
-            if (i == original_winner) {
-                continue;
-            }
-
-            /** re-vote. **/
-            rank_candidates(false);
-            vote();
-            find_winner(false);
-
-            /** check by name, not index. **/
-            char winner_name = candidates_[winner_].name_;
-            if (winner_name != original_winner_name) {
-                monotonicity = i;
-                LOG(winner_name<<" wins if "<<original_candidates[i].name_<<" doesn't run.");
-            }
+            /** update the list of candidates. **/
+            candidates_[i] = original_candidates[i];
         }
 
         /** restore the original candidates, count, and winner. **/
@@ -915,6 +934,14 @@ public:
         }
 
         return monotonicity;
+    }
+
+    void show_summary() noexcept {
+        if (ntrials_ <= 1) {
+            return;
+        }
+        LOG("");
+        LOG("Summary:");
     }
 };
 
