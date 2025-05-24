@@ -116,6 +116,7 @@ constexpr int kNVoters = 10*1000;
 /** options for distributing the electorate. **/
 constexpr int kElectorateUniform = 0;
 constexpr int kElectorateRandom = 1;
+//constexpr int kElectorateMethod = kElectorateUniform;
 constexpr int kElectorateMethod = kElectorateRandom;
 
 /** number of candidates **/
@@ -167,7 +168,7 @@ typedef std::vector<Voter> Voters;
 class Candidate {
 public:
     /** generated name **/
-    char name_;
+    char name_ = '?';
 
     /** position along the axis ranges from 0..1 **/
     double position_ = 0.0;
@@ -177,6 +178,9 @@ public:
 
     /** ranking of other candidates. **/
     std::vector<int> rankings_;
+
+    /** voter satisfaction with this candidate. **/
+    double satisfaction_ = 0.0;
 
     /** for sorting **/
     bool operator < (const Candidate& other) const
@@ -243,7 +247,7 @@ public:
 
     void show() noexcept {
         LOG("Electorate distribution:");
-        constexpr int kNBins = 10;
+        constexpr int kNBins = 20;
         std::vector<int> bins;
         bins.resize(kNBins);
         for (int i = 0; i < kNBins; ++i) {
@@ -277,6 +281,8 @@ public:
     int ncandidates_ = kNCandidates;
     int canddiate_method_ = kCandidateMethod;
     int winner_ = 0;
+    double best_candidate_utility_ = 0.0;
+    double average_candidate_utility_ = 0.0;
 
     void run() noexcept {
         LOG("Guthrie voting analysis:");
@@ -285,6 +291,7 @@ public:
         rng_ = new(std::nothrow) RandomNumberGenerator();
         rng_->init();
         electorate_.init(nvoters_, electorate_method_);
+        find_best_candidate();
         init_candidates();
 
         vote();
@@ -292,12 +299,80 @@ public:
         check_criteria();
     }
 
-    void init_candidates() noexcept {
+    /**
+    find the voter that would make the best candidate.
+    also find the average utility of all voters.
+    **/
+    void find_best_candidate() noexcept {
+        double best_utility = 1e99;
+        double best_position = 0.0;
+        double total_utility = 0.0;
+        for (int i = 0; i < nvoters_; ++i) {
+            double ipos = electorate_.voters_[i].position_;
+            double utility = 0.0;
+            for (int k = 0; k < nvoters_; ++k) {
+                double kpos = electorate_.voters_[k].position_;
+                utility += std::abs(kpos - ipos);
+            }
+            if (utility < best_utility) {
+                best_utility = utility;
+                best_position = ipos;
+            }
+            total_utility += utility;
+        }
+        LOG("Optimal candidate position: "<<best_position);
 
+        /**
+        save the best candidate utility.
+        and the average utility of all candidates.
+        **/
+        best_candidate_utility_ = best_utility;
+        average_candidate_utility_ = total_utility / double(nvoters_);
+        LOG("Best candidate utility: "<<best_candidate_utility_);
+        LOG("Average candidate utility: "<<average_candidate_utility_);
+    }
+
+    void init_candidates() noexcept {
+        /**
+        pick primary candidates from the voters.
+        eliminate most of them.
+        sort them by the major axis.
+        figure out how the candidates rank each other.
+        name them
+        **/
+        pick_candidates_from_electorate();
+        single_transferable_vote_primary();
+        /** sort them. **/
+        std::sort(candidates_.begin(), candidates_.end());
+        name_candidates();
+        rank_candidates();
+        calculate_candidate_satisfaction();
+
+        /** show candidate positions and rankings of the others. **/
+        LOG("Candidate positions:");
+        for (auto&& candidate : candidates_ ) {
+            LOG(candidate.name_<<": "<<candidate.position_);
+        }
+        LOG("Candidate rankings of other candidates:");
+        for (auto&& candidate : candidates_ ) {
+            std::stringstream ss;
+            ss << candidate.name_ << ":";
+            for (int i = 1; i < ncandidates_; ++i) {
+                int rank = candidate.rankings_[i];
+                if (i > 1) {
+                    ss << " >";
+                }
+                ss << " " << candidates_[rank].name_;
+            }
+            LOG(ss.str());
+        }
+    }
+
+    void pick_candidates_from_electorate() noexcept {
         /** choose the number of candidates based on the specified method. **/
         int n = ncandidates_;
         if (canddiate_method_ == kCanddiatesSingleTransferableVote) {
-            /** choose a number of candidates in the primary. **/
+            /** use the cube root of the numbe of voters. **/
             double cube_root = std::pow(double(nvoters_), 1.0/3.0);
             n = (int) std::round(cube_root);
 
@@ -332,13 +407,15 @@ public:
             duplicates[i] = true;
             candidate.position_ = electorate_.voters_[i].position_;
         }
+    }
 
+    void single_transferable_vote_primary() noexcept {
         /**
         reduce the number of candidates.
         remove the ones with the lowest vote counts.
         **/
         for(;;) {
-            n = candidates_.size();
+            int n = candidates_.size();
             if (n <= ncandidates_) {
                 break;
             }
@@ -354,38 +431,20 @@ public:
             }
             candidates_.erase(candidates_.begin() + worst);
         }
+    }
 
-        /** sort them. **/
-        std::sort(candidates_.begin(), candidates_.end());
-
-        /** every candidate rank orders the others. **/
-        for (auto&& candidate : candidates_) {
-            rank_other_candidates(candidate);
-        }
-
+    void name_candidates() noexcept {
         /** name them in sorted normalized order **/
         for (int i = 0; i < ncandidates_; ++i) {
             auto& candidate = candidates_[i];
             candidate.name_ = 'A' + i;
         }
+    }
 
-        /** show candidate positions and rankings of the others. **/
-        LOG("Candidate positions:");
-        for (auto&& candidate : candidates_ ) {
-            LOG(candidate.name_<<": "<<candidate.position_);
-        }
-        LOG("Candidate rankings of other candidates:");
-        for (auto&& candidate : candidates_ ) {
-            std::stringstream ss;
-            ss << candidate.name_ << ":";
-            for (int i = 1; i < ncandidates_; ++i) {
-                int rank = candidate.rankings_[i];
-                if (i > 1) {
-                    ss << " >";
-                }
-                ss << " " << candidates_[rank].name_;
-            }
-            LOG(ss.str());
+    void rank_candidates() noexcept {
+        /** every candidate rank orders the others. **/
+        for (auto&& candidate : candidates_) {
+            rank_other_candidates(candidate);
         }
     }
 
@@ -411,6 +470,21 @@ public:
             }
             distance.insert(distance.begin() + k, d);
             candidate.rankings_.insert(candidate.rankings_.begin() + k, i);
+        }
+    }
+
+    void calculate_candidate_satisfaction() noexcept {
+        LOG("Candidate satisfaction:");
+        double denom = best_candidate_utility_ - average_candidate_utility_;
+        for (auto&& candidate : candidates_) {
+            double cpos = candidate.position_;
+            double utility = 0.0;
+            for (auto&& voter : electorate_.voters_) {
+                double vpos = voter.position_;
+                utility += std::abs(cpos - vpos);
+            }
+            candidate.satisfaction_ = (utility - average_candidate_utility_) / denom;
+            LOG(candidate.name_<<": "<<candidate.satisfaction_);
         }
     }
 
@@ -559,15 +633,15 @@ public:
     void check_criteria() noexcept {
         LOG("");
         LOG("Checking voting criteria.");
-        int max_utility = find_max_utility_candidate();
+        int max_satisfaction = find_max_satisfaction_candidate();
         int condorcet = find_condorcet_candidate();
 
         LOG("Voting criteria results:");
         const char *result = nullptr;
-        result = result_to_string(winner_, max_utility);
-        LOG("Maximizes total voter utility: "<<result);
+        result = result_to_string(winner_, max_satisfaction);
+        LOG("Maximizes voter satisfaction: "<<result);
         result = result_to_string(winner_, condorcet);
-        LOG("Condorcet majority           : "<<result);
+        LOG("Condorcet majority          : "<<result);
     }
 
     const char *result_to_string(int winner, int expected) noexcept {
@@ -580,43 +654,23 @@ public:
         return "=FAIL=";
     }
 
-    int find_max_utility_candidate() noexcept {
+    int find_max_satisfaction_candidate() noexcept {
         int winner = 0;
         double max = 0.0;
-        double min = 10.0 * double(nvoters_);
-
-        std::vector<double> utility;
-        utility.resize(ncandidates_);
 
         /** sum the distance from each candidate to all voters. **/
         for (int i = 0; i < ncandidates_; ++i) {
             auto& candidate = candidates_[i];
-            double sum = 0;
-            for (auto&& voter : electorate_.voters_) {
-                double d = std::abs(candidate.position_ - voter.position_);
-                sum += d;
-            }
-            utility[i] = sum;
-
-            if (max < sum) {
-                max = sum;
-            }
-            if (min > sum) {
+            if (max < candidate.satisfaction_) {
                 winner = i;
-                min = sum;
+                max = candidate.satisfaction_;
             }
-        }
-
-        /** scale utility **/
-        for (int i = 0; i < ncandidates_; ++i) {
-            utility[i] = 1.0 - utility[i] / max;
         }
 
         /** show results **/
-        LOG(candidates_[winner].name_<<" maximizes total voter utility.");
-        for (int i = 0; i < ncandidates_; ++i) {
-            auto& candidate = candidates_[i];
-            LOG(candidate.name_<<": "<<utility[i]);
+        LOG(candidates_[winner].name_<<" maximizes voter satisfaction.");
+        for (auto&& candidate : candidates_) {
+            LOG(candidate.name_<<": "<<candidate.satisfaction_);
         }
 
         return winner;
