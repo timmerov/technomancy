@@ -148,7 +148,9 @@ namespace {
 
 /** number of trials. **/
 //constexpr int kNTrials = 1;
-constexpr int kNTrials = 3;
+//constexpr int kNTrials = 30;
+constexpr int kNTrials = 1000;
+//constexpr int kNTrials = 30*1000;
 
 /** number of voters. **/
 constexpr int kNVoters = 100;
@@ -171,8 +173,8 @@ constexpr int kCanddiatesSingleTransferableVote = 1;
 constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
 
 /** option to use a fixed seed for testing. **/
-//constexpr std::uint64_t kFixedSeed = 0;
-constexpr std::uint64_t kFixedSeed = 1748129424077414500;
+constexpr std::uint64_t kFixedSeed = 0;
+//constexpr std::uint64_t kFixedSeed = 1748129424077414500;
 
 /** some functions should sometimes be quiet. **/
 constexpr bool kQuiet = true;
@@ -340,7 +342,12 @@ public:
     double best_candidate_utility_ = 0.0;
     double random_candidate_utility_ = 0.0;
     int best_candidate_ = 0;
-    int wins_by_majority_ = 0;
+    double total_satisfaction_ = 0.0;
+    double total_regret_ = 0.0;
+    bool won_first_round_ = 0;
+    int majority_winners_ = 0;
+    int total_ties_ = 0;
+    bool tie_ = false;
 
     void run() noexcept {
         LOG("Guthrie voting analysis:");
@@ -364,6 +371,12 @@ public:
             /** vote, find winner, check results. **/
             vote();
             find_winner();
+            if (won_first_round_) {
+                ++majority_winners_;
+            }
+            if (tie_) {
+                ++total_ties_;
+            }
             check_criteria();
         }
 
@@ -649,6 +662,10 @@ public:
         std::vector<int> counts;
         counts.resize(ncandidates_);
 
+        /** summary statistics. **/
+        won_first_round_ = false;
+        tie_ = false;
+
         /**
         normally we can find the winner in N-1 rounds.
         unless there's a tie in the last round.
@@ -688,6 +705,10 @@ public:
                         auto& candidate = candidates_[i];
                         LOG(candidate.name_<<" wins Guthrie voting in round "<<round<<".");
                     }
+                    /** summary statistic. **/
+                    if (round == 1) {
+                        won_first_round_ = true;
+                    }
                     return;
                 }
             }
@@ -711,18 +732,25 @@ public:
 
             /** find the candidate with the most last place votes. **/
             int loser = 0;
-            int loser_count = 0;
+            int loser_count = -1;
             for (int i = 0; i < ncandidates_; ++i) {
                 int count = counts[i];
 
                 /** handle ties a bit more deterministically. **/
-                bool update = (count > loser_count);
+                bool update = false;
+                if (count > loser_count) {
+                    update = true;
+                    /** summary statistic. **/
+                    tie_ = false;
+                }
                 if (count == loser_count) {
                     double this_sat = candidates_[i].satisfaction_actual_;
                     double loser_sat = candidates_[loser].satisfaction_actual_;
                     if (this_sat < loser_sat) {
                         update = true;
                     }
+                    /** summary statistic. **/
+                    tie_ = true;
                 }
                 if (update) {
                     loser = i;
@@ -803,8 +831,13 @@ public:
 
         /** the best chandidate has a satisfaction of 1.0 **/
         auto& winning_candidate = candidates_[winner_];
-        double regret = 1.0 - winning_candidate.satisfaction_actual_;
+        double satisfaction = winning_candidate.satisfaction_actual_;
+        double regret = 1.0 - satisfaction;
         LOG("Voter bayesian regret: "<<regret);
+
+        /** update summary **/
+        total_satisfaction_ += satisfaction;
+        total_regret_ += regret;
 
         return winner;
     }
@@ -940,8 +973,19 @@ public:
         if (ntrials_ <= 1) {
             return;
         }
+
+        double denom = double(ntrials_);
+        double satisfaction = 100.0 * double(total_satisfaction_) / denom;
+        double regret = double(total_regret_) / denom;
+        double majority_winners = 100.0 * double(majority_winners_) / denom;
+        double ties = 100.0 * double(total_ties_) / denom;
+
         LOG("");
         LOG("Summary:");
+        LOG("Voter satisfaction           : "<<satisfaction<<"%");
+        LOG("Voter regret                 : "<<regret);
+        LOG("Won outright by true majority: "<<majority_winners<<"%");
+        LOG("A tie occured                : "<<ties<<"%");
     }
 };
 
