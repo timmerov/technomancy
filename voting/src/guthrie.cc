@@ -202,8 +202,8 @@ constexpr bool kShowElectorateDistribution = false;
 option to show details of all coombs rounds.
 this is a bit spammy.
 **/
-constexpr bool kShowCoombsRounds = true;
-//constexpr bool kShowCoombsRounds = false;
+//constexpr bool kShowCoombsRounds = true;
+constexpr bool kShowCoombsRounds = false;
 
 
 /** some functions should sometimes be quiet. **/
