@@ -115,6 +115,12 @@ giving B a majority win in round 1.
 so C's strategy for getting a victory for A would be to lie to their constituents.
 and vote against their wishes.
 
+ties are a funny thing.
+we don't always agree with condorcet when there's a tie.
+we eliminate the tied candidate with the lowest satisfaction.
+which might be the condorcet winner.
+i think this is okay. we can ignore this case.
+
 things done:
 
 we have made some effort to handle ties.
@@ -149,11 +155,13 @@ namespace {
 /** number of trials. **/
 //constexpr int kNTrials = 1;
 //constexpr int kNTrials = 30;
-constexpr int kNTrials = 1000;
+constexpr int kNTrials = 300;
+//constexpr int kNTrials = 1000;
 //constexpr int kNTrials = 30*1000;
 
 /** number of voters. **/
-constexpr int kNVoters = 100;
+//constexpr int kNVoters = 100;
+constexpr int kNVoters = 1000;
 //constexpr int kNVoters = 10*1000;
 
 /** options for distributing the electorate. **/
@@ -174,7 +182,29 @@ constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
 
 /** option to use a fixed seed for testing. **/
 constexpr std::uint64_t kFixedSeed = 0;
-//constexpr std::uint64_t kFixedSeed = 1748129424077414500;
+//constexpr std::uint64_t kFixedSeed = 1748137501205542433;
+
+/**
+option to find the theoretical best candidate from the voters.
+this feature is expensive and not used by the art.
+**/
+//constexpr bool kFindTheoreticalBestCandidate = true;
+constexpr bool kFindTheoreticalBestCandidate = false;
+
+/**
+option to show the electorate distribution.
+this is a bit spammy.
+**/
+//constexpr bool kShowElectorateDistribution = true;
+constexpr bool kShowElectorateDistribution = false;
+
+/**
+option to show details of all coombs rounds.
+this is a bit spammy.
+**/
+constexpr bool kShowCoombsRounds = true;
+//constexpr bool kShowCoombsRounds = false;
+
 
 /** some functions should sometimes be quiet. **/
 constexpr bool kQuiet = true;
@@ -303,6 +333,10 @@ public:
     }
 
     void show() noexcept {
+        if (kShowElectorateDistribution == false) {
+            return;
+        }
+
         LOG("Electorate distribution:");
         constexpr int kNBins = 20;
         std::vector<int> bins;
@@ -331,23 +365,35 @@ public:
     GuthrieImpl(GuthrieImpl &&) = delete;
     ~GuthrieImpl() = default;
 
-    Electorate electorate_;
-    Candidates candidates_;
+    /** "constants" **/
     int ntrials_ = kNTrials;
     int nvoters_ = kNVoters;
     int electorate_method_ = kElectorateMethod;
     int ncandidates_ = kNCandidates;
     int canddiate_method_ = kCandidateMethod;
+
+    /** the electorate and the candidates. **/
+    Electorate electorate_;
+    Candidates candidates_;
+
+    /** results from the trial. **/
     int winner_ = 0;
     double best_candidate_utility_ = 0.0;
     double random_candidate_utility_ = 0.0;
     int best_candidate_ = 0;
+
+    /** summary **/
     double total_satisfaction_ = 0.0;
     double total_regret_ = 0.0;
     bool won_first_round_ = 0;
     int majority_winners_ = 0;
     int total_ties_ = 0;
     bool tie_ = false;
+    double min_satisfaction_ = 1.0;
+    double max_regret_ = 0.0;
+    int winner_maximizes_satisfaction_ = 0;
+    int winner_is_condorcet_ = 0;
+    int monotonicity_ = 0;
 
     void run() noexcept {
         LOG("Guthrie voting analysis:");
@@ -389,6 +435,10 @@ public:
     also find the average utility of all voters.
     **/
     void find_best_candidate() noexcept {
+        if (kFindTheoreticalBestCandidate == false) {
+            return;
+        }
+
         double best_utility = 1e99;
         double best_position = 0.0;
         double total_utility = 0.0;
@@ -599,15 +649,17 @@ public:
         /** compute utility or random candidate. **/
         double random_utility = total_utility / double(ncandidates_);
 
-        LOG("Voter satisfaction compared to a theoretical optimal candidate:");
-        double denom = best_candidate_utility_ - random_candidate_utility_;
-        for (auto&& candidate : candidates_) {
-            candidate.satisfaction_best_ = (candidate.utility_ - random_candidate_utility_) / denom;
-            LOG(candidate.name_<<": "<<candidate.satisfaction_best_);
+        if (kFindTheoreticalBestCandidate) {
+            LOG("Voter satisfaction compared to a theoretical optimal candidate:");
+            double denom = best_candidate_utility_ - random_candidate_utility_;
+            for (auto&& candidate : candidates_) {
+                candidate.satisfaction_best_ = (candidate.utility_ - random_candidate_utility_) / denom;
+                LOG(candidate.name_<<": "<<candidate.satisfaction_best_);
+            }
         }
 
         LOG("Voter satisfaction of the actual candidates:");
-        denom = best_utility - random_utility;
+        double denom = best_utility - random_utility;
         for (auto&& candidate : candidates_) {
             candidate.satisfaction_actual_ = (candidate.utility_ - random_utility) / denom;
             LOG(candidate.name_<<": "<<candidate.satisfaction_actual_);
@@ -659,6 +711,12 @@ public:
     void find_winner(
         bool quiet = false
     ) noexcept {
+        bool quiet_first = quiet;
+        bool quiet_winner = quiet;
+        if (kShowCoombsRounds == false) {
+            quiet = true;
+        }
+
         std::vector<int> counts;
         counts.resize(ncandidates_);
 
@@ -689,7 +747,7 @@ public:
             }
 
             /** show first place vote counts. **/
-            if (quiet == false) {
+            if (quiet_first == false && round == 1) {
                 LOG("First place vote counts:");
                 for (int i = 0; i < ncandidates_; ++i) {
                     auto& candidate = candidates_[i];
@@ -701,7 +759,7 @@ public:
             for (int i = 0; i < ncandidates_; ++i) {
                 if (2*counts[i] > nvoters_) {
                     winner_ = i;
-                    if (quiet == false) {
+                    if (quiet_winner == false) {
                         auto& candidate = candidates_[i];
                         LOG(candidate.name_<<" wins Guthrie voting in round "<<round<<".");
                     }
@@ -802,6 +860,16 @@ public:
         int condorcet = find_condorcet_candidate();
         int monotonicity = check_monotonicity();
 
+        if (winner_ == max_satisfaction) {
+            ++winner_maximizes_satisfaction_;
+        }
+        if (winner_ == condorcet) {
+            ++winner_is_condorcet_;
+        }
+        if (winner_ == monotonicity) {
+            ++monotonicity_;
+        }
+
         LOG("");
         LOG("Voting criteria results:");
         const char *result = nullptr;
@@ -838,6 +906,8 @@ public:
         /** update summary **/
         total_satisfaction_ += satisfaction;
         total_regret_ += regret;
+        min_satisfaction_ = std::min(min_satisfaction_, satisfaction);
+        max_regret_ = std::max(max_regret_, regret);
 
         return winner;
     }
@@ -975,17 +1045,23 @@ public:
         }
 
         double denom = double(ntrials_);
-        double satisfaction = 100.0 * double(total_satisfaction_) / denom;
+        double satisfaction = double(total_satisfaction_) / denom;
         double regret = double(total_regret_) / denom;
         double majority_winners = 100.0 * double(majority_winners_) / denom;
         double ties = 100.0 * double(total_ties_) / denom;
+        double maximizes_satisfaction = 100.0 * double(winner_maximizes_satisfaction_) / denom;
+        double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
+        double monotonicity = 100.0 * double(monotonicity_) / denom;
 
         LOG("");
         LOG("Summary:");
-        LOG("Voter satisfaction           : "<<satisfaction<<"%");
-        LOG("Voter regret                 : "<<regret);
+        LOG("Voter satisfaction (min)     : "<<satisfaction<<" ("<<min_satisfaction_<<")");
+        LOG("Voter regret (max)           : "<<regret<<" ("<<max_regret_<<")");
         LOG("Won outright by true majority: "<<majority_winners<<"%");
         LOG("A tie occured                : "<<ties<<"%");
+        LOG("Maximizes voter satisfaction : "<<maximizes_satisfaction<<"%");
+        LOG("Agrees with Condorcet        : "<<is_condorcet<<"%");
+        LOG("Monotonicity                 : "<<monotonicity<<"%");
     }
 };
 
