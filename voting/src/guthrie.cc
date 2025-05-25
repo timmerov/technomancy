@@ -115,15 +115,15 @@ giving B a majority win in round 1.
 so C's strategy for getting a victory for A would be to lie to their constituents.
 and vote against their wishes.
 
-ties are a funny thing.
-we don't always agree with condorcet when there's a tie.
-we eliminate the tied candidate with the lowest satisfaction.
-which might be the condorcet winner.
-i think this is okay. we can ignore this case.
+ties are difficult to handle.
+so we employ a trick to avoid them.
+vote counts for A,B,C are multiplied by 4.
+every candidate gets a bias: A +0, B +1, C +2.
+this ensures there are no ties.
 
 things done:
 
-we have made some effort to handle ties.
+we handle ties.
 we check if the winner is the condorcet winner if there is one.
 we report satisfaction (two different ways) and bayer regret.
 we find the voter that would be the optimal candidate.
@@ -155,13 +155,14 @@ namespace {
 /** number of trials. **/
 //constexpr int kNTrials = 1;
 //constexpr int kNTrials = 30;
-constexpr int kNTrials = 300;
+//constexpr int kNTrials = 300;
 //constexpr int kNTrials = 1000;
-//constexpr int kNTrials = 30*1000;
+constexpr int kNTrials = 30*1000;
 
 /** number of voters. **/
+constexpr int kNVoters = 20;
 //constexpr int kNVoters = 100;
-constexpr int kNVoters = 1000;
+//constexpr int kNVoters = 1000;
 //constexpr int kNVoters = 10*1000;
 
 /** options for distributing the electorate. **/
@@ -258,6 +259,9 @@ public:
     /** position along the axis ranges from 0..1 **/
     double position_ = 0.0;
 
+    /** vote bias. **/
+    int bias_ = 0;
+
     /** vote total aka asset **/
     int support_ = 0;
 
@@ -285,7 +289,10 @@ public:
     int nvoters_ = 0;
     Voters voters_;
 
-    void init(int nvoters, int method) noexcept {
+    void init(
+        int nvoters,
+        int method
+    ) noexcept {
         nvoters_ = nvoters;
 
         /** allocate space for the voters and candidates **/
@@ -368,6 +375,8 @@ public:
     /** "constants" **/
     int ntrials_ = kNTrials;
     int nvoters_ = kNVoters;
+    int nvotes_ = kNVoters;
+    int vote_scale_ = 1;
     int electorate_method_ = kElectorateMethod;
     int ncandidates_ = kNCandidates;
     int canddiate_method_ = kCandidateMethod;
@@ -387,8 +396,6 @@ public:
     double total_regret_ = 0.0;
     bool won_first_round_ = 0;
     int majority_winners_ = 0;
-    int total_ties_ = 0;
-    bool tie_ = false;
     double min_satisfaction_ = 1.0;
     double max_regret_ = 0.0;
     int winner_maximizes_satisfaction_ = 0;
@@ -419,9 +426,6 @@ public:
             find_winner();
             if (won_first_round_) {
                 ++majority_winners_;
-            }
-            if (tie_) {
-                ++total_ties_;
             }
             check_criteria();
         }
@@ -484,6 +488,7 @@ public:
         /** sort them. **/
         std::sort(candidates_.begin(), candidates_.end());
         name_candidates();
+        set_biases();
         show_candidate_positions();
         rank_candidates();
         calculate_voter_satisfaction();
@@ -534,6 +539,7 @@ public:
         /**
         reduce the number of candidates.
         remove the ones with the lowest vote counts.
+        we don't care about ties.
         **/
         for(;;) {
             int n = candidates_.size();
@@ -560,6 +566,37 @@ public:
             auto& candidate = candidates_[i];
             candidate.name_ = 'A' + i;
         }
+    }
+
+    /**
+    establish the vote scaling factor and the bias for each candidate
+    to prevent ties.
+    **/
+    void set_biases() noexcept {
+        /** start with a vote scaling of 1 and a bias of 1. **/
+        vote_scale_ = 1;
+        int bias = 1;
+
+        for (int i = 0; i < ncandidates_; ++i) {
+            auto& candidate = candidates_[i];
+            if (i == 0) {
+                candidate.bias_ = 0;
+            } else {
+                candidate.bias_ = bias;
+                vote_scale_ *= 2;
+                bias *= 2;
+            }
+            //LOG("=tsc= bias "<<candidate.name_<<": "<<candidate.bias_);
+        }
+        //LOG("=tsc= vote_scale: "<<vote_scale_);
+
+        /**
+        the n voters cast multiple votes.
+        so scale the vote count.
+        and add the total of the biases.
+        which conveniently is the scale minus 2.
+        **/
+        nvotes_ = nvoters_ * vote_scale_ + vote_scale_ - 1;
     }
 
     void show_candidate_positions() noexcept {
@@ -684,11 +721,14 @@ public:
             int favorite = find_closest_candidate(voter.position_);
             ++candidates_[favorite].support_;
         }
-        /** report results **/
-        /*LOG("Candidate vote totals:");
+
+        /**
+        scale the vote counts and add the bias.
+        **/
         for (auto&& candidate : candidates_) {
-            LOG(candidate.name_<<": "<<candidate.support_);
-        }*/
+            candidate.support_ *= vote_scale_;
+            candidate.support_ += candidate.bias_;
+        }
     }
 
     int find_closest_candidate(
@@ -711,25 +751,25 @@ public:
     void find_winner(
         bool quiet = false
     ) noexcept {
-        bool quiet_first = quiet;
-        bool quiet_winner = quiet;
+        bool show_everything = !quiet;
         if (kShowCoombsRounds == false) {
-            quiet = true;
+            show_everything = false;
         }
+        bool show_required = !quiet;
 
         std::vector<int> counts;
         counts.resize(ncandidates_);
 
         /** summary statistics. **/
         won_first_round_ = false;
-        tie_ = false;
 
         /**
         normally we can find the winner in N-1 rounds.
         unless there's a tie in the last round.
+        but we cannot have ties.
         **/
-        for (int round = 1; /*round < ncandidates_*/; ++round) {
-            if (quiet == false) {
+        for (int round = 1; round < ncandidates_; ++round) {
+            if (show_everything) {
                 LOG("Round "<<round<<":");
             }
 
@@ -747,8 +787,12 @@ public:
             }
 
             /** show first place vote counts. **/
-            if (quiet_first == false && round == 1) {
-                LOG("First place vote counts:");
+            bool show_it = show_everything;
+            if (show_required && round == 1) {
+                show_it = true;
+            }
+            if (show_it) {
+                LOG("First place vote counts (scaled and biased):");
                 for (int i = 0; i < ncandidates_; ++i) {
                     auto& candidate = candidates_[i];
                     LOG(candidate.name_<<": "<<counts[i]);
@@ -757,9 +801,9 @@ public:
 
             /** check for majority. **/
             for (int i = 0; i < ncandidates_; ++i) {
-                if (2*counts[i] > nvoters_) {
+                if (2*counts[i] > nvotes_) {
                     winner_ = i;
-                    if (quiet_winner == false) {
+                    if (show_required) {
                         auto& candidate = candidates_[i];
                         LOG(candidate.name_<<" wins Guthrie voting in round "<<round<<".");
                     }
@@ -789,31 +833,22 @@ public:
             }
 
             /** find the candidate with the most last place votes. **/
+            bool tsc_tie = false;
             int loser = 0;
             int loser_count = -1;
             for (int i = 0; i < ncandidates_; ++i) {
                 int count = counts[i];
-
-                /** handle ties a bit more deterministically. **/
-                bool update = false;
-                if (count > loser_count) {
-                    update = true;
-                    /** summary statistic. **/
-                    tie_ = false;
-                }
                 if (count == loser_count) {
-                    double this_sat = candidates_[i].satisfaction_actual_;
-                    double loser_sat = candidates_[loser].satisfaction_actual_;
-                    if (this_sat < loser_sat) {
-                        update = true;
-                    }
-                    /** summary statistic. **/
-                    tie_ = true;
+                    tsc_tie = true;
                 }
-                if (update) {
+                if (count > loser_count) {
                     loser = i;
                     loser_count = count;
+                    tsc_tie = false;
                 }
+            }
+            if (tsc_tie) {
+                LOG("=tsc= uh oh, tie");
             }
 
             /** remove the loser from the candidate rankings. **/
@@ -826,7 +861,7 @@ public:
                 }
             }
 
-            if (quiet == false) {
+            if (show_everything) {
                 LOG("No candidate has a majority.");
 
                 LOG("Last place vote counts:");
@@ -963,13 +998,23 @@ public:
         return winner;
     }
 
-    bool head_to_head(int a, int b) noexcept {
+    /**
+    return true if candidate a will beat candidate b
+    in a head to head matchup.
+    **/
+    bool head_to_head(
+        int a,
+        int b
+    ) noexcept {
+        /** init counts **/
         int avotes = 0;
         int bvotes = 0;
 
+        /** candidate positions. **/
         double apos = candidates_[a].position_;
         double bpos = candidates_[b].position_;
 
+        /** count votes. **/
         for (auto&& voter : electorate_.voters_) {
             double vpos = voter.position_;
             double adist = std::abs(apos - vpos);
@@ -980,19 +1025,8 @@ public:
         }
         bvotes = nvoters_ - avotes;
 
-        /** resolve ties using satisfaction. **/
-        if (avotes == bvotes) {
-            double asat = candidates_[a].satisfaction_actual_;
-            double bsat = candidates_[b].satisfaction_actual_;
-            if (asat >= bsat) {
-                return true;
-            }
-            return false;
-        }
-        if (avotes > bvotes) {
-            return true;
-        }
-        return false;
+        /** return result. **/
+        return (avotes > bvotes);
     }
 
     int check_monotonicity() noexcept {
@@ -1058,7 +1092,6 @@ public:
         double satisfaction = double(total_satisfaction_) / denom;
         double regret = double(total_regret_) / denom;
         double majority_winners = 100.0 * double(majority_winners_) / denom;
-        double ties = 100.0 * double(total_ties_) / denom;
         double maximizes_satisfaction = 100.0 * double(winner_maximizes_satisfaction_) / denom;
         double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
         double monotonicity = 100.0 * double(monotonicity_) / denom;
@@ -1068,7 +1101,6 @@ public:
         LOG("Voter satisfaction (min)     : "<<satisfaction<<" ("<<min_satisfaction_<<")");
         LOG("Voter regret (max)           : "<<regret<<" ("<<max_regret_<<")");
         LOG("Won outright by true majority: "<<majority_winners<<"%");
-        LOG("A tie occured                : "<<ties<<"%");
         LOG("Maximizes voter satisfaction : "<<maximizes_satisfaction<<"%");
         LOG("Agrees with Condorcet        : "<<is_condorcet<<"%");
         LOG("Monotonicity                 : "<<monotonicity<<"%");
