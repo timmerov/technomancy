@@ -979,6 +979,16 @@ public:
             }
         }
         bvotes = nvoters_ - avotes;
+
+        /** resolve ties using satisfaction. **/
+        if (avotes == bvotes) {
+            double asat = candidates_[a].satisfaction_actual_;
+            double bsat = candidates_[b].satisfaction_actual_;
+            if (asat >= bsat) {
+                return true;
+            }
+            return false;
+        }
         if (avotes > bvotes) {
             return true;
         }
