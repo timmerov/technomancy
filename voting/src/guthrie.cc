@@ -156,13 +156,13 @@ namespace {
 //constexpr int kNTrials = 1;
 //constexpr int kNTrials = 30;
 //constexpr int kNTrials = 300;
-//constexpr int kNTrials = 1000;
-constexpr int kNTrials = 30*1000;
+constexpr int kNTrials = 1000;
+//constexpr int kNTrials = 30*1000;
 
 /** number of voters. **/
-constexpr int kNVoters = 20;
+//constexpr int kNVoters = 20;
 //constexpr int kNVoters = 100;
-//constexpr int kNVoters = 1000;
+constexpr int kNVoters = 1000;
 //constexpr int kNVoters = 10*1000;
 
 /** options for distributing the electorate. **/
