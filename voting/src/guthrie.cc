@@ -116,10 +116,6 @@ so C's strategy for getting a victory for A would be to lie to their constituent
 and vote against their wishes.
 
 ties are difficult to handle.
-so we employ a trick to avoid them.
-vote counts for A,B,C are multiplied by 4.
-every candidate gets a bias: A +0, B +1, C +2.
-this ensures there are no ties.
 
 things done:
 
@@ -183,7 +179,7 @@ constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
 
 /** option to use a fixed seed for testing. **/
 constexpr std::uint64_t kFixedSeed = 0;
-//constexpr std::uint64_t kFixedSeed = 1748137501205542433;
+//constexpr std::uint64_t kFixedSeed = 1748220835211141066;
 
 /**
 option to find the theoretical best candidate from the voters.
@@ -258,9 +254,6 @@ public:
 
     /** position along the axis ranges from 0..1 **/
     double position_ = 0.0;
-
-    /** vote bias. **/
-    int bias_ = 0;
 
     /** vote total aka asset **/
     int support_ = 0;
@@ -375,8 +368,6 @@ public:
     /** "constants" **/
     int ntrials_ = kNTrials;
     int nvoters_ = kNVoters;
-    int nvotes_ = kNVoters;
-    int vote_scale_ = 1;
     int electorate_method_ = kElectorateMethod;
     int ncandidates_ = kNCandidates;
     int canddiate_method_ = kCandidateMethod;
@@ -413,6 +404,7 @@ public:
         /** run many trials. **/
         for (int trial = 1; trial <= ntrials_; ++trial) {
             if (ntrials_ > 1) {
+                LOG("");
                 LOG("Trial: "<<trial);
             }
 
@@ -488,7 +480,6 @@ public:
         /** sort them. **/
         std::sort(candidates_.begin(), candidates_.end());
         name_candidates();
-        set_biases();
         show_candidate_positions();
         rank_candidates();
         calculate_voter_satisfaction();
@@ -566,37 +557,6 @@ public:
             auto& candidate = candidates_[i];
             candidate.name_ = 'A' + i;
         }
-    }
-
-    /**
-    establish the vote scaling factor and the bias for each candidate
-    to prevent ties.
-    **/
-    void set_biases() noexcept {
-        /** start with a vote scaling of 1 and a bias of 1. **/
-        vote_scale_ = 1;
-        int bias = 1;
-
-        for (int i = 0; i < ncandidates_; ++i) {
-            auto& candidate = candidates_[i];
-            if (i == 0) {
-                candidate.bias_ = 0;
-            } else {
-                candidate.bias_ = bias;
-                vote_scale_ *= 2;
-                bias *= 2;
-            }
-            //LOG("=tsc= bias "<<candidate.name_<<": "<<candidate.bias_);
-        }
-        //LOG("=tsc= vote_scale: "<<vote_scale_);
-
-        /**
-        the n voters cast multiple votes.
-        so scale the vote count.
-        and add the total of the biases.
-        which conveniently is the scale minus 2.
-        **/
-        nvotes_ = nvoters_ * vote_scale_ + vote_scale_ - 1;
     }
 
     void show_candidate_positions() noexcept {
@@ -721,14 +681,6 @@ public:
             int favorite = find_closest_candidate(voter.position_);
             ++candidates_[favorite].support_;
         }
-
-        /**
-        scale the vote counts and add the bias.
-        **/
-        for (auto&& candidate : candidates_) {
-            candidate.support_ *= vote_scale_;
-            candidate.support_ += candidate.bias_;
-        }
     }
 
     int find_closest_candidate(
@@ -766,9 +718,8 @@ public:
         /**
         normally we can find the winner in N-1 rounds.
         unless there's a tie in the last round.
-        but we cannot have ties.
         **/
-        for (int round = 1; round < ncandidates_; ++round) {
+        for (int round = 1; /*round < ncandidates_*/; ++round) {
             if (show_everything) {
                 LOG("Round "<<round<<":");
             }
@@ -792,7 +743,7 @@ public:
                 show_it = true;
             }
             if (show_it) {
-                LOG("First place vote counts (scaled and biased):");
+                LOG("First place vote counts:");
                 for (int i = 0; i < ncandidates_; ++i) {
                     auto& candidate = candidates_[i];
                     LOG(candidate.name_<<": "<<counts[i]);
@@ -801,7 +752,7 @@ public:
 
             /** check for majority. **/
             for (int i = 0; i < ncandidates_; ++i) {
-                if (2*counts[i] > nvotes_) {
+                if (2*counts[i] > nvoters_) {
                     winner_ = i;
                     if (show_required) {
                         auto& candidate = candidates_[i];
@@ -815,17 +766,14 @@ public:
                 }
             }
 
-            /**
-            no candidate has a majority.
-            proceed to phase 2: count last place votes.
-            **/
-
             /** initialize the counts **/
             for (int i = 0; i < ncandidates_; ++i) {
                 counts[i] = 0;
             }
 
-            /** count last place votes. **/
+            /**
+            count last place votes.
+            **/
             int last_index = ncandidates_ - round;
             for (auto&& candidate : candidates_) {
                 int worst = candidate.rankings_[last_index];
@@ -833,22 +781,21 @@ public:
             }
 
             /** find the candidate with the most last place votes. **/
-            bool tsc_tie = false;
             int loser = 0;
             int loser_count = -1;
             for (int i = 0; i < ncandidates_; ++i) {
                 int count = counts[i];
-                if (count == loser_count) {
-                    tsc_tie = true;
-                }
-                if (count > loser_count) {
+                /**
+                we have this implied bias that the first candidate in the list wins ties.
+                however in case, we're looking for the loser.
+                if there's a tie we want to find the last candidate in the list.
+                hence the comparison is greater than or equal to.
+                instead of just greater than.
+                **/
+                if (count >= loser_count) {
                     loser = i;
                     loser_count = count;
-                    tsc_tie = false;
                 }
-            }
-            if (tsc_tie) {
-                LOG("=tsc= uh oh, tie");
             }
 
             /** remove the loser from the candidate rankings. **/
@@ -1025,8 +972,12 @@ public:
         }
         bvotes = nvoters_ - avotes;
 
-        /** return result. **/
-        return (avotes > bvotes);
+        /**
+        we assume that a comes before b in the candidate list.
+        and that we're looking for a winner.
+        in which case, by the rules, a wins ties.
+        **/
+        return (avotes >= bvotes);
     }
 
     int check_monotonicity() noexcept {
