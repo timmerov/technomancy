@@ -116,21 +116,48 @@ so C's strategy for getting a victory for A would be to lie to their constituent
 and vote against their wishes.
 
 ties are difficult to handle.
+the order of the candidates never changes.
+in case of tie, the first candidate wins.
+but there's a gotcha.
+sometimes we vote to eliminate a candidate.
+the candidate with the most last place votes is eliminated.
+in other words, they lose.
+in this case, the last candidate "wins" the tie.
+when searching for a winner, we take the first candidate with the most votes.
+when searching for a loser, we take the last candidate with the most votes.
+
+in the art, the electorate is modeled as voters clustering around positions.
+this is usually implemented as the chinese restaurant problem.
+there's a dispersion parameter alpha.
+N patrons are already seated at tables.
+the probability the next patron sits at a table is proportional to how many
+patrons are already at the table.
+P(patron N+1 sits at table k) = n[k] / (N + alpha)
+p(patron N+1 sits by himself) = alpha / (N + alpha)
+we place voters this way.
+clusters have a position and a standard deviation.
+the position ranges from 0.0 to 1.0.
+some outstanding questions:
+how many clusters do we want?
+how does that relate to alpha?
+we need to renormalize after seating so that voter positions range from 0 to 1.
+
 
 things done:
 
-we handle ties.
-we check if the winner is the condorcet winner if there is one.
-we report satisfaction (two different ways) and bayer regret.
-we find the voter that would be the optimal candidate.
-we check for monotonicity ie the winner should still win if any other candidate drops out.
-we check if the most satisfactory candidate wins.
+handle ties.
+check if the winner is the condorcet winner if there is one.
+report satisfaction (two different ways) and bayer regret.
+find the voter that would be the optimal candidate.
+check for monotonicity ie the winner should still win if any other candidate drops out.
+check if the most satisfactory candidate wins.
 they don't. but that's okay.
-these are diabolical cases that cause no voting system can do better. except maybe range voting.
+these are diabolical cases that no voting system can do better. except maybe range voting.
+multiple trials with summarized results,
 
 
 things to do:
-multiple trials with summarized results,
+
 clustered voters,
 multiple issue dimensions,
 check monotonicity when multiple candidates drop out.
@@ -157,6 +184,7 @@ constexpr int kNTrials = 1000;
 
 /** number of voters. **/
 //constexpr int kNVoters = 20;
+//constexpr int kNVoters = 50;
 //constexpr int kNVoters = 100;
 constexpr int kNVoters = 1000;
 //constexpr int kNVoters = 10*1000;
@@ -211,18 +239,16 @@ public:
     RandomNumberGenerator() = default;
     ~RandomNumberGenerator() = default;
 
+    std::uint64_t seed_ = 0;
     std::mt19937_64 rng_;
     std::uniform_real_distribution<double> unif_;
 
     void init() noexcept {
-        std::uint64_t seed = kFixedSeed;
-        if (seed == 0) {
-            seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-            LOG("Random seed: "<<seed);
-        } else {
-            LOG("Fixed seed: "<<seed);
+        seed_ = kFixedSeed;
+        if (seed_ == 0) {
+            seed_ = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         }
-        std::seed_seq ss{uint32_t(seed & 0xffffffff), uint32_t(seed>>32)};
+        std::seed_seq ss{uint32_t(seed_ & 0xffffffff), uint32_t(seed_>>32)};
         rng_.seed(ss);
         unif_ = std::uniform_real_distribution<double>(0.0, 1.0);
     }
@@ -303,6 +329,9 @@ public:
             break;
         }
 
+        /** normalize the distribution. **/
+        normalize();
+
         /** show the distribution. **/
         show();
     }
@@ -329,6 +358,29 @@ public:
         for (int i = 0; i < nvoters_; ++i) {
             auto& voter = voters_[i];
             voter.position_ = rng_->generate();
+        }
+    }
+
+    /**
+    normalize the voters so they range from 0 to 1.
+    **/
+    void normalize() noexcept {
+        double mn = 1e99;
+        double mx = -1e99;
+        for (auto&& voter : voters_) {
+            mn = std::min(mn, voter.position_);
+            mx = std::max(mx, voter.position_);
+        }
+        //LOG("=tsc= mn="<<mn<<" mx="<<mx);
+
+        double scale = 1.0 / (mx - mn);
+        for (auto&& voter : voters_) {
+            double pos = voter.position_;
+            pos -= mn;
+            pos *= scale;
+            //LOG("=tsc= pos="<<pos);
+            pos = std::clamp(pos, 0.0, 1.0);
+            voter.position_ = pos;
         }
     }
 
@@ -395,11 +447,9 @@ public:
 
     void run() noexcept {
         LOG("Guthrie voting analysis:");
-        LOG("Number trials: "<<ntrials_);
-        LOG("Number voters: "<<nvoters_);
-        LOG("Number candidates: "<<ncandidates_);
         rng_ = new(std::nothrow) RandomNumberGenerator();
         rng_->init();
+        show_header();
 
         /** run many trials. **/
         for (int trial = 1; trial <= ntrials_; ++trial) {
@@ -424,6 +474,19 @@ public:
 
         /** log the results. **/
         show_summary();
+    }
+
+    /** show configuration. **/
+    void show_header() noexcept {
+        LOG("Configuration:");
+        LOG("Number trials    : "<<ntrials_);
+        LOG("Number voters    : "<<nvoters_);
+        LOG("Number candidates: "<<ncandidates_);
+        if (kFixedSeed == 0) {
+            LOG("Random seed      : "<<rng_->seed_);
+        } else {
+            LOG("Fixed seed       : "<<rng_->seed_);
+        }
     }
 
     /**
@@ -1047,6 +1110,8 @@ public:
         double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
         double monotonicity = 100.0 * double(monotonicity_) / denom;
 
+        LOG("");
+        show_header();
         LOG("");
         LOG("Summary:");
         LOG("Voter satisfaction (min)     : "<<satisfaction<<" ("<<min_satisfaction_<<")");
