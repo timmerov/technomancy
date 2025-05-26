@@ -140,8 +140,20 @@ the position ranges from 0.0 to 1.0.
 some outstanding questions:
 how many clusters do we want?
 how does that relate to alpha?
-we need to renormalize after seating so that voter positions range from 0 to 1.
 
+satisfaction is a rather unsatisfying metric.
+the best candidate gets a 1.0.
+the average candidate gets a 0.0.
+what if all candidates are equally good?
+if two candidates have equal nearly optimal utility...
+and the third has slightly less utility...
+then the third candidate has a satisfaction of -2.
+even though the third candidate is just as good as the other two.
+weird.
+what if all candidates are equally horrible?
+one of them is going to get satisfaction rating of 1.0.
+even though they'd get stomped by a randomly selected voter.
+weird.
 
 things done:
 
@@ -154,7 +166,7 @@ check if the most satisfactory candidate wins.
 they don't. but that's okay.
 these are diabolical cases that no voting system can do better. except maybe range voting.
 multiple trials with summarized results,
-
+normalize electorate to range from 0.0 to 1.0.
 
 things to do:
 
@@ -204,6 +216,18 @@ constexpr int kNCandidates = 3;
 constexpr int kCandidatesRandom = 0;
 constexpr int kCanddiatesSingleTransferableVote = 1;
 constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
+
+/**
+with the single transferable vote method...
+we choose a number of voters to be candidates.
+intutition says the number should be between the cube root (0.333)
+and the square root (0.5) of the number of voters.
+too few is not a representative statistical distribution of the voters.
+too many takes too long and doesn't help.
+might even hurt.
+default compromise is about 0.4.
+**/
+constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
 constexpr std::uint64_t kFixedSeed = 0;
@@ -273,6 +297,18 @@ public:
 };
 typedef std::vector<Voter> Voters;
 
+class Utility {
+public:
+    /** candidate with the best utility. **/
+    int which_ = 0;
+
+    /** utility of the best candidate. **/
+    double best_ = 0;
+
+    /** average utility of the average candidate. **/
+    double average_ = 0;
+};
+
 class Candidate {
 public:
     /** generated name **/
@@ -287,10 +323,8 @@ public:
     /** ranking of other candidates. **/
     std::vector<int> rankings_;
 
-    /** voter satisfaction with this candidate. **/
+    /** utility and voter satisfaction **/
     double utility_ = 0.0;
-    double satisfaction_best_ = 0.0;
-    double satisfaction_actual_ = 0.0;
 
     /** for sorting **/
     bool operator < (const Candidate& other) const
@@ -330,7 +364,9 @@ public:
         }
 
         /** normalize the distribution. **/
-        normalize();
+        if (method != kElectorateUniform) {
+            normalize();
+        }
 
         /** show the distribution. **/
         show();
@@ -430,17 +466,15 @@ public:
 
     /** results from the trial. **/
     int winner_ = 0;
-    double best_candidate_utility_ = 0.0;
-    double random_candidate_utility_ = 0.0;
-    int best_candidate_ = 0;
+    Utility theoretical_;
+    Utility primary_;
+    Utility actual_;
 
     /** summary **/
     double total_satisfaction_ = 0.0;
-    double total_regret_ = 0.0;
     bool won_first_round_ = 0;
     int majority_winners_ = 0;
     double min_satisfaction_ = 1.0;
-    double max_regret_ = 0.0;
     int winner_maximizes_satisfaction_ = 0;
     int winner_is_condorcet_ = 0;
     int monotonicity_ = 0;
@@ -466,9 +500,11 @@ public:
             /** vote, find winner, check results. **/
             vote();
             find_winner();
+            /** for summary **/
             if (won_first_round_) {
                 ++majority_winners_;
             }
+            show_satisfaction();
             check_criteria();
         }
 
@@ -498,6 +534,7 @@ public:
             return;
         }
 
+        int best = 0;
         double best_utility = 1e99;
         double best_position = 0.0;
         double total_utility = 0.0;
@@ -509,6 +546,7 @@ public:
                 utility += std::abs(kpos - ipos);
             }
             if (utility < best_utility) {
+                best = i;
                 best_utility = utility;
                 best_position = ipos;
             }
@@ -516,16 +554,18 @@ public:
         }
 
         /**
-        save the best candidate utility.
+        save the best candidate and utility.
         and the average utility of all candidates.
         **/
-        best_candidate_utility_ = best_utility;
-        random_candidate_utility_ = total_utility / double(nvoters_);
+        theoretical_.which_ = best;
+        theoretical_.best_ = best_utility;
+        theoretical_.average_ = total_utility / double(nvoters_);
 
         /** show results. **/
-        LOG("Theoretical best candidate position: "<<best_position);
-        LOG("Theoretical best candidate utility : "<<best_candidate_utility_);
-        LOG("Random candidate utility           : "<<random_candidate_utility_);
+        LOG("Best candidate chosen from all voters:");
+        LOG("  Position: "<<best_position);
+        LOG("  Utility : "<<best_utility);
+        LOG("  Average : "<<theoretical_.average_);
     }
 
     void init_candidates() noexcept {
@@ -539,13 +579,14 @@ public:
         **/
         LOG("Selecting candidates from the electorate.");
         pick_candidates_from_electorate();
+        calculate_utilities(primary_);
         single_transferable_vote_primary();
         /** sort them. **/
         std::sort(candidates_.begin(), candidates_.end());
         name_candidates();
         show_candidate_positions();
         rank_candidates();
-        calculate_voter_satisfaction();
+        calculate_utilities(actual_);
     }
 
     void pick_candidates_from_electorate() noexcept {
@@ -553,7 +594,7 @@ public:
         int n = ncandidates_;
         if (canddiate_method_ == kCanddiatesSingleTransferableVote) {
             /** use the cube root of the numbe of voters. **/
-            double cube_root = std::pow(double(nvoters_), 1.0/3.0);
+            double cube_root = std::pow(double(nvoters_), kPrimaryPower);
             n = (int) std::round(cube_root);
 
             /** maybe increase it. **/
@@ -679,15 +720,20 @@ public:
         }
     }
 
-    void calculate_voter_satisfaction() noexcept {
+    void calculate_utilities(
+        Utility& result
+    ) noexcept {
+        /** this might be the primary with extra candidates. **/
+        int n = candidates_.size();
+
         /**
         calculate candidate utility.
         remember who is best.
         **/
-        best_candidate_ = 0;
+        int best_candidate = 0;
         double best_utility = 1e99;
         double total_utility = 0.0;
-        for (int i = 0; i < ncandidates_; ++i) {
+        for (int i = 0; i < n; ++i) {
             /** calculate the utility for this candidate. **/
             auto& candidate = candidates_[i];
             double cpos = candidate.position_;
@@ -700,30 +746,18 @@ public:
 
             /** update best and sum **/
             if (best_utility > utility) {
+                best_candidate = i;
                 best_utility = utility;
-                best_candidate_ = i;
             }
             total_utility += utility;
         }
 
         /** compute utility or random candidate. **/
-        double random_utility = total_utility / double(ncandidates_);
+        double random_utility = total_utility / double(n);
 
-        if (kFindTheoreticalBestCandidate) {
-            LOG("Voter satisfaction compared to a theoretical optimal candidate:");
-            double denom = best_candidate_utility_ - random_candidate_utility_;
-            for (auto&& candidate : candidates_) {
-                candidate.satisfaction_best_ = (candidate.utility_ - random_candidate_utility_) / denom;
-                LOG(candidate.name_<<": "<<candidate.satisfaction_best_);
-            }
-        }
-
-        LOG("Voter satisfaction of the actual candidates:");
-        double denom = best_utility - random_utility;
-        for (auto&& candidate : candidates_) {
-            candidate.satisfaction_actual_ = (candidate.utility_ - random_utility) / denom;
-            LOG(candidate.name_<<": "<<candidate.satisfaction_actual_);
-        }
+        result.which_ = best_candidate;
+        result.best_ = best_utility;
+        result.average_ = random_utility;
     }
 
     void vote() noexcept {
@@ -898,6 +932,44 @@ public:
         }
     }
 
+    /**
+    voter satisfaction is a function of the utility of a candidate.
+    the best candidate has satisfaction 1.0.
+    the average candidate has a satisfaction of 0.0.
+    worse candidates have negative satisfaction.
+
+    show the voter satisfication for each candidate a number of ways.
+    standard: considers just the candidates.
+    primary: includes candidates eliminated in the primary.
+    all possible: includes all voters.
+    **/
+    void show_satisfaction() noexcept {
+        LOG("");
+        LOG("Voter satisfaction (standard):");
+        calculate_satisfaction(actual_);
+
+        LOG("Voter satisfaction (primary):");
+        calculate_satisfaction(primary_);
+
+        if (kFindTheoreticalBestCandidate) {
+            LOG("Voter satisfaction (all possible):");
+            calculate_satisfaction(theoretical_);
+        }
+    }
+
+    void calculate_satisfaction(
+        Utility utility
+    ) noexcept {
+        double best = utility.best_;
+        double average = utility.average_;
+        double denom = average - best;
+        for (auto&& candidate : candidates_) {
+            double dutility = average - candidate.utility_;
+            double satisfaction = dutility / denom;
+            LOG(candidate.name_<<": "<<satisfaction<<" ("<<dutility<<")");
+        }
+    }
+
     void check_criteria() noexcept {
         LOG("");
         LOG("Checking voting criteria.");
@@ -938,21 +1010,21 @@ public:
 
     int find_max_satisfaction_candidate() noexcept {
         /** show results **/
-        int winner = best_candidate_;
+        int winner = actual_.which_;
         auto& best_candidate = candidates_[winner];
         LOG(best_candidate.name_<<" maximizes voter satisfaction.");
 
-        /** the best chandidate has a satisfaction of 1.0 **/
+        /** satisfaction = (utility - average) / (best - average) **/
         auto& winning_candidate = candidates_[winner_];
-        double satisfaction = winning_candidate.satisfaction_actual_;
+        double satisfaction = (winning_candidate.utility_ - actual_.average_) / (actual_.best_ - actual_.average_);
+
+        /** best candididate has satisfaction of 1.0. **/
         double regret = 1.0 - satisfaction;
-        LOG("Voter bayesian regret: "<<regret);
+        LOG("Voter bayesian regret (standard): "<<regret);
 
         /** update summary **/
         total_satisfaction_ += satisfaction;
-        total_regret_ += regret;
         min_satisfaction_ = std::min(min_satisfaction_, satisfaction);
-        max_regret_ = std::max(max_regret_, regret);
 
         return winner;
     }
@@ -1104,7 +1176,9 @@ public:
 
         double denom = double(ntrials_);
         double satisfaction = double(total_satisfaction_) / denom;
-        double regret = double(total_regret_) / denom;
+        double min_satisfaction = min_satisfaction_;
+        double regret = 1.0 - satisfaction;
+        double max_regret = 1.0 - min_satisfaction;
         double majority_winners = 100.0 * double(majority_winners_) / denom;
         double maximizes_satisfaction = 100.0 * double(winner_maximizes_satisfaction_) / denom;
         double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
@@ -1114,8 +1188,8 @@ public:
         show_header();
         LOG("");
         LOG("Summary:");
-        LOG("Voter satisfaction (min)     : "<<satisfaction<<" ("<<min_satisfaction_<<")");
-        LOG("Voter regret (max)           : "<<regret<<" ("<<max_regret_<<")");
+        LOG("Voter satisfaction (min)     : "<<satisfaction<<" ("<<min_satisfaction<<")");
+        LOG("Voter regret (max)           : "<<regret<<" ("<<max_regret<<")");
         LOG("Won outright by true majority: "<<majority_winners<<"%");
         LOG("Maximizes voter satisfaction : "<<maximizes_satisfaction<<"%");
         LOG("Agrees with Condorcet        : "<<is_condorcet<<"%");
