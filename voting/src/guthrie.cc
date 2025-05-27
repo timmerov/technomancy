@@ -192,10 +192,10 @@ check monotonicity when multiple candidates drop out.
 namespace {
 
 /** number of trials. **/
-//constexpr int kNTrials = 1;
+constexpr int kNTrials = 1;
 //constexpr int kNTrials = 30;
 //constexpr int kNTrials = 300;
-constexpr int kNTrials = 1000;
+//constexpr int kNTrials = 1000;
 //constexpr int kNTrials = 30*1000;
 
 /** number of voters. **/
@@ -208,8 +208,10 @@ constexpr int kNVoters = 1000;
 /** options for distributing the electorate. **/
 constexpr int kElectorateUniform = 0;
 constexpr int kElectorateRandom = 1;
+constexpr int kElectorateClusters = 2;
 //constexpr int kElectorateMethod = kElectorateUniform;
-constexpr int kElectorateMethod = kElectorateRandom;
+//constexpr int kElectorateMethod = kElectorateRandom;
+constexpr int kElectorateMethod = kElectorateClusters;
 
 /** number of candidates **/
 constexpr int kNCandidates = 3;
@@ -248,8 +250,8 @@ constexpr bool kFindTheoreticalBestCandidate = false;
 option to show the electorate distribution.
 this is a bit spammy.
 **/
-//constexpr bool kShowElectorateDistribution = true;
-constexpr bool kShowElectorateDistribution = false;
+constexpr bool kShowElectorateDistribution = true;
+//constexpr bool kShowElectorateDistribution = false;
 
 /**
 option to show details of all coombs rounds.
@@ -270,6 +272,7 @@ public:
     std::uint64_t seed_ = 0;
     std::mt19937_64 rng_;
     std::uniform_real_distribution<double> unif_;
+    std::normal_distribution<double> norm_;
 
     void init() noexcept {
         seed_ = kFixedSeed;
@@ -279,6 +282,7 @@ public:
         std::seed_seq ss{uint32_t(seed_ & 0xffffffff), uint32_t(seed_>>32)};
         rng_.seed(ss);
         unif_ = std::uniform_real_distribution<double>(0.0, 1.0);
+        norm_ = std::normal_distribution<double>(0.0, 1.0);
     }
 
     double generate() noexcept {
@@ -290,6 +294,11 @@ public:
         double x = generate();
         int i = std::floor(x * double(max));
         return i;
+    }
+
+    double normal() noexcept {
+        double x = norm_(rng_);
+        return x;
     }
 };
 static RandomNumberGenerator *rng_ = nullptr;
@@ -312,6 +321,16 @@ public:
     /** average utility of the average candidate. **/
     double average_ = 0;
 };
+
+class Cluster {
+public:
+    /** size **/
+    int count_ = 0;
+
+    /** position **/
+    double position_ = 0;
+};
+typedef std::vector<Cluster> Clusters;
 
 class Candidate {
 public:
@@ -345,6 +364,7 @@ public:
 
     int nvoters_ = 0;
     Voters voters_;
+    Clusters clusters_;
 
     void init(
         int nvoters,
@@ -364,6 +384,10 @@ public:
 
         case kElectorateRandom:
             random();
+            break;
+
+        case kElectorateClusters:
+            clusters();
             break;
         }
 
@@ -402,6 +426,85 @@ public:
     }
 
     /**
+    chinese restaurant process.
+    **/
+    void clusters() noexcept {
+        LOG("Electorate is clustered.");
+        for (int i = 0; i < nvoters_; ++i) {
+            seat_voter(i);
+        }
+
+        LOG("=tsc= clusters:");
+        int n = clusters_.size();
+        for (int i = 0; i < n; ++i ) {
+            auto& cluster = clusters_[i];
+            LOG(i<<": "<<cluster.count_<<" "<<cluster.position_);
+        }
+        //LOG("=tsc= nclusters="<<clusters_.size());
+    }
+
+    /**
+    pick a random cluster and join it.
+    **/
+    void seat_voter(
+        int i
+    ) noexcept {
+        /**
+        what should the standard deviation be?
+        should it start small and grow with the size of the table?
+        **/
+        constexpr double kStdDev = 0.05;
+        /**
+        what should the dispersion factor be?
+        **/
+        constexpr double kAlpha = 4.0;
+
+        int where = 0;
+        int nclusters = clusters_.size();
+        if (nclusters == 0) {
+            create_cluster();
+        } else {
+            double denom = double(i) + kAlpha;
+            double probability = kAlpha / denom;
+            double rn = rng_->generate();
+            //LOG("=tsc= prob="<<probability<<" rn="<<rn);
+            if (rn < probability) {
+                where = clusters_.size();
+                create_cluster();
+            } else {
+                int rn = rng_->generate(i);
+                //LOG("=tsc= rn="<<rn);
+                for (int k = 0; k < nclusters; ++k) {
+                    rn -= clusters_[k].count_;
+                    //LOG("=tsc= k="<<k<<" rn="<<rn);
+                    if (rn <= 0) {
+                        where = k;
+                        break;
+                    }
+                }
+            }
+        }
+        auto& cluster = clusters_[where];
+        cluster.count_ += 1;
+
+        auto& voter = voters_[i];
+        double rn = rng_->normal() * kStdDev;
+        double position = cluster.position_ + rn;
+        voter.position_ = position;
+        //LOG("=tsc= voter "<<i<<" in cluster "<<where<<" at "<<position);
+    }
+
+    void create_cluster() noexcept {
+        double position = rng_->generate();
+        Cluster cluster;
+        cluster.count_ = 0;
+        cluster.position_ = position;
+        //int n = clusters_.size();
+        clusters_.push_back(cluster);
+        //LOG("=tsc= created cluster "<<n<<" at "<<position);
+    }
+
+    /**
     normalize the voters so they range from 0 to 1.
     **/
     void normalize() noexcept {
@@ -411,14 +514,12 @@ public:
             mn = std::min(mn, voter.position_);
             mx = std::max(mx, voter.position_);
         }
-        //LOG("=tsc= mn="<<mn<<" mx="<<mx);
 
         double scale = 1.0 / (mx - mn);
         for (auto&& voter : voters_) {
             double pos = voter.position_;
             pos -= mn;
             pos *= scale;
-            //LOG("=tsc= pos="<<pos);
             pos = std::clamp(pos, 0.0, 1.0);
             voter.position_ = pos;
         }
