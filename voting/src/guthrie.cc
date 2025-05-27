@@ -154,6 +154,10 @@ what if all candidates are equally horrible?
 one of them is going to get satisfaction rating of 1.0.
 even though they'd get stomped by a randomly selected voter.
 weird.
+satisfaction is calculated using maximum and average utility.
+i tried using max and average for all voters (expensive),
+and all candidates in the primary (not helpful).
+so status quo it is.
 
 things done:
 
@@ -323,7 +327,7 @@ public:
     /** ranking of other candidates. **/
     std::vector<int> rankings_;
 
-    /** utility and voter satisfaction **/
+    /** utility **/
     double utility_ = 0.0;
 
     /** for sorting **/
@@ -467,7 +471,6 @@ public:
     /** results from the trial. **/
     int winner_ = 0;
     Utility theoretical_;
-    Utility primary_;
     Utility actual_;
 
     /** summary **/
@@ -579,7 +582,6 @@ public:
         **/
         LOG("Selecting candidates from the electorate.");
         pick_candidates_from_electorate();
-        calculate_utilities(primary_);
         single_transferable_vote_primary();
         /** sort them. **/
         std::sort(candidates_.begin(), candidates_.end());
@@ -945,11 +947,8 @@ public:
     **/
     void show_satisfaction() noexcept {
         LOG("");
-        LOG("Voter satisfaction (standard):");
+        LOG("Voter satisfaction (utility):");
         calculate_satisfaction(actual_);
-
-        LOG("Voter satisfaction (primary):");
-        calculate_satisfaction(primary_);
 
         if (kFindTheoreticalBestCandidate) {
             LOG("Voter satisfaction (all possible):");
