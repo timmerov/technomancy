@@ -192,10 +192,10 @@ check monotonicity when multiple candidates drop out.
 namespace {
 
 /** number of trials. **/
-constexpr int kNTrials = 1;
+//constexpr int kNTrials = 1;
 //constexpr int kNTrials = 30;
 //constexpr int kNTrials = 300;
-//constexpr int kNTrials = 1000;
+constexpr int kNTrials = 1000;
 //constexpr int kNTrials = 30*1000;
 
 /** number of voters. **/
@@ -250,8 +250,8 @@ constexpr bool kFindTheoreticalBestCandidate = false;
 option to show the electorate distribution.
 this is a bit spammy.
 **/
-constexpr bool kShowElectorateDistribution = true;
-//constexpr bool kShowElectorateDistribution = false;
+//constexpr bool kShowElectorateDistribution = true;
+constexpr bool kShowElectorateDistribution = false;
 
 /**
 option to show details of all coombs rounds.
@@ -329,6 +329,12 @@ public:
 
     /** position **/
     double position_ = 0;
+
+    /** for sorting **/
+    bool operator < (const Cluster& other) const
+    {
+        return (position_ < other.position_);
+    }
 };
 typedef std::vector<Cluster> Clusters;
 
@@ -429,79 +435,82 @@ public:
     chinese restaurant process.
     **/
     void clusters() noexcept {
+        /** create empty clusters. **/
+        int nclusters = kNCandidates * 2;
+        clusters_.resize(nclusters);
+        for (auto&& cluster : clusters_) {
+            cluster.count_ = 0;
+            cluster.position_ = rng_->generate();
+        }
+        std::sort(clusters_.begin(), clusters_.end());
+
         LOG("Electorate is clustered.");
         for (int i = 0; i < nvoters_; ++i) {
             seat_voter(i);
         }
 
+#if 0
         LOG("=tsc= clusters:");
         int n = clusters_.size();
         for (int i = 0; i < n; ++i ) {
             auto& cluster = clusters_[i];
             LOG(i<<": "<<cluster.count_<<" "<<cluster.position_);
         }
-        //LOG("=tsc= nclusters="<<clusters_.size());
+#endif
     }
 
     /**
     pick a random cluster and join it.
+    or create a new one.
+
+    maybe we fix the number of clusters.
+    and the first voters fill empty clusters.
+    how many clusters?
+    maybe 2 times number of candidates.
     **/
     void seat_voter(
-        int i
+        int k
     ) noexcept {
         /**
         what should the standard deviation be?
         should it start small and grow with the size of the table?
+        this number found by trial and error.
         **/
-        constexpr double kStdDev = 0.05;
-        /**
-        what should the dispersion factor be?
-        **/
-        constexpr double kAlpha = 4.0;
+        constexpr double kStdDev = 0.07;
 
+        /** pick a cluster. **/
         int where = 0;
         int nclusters = clusters_.size();
-        if (nclusters == 0) {
-            create_cluster();
+        if (k < nclusters) {
+            /** seat the first n voters in their own cluster. **/
+            where = k;
         } else {
-            double denom = double(i) + kAlpha;
-            double probability = kAlpha / denom;
-            double rn = rng_->generate();
-            //LOG("=tsc= prob="<<probability<<" rn="<<rn);
-            if (rn < probability) {
-                where = clusters_.size();
-                create_cluster();
-            } else {
-                int rn = rng_->generate(i);
-                //LOG("=tsc= rn="<<rn);
-                for (int k = 0; k < nclusters; ++k) {
-                    rn -= clusters_[k].count_;
-                    //LOG("=tsc= k="<<k<<" rn="<<rn);
-                    if (rn <= 0) {
-                        where = k;
-                        break;
-                    }
+            /** populare clusters attract more people. **/
+            int rn = rng_->generate(k);
+            //LOG("=tsc= rn="<<rn);
+            for (auto&& cluster : clusters_) {
+                rn -= cluster.count_;
+                //LOG("=tsc= where="<<where<<" rn="<<rn);
+                if (rn < 0) {
+                    break;
                 }
+                ++where;
+            }
+            if (where >= nclusters) {
+                LOG("=tsc= "<<__LINE__<<": uh oh! where="<<where<<" > "<<nclusters<<"="<<nclusters);
             }
         }
+
+        /** add the voter to the cluster. **/
         auto& cluster = clusters_[where];
         cluster.count_ += 1;
 
-        auto& voter = voters_[i];
+        /** position the voter. **/
+        auto& voter = voters_[k];
         double rn = rng_->normal() * kStdDev;
         double position = cluster.position_ + rn;
         voter.position_ = position;
-        //LOG("=tsc= voter "<<i<<" in cluster "<<where<<" at "<<position);
-    }
-
-    void create_cluster() noexcept {
-        double position = rng_->generate();
-        Cluster cluster;
-        cluster.count_ = 0;
-        cluster.position_ = position;
-        //int n = clusters_.size();
-        clusters_.push_back(cluster);
-        //LOG("=tsc= created cluster "<<n<<" at "<<position);
+        //LOG("=tsc= voter "<<k<<" in cluster "<<where<<" at "<<position);
     }
 
     /**
