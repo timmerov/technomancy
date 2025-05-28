@@ -98,7 +98,7 @@ with large electorates, is indistinguishable from a uniform distribution.
 C. clustered - voters are normally distributed around one of several points.
 how many clusters? how much spread? to be determined.
 
-so far i've implement 1,A,B.
+so far i've implement 1,A,B,C.
 
 for single axis and uniform or random distribution...
 either there's a majority.
@@ -169,6 +169,32 @@ proof by induction.
 we assume we already verified we have monotonicity for N-1 candidates.
 we don't need to do that work again.
 
+where there are many candidates...
+and they form a condorcet ordering...
+we have a nash equilibrium.
+"proof":
+a majority coalition can efficiently eliminate all candidates not in the coalition.
+thereby ensuring one of the coalition members wins.
+in order to forma a majority coalition of the left (close to position 1)...
+the guthrie winner must be included.
+otherwise they don't have a majority of the voters.
+same for the right.
+the guthrie winner is the choice for the eliminated right minority coalition.
+a right majority coalition forms that includes the guthrie winner.
+all other candidates of the left coalition are eliminated.
+okay.
+a split coalition includes candidates left and right of the guthrie winner
+and excludes the guthrie winner.
+non-coalition members are eliminated.
+including the guthrie winner.
+a new winner is selected from the left (for example).
+coalition members from the right get a worse result.
+and therefore would not join such a coalition.
+qed.
+the interesting cases are when there are condorcet cycles.
+which require two or more uncorrelated axes for the issues.
+
+
 things done:
 
 handle ties.
@@ -217,9 +243,10 @@ constexpr int kNVoters = 1000;
 
 /** number of candidates **/
 //constexpr int kNCandidates = 3;
-constexpr int kNCandidates = 4;
+//constexpr int kNCandidates = 4;
 //constexpr int kNCandidates = 5;
-//constexpr int kNCandidates = 7;
+//constexpr int kNCandidates = 6;
+constexpr int kNCandidates = 7;
 
 /** options for distributing the electorate. **/
 constexpr int kElectorateUniform = 0;
@@ -229,13 +256,17 @@ constexpr int kElectorateClusters = 2;
 //constexpr int kElectorateMethod = kElectorateRandom;
 constexpr int kElectorateMethod = kElectorateClusters;
 
+/** options for number of issue dimensions (axes). **/
+constexpr int kNAxes = 1;
+//constexpr int kNAxes = 2;
+
 /** options for choosing candidates **/
 constexpr int kCandidatesRandom = 0;
 constexpr int kCanddiatesSingleTransferableVote = 1;
 constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
 
 /**
-with the single transferable vote method...
+with the single transferable vote primary...
 we choose a number of voters to be candidates.
 intutition says the number should be between the cube root (0.333)
 and the square root (0.5) of the number of voters.
@@ -314,10 +345,61 @@ public:
 };
 static RandomNumberGenerator *rng_ = nullptr;
 
+class Position {
+public:
+    Position() = default;
+    ~Position() = default;
+
+    std::vector<double> axis_;
+
+    /** return the distance to another position. **/
+    double distance(
+        const Position& other
+    ) noexcept {
+        int naxes = axis_.size();
+        if (naxes == 1) {
+            double dist = std::abs(axis_[0] - other.axis_[0]);
+            return dist;
+        }
+        double sum2 = 0.0;
+        for (int i = 0; i < naxes; ++i) {
+            double dx = axis_[i] - other.axis_[i];
+            sum2 += dx * dx;
+        }
+        double dist = std::sqrt(sum2);
+        return dist;
+    }
+
+    /** format the position as a string. **/
+    std::string to_string() {
+        std::stringstream ss;
+        int naxes = axis_.size();
+        if (naxes == 1) {
+            ss<<axis_[0];
+        } else {
+            ss<<"{";
+            for (int i = 0; i < naxes; ++i) {
+                if (i > 0) {
+                    ss<<", ";
+                }
+                ss<<axis_[i];
+            }
+            ss<<"}";
+        }
+        return ss.str();
+    }
+
+    /** for sorting **/
+    bool operator < (const Position& other) const
+    {
+        return (axis_[0] < other.axis_[0]);
+    }
+};
+
 class Voter {
 public:
     /** position along the axis ranges from 0..1 **/
-    double position_ = 0.0;
+    Position position_;
 };
 typedef std::vector<Voter> Voters;
 
@@ -339,7 +421,7 @@ public:
     int count_ = 0;
 
     /** position **/
-    double position_ = 0;
+    double position_ = 0.0;
 
     /** for sorting **/
     bool operator < (const Cluster& other) const
@@ -355,7 +437,7 @@ public:
     char name_ = '?';
 
     /** position along the axis ranges from 0..1 **/
-    double position_ = 0.0;
+    Position position_;
 
     /** vote total aka asset **/
     int support_ = 0;
@@ -380,17 +462,23 @@ public:
     ~Electorate() = default;
 
     int nvoters_ = 0;
+    int naxes_ = 0;
     Voters voters_;
     Clusters clusters_;
 
     void init(
         int nvoters,
-        int method
+        int method,
+        int naxes
     ) noexcept {
         nvoters_ = nvoters;
+        naxes_ = naxes;
 
         /** allocate space for the voters and candidates **/
         voters_.resize(nvoters);
+
+        /** allocate space for the positions. **/
+        size_position_axes();
 
         /** distribute the voter by the chosen method. **/
         switch (method) {
@@ -414,7 +502,13 @@ public:
         }
 
         /** show the distribution. **/
-        show();
+        show_distribution();
+    }
+
+    void size_position_axes() noexcept {
+        for (auto&& voter : voters_) {
+            voter.position_.axis_.resize(naxes_);
+        }
     }
 
     /**
@@ -426,26 +520,40 @@ public:
         double nvoters = double(nvoters_);
         double offset = 0.5 / nvoters;
         for (int i = 0; i < nvoters_; ++i) {
-            auto& voter = voters_[i];
-            voter.position_ = offset + double(i) / nvoters;
+            auto& axis = voters_[i].position_.axis_;
+            axis[0] = offset + double(i) / nvoters;
         }
     }
 
     /**
-    randomly distribute voters along the axis.
+    randomly distribute voters along the axes.
     **/
     void random() noexcept {
         LOG("Electorate is random.");
         for (int i = 0; i < nvoters_; ++i) {
-            auto& voter = voters_[i];
-            voter.position_ = rng_->generate();
+            auto& axis = voters_[i].position_.axis_;
+            for (int k = 0; k < naxes_; ++k) {
+                axis[k] = rng_->generate();
+            }
+        }
+    }
+
+    /**
+    cluster each axis independently.
+    **/
+    void clusters() noexcept {
+        LOG("Electorate is clustered.");
+        for (int axis = 0; axis < naxes_; ++axis) {
+            clusters(axis);
         }
     }
 
     /**
     chinese restaurant process.
     **/
-    void clusters() noexcept {
+    void clusters(
+        int axis
+    ) noexcept {
         /** create empty clusters. **/
         int nclusters = kNCandidates * 2;
         clusters_.resize(nclusters);
@@ -455,19 +563,9 @@ public:
         }
         std::sort(clusters_.begin(), clusters_.end());
 
-        LOG("Electorate is clustered.");
         for (int i = 0; i < nvoters_; ++i) {
-            seat_voter(i);
+            seat_voter(i, axis);
         }
-
-#if 0
-        LOG("=tsc= clusters:");
-        int n = clusters_.size();
-        for (int i = 0; i < n; ++i ) {
-            auto& cluster = clusters_[i];
-            LOG(i<<": "<<cluster.count_<<" "<<cluster.position_);
-        }
-#endif
     }
 
     /**
@@ -480,7 +578,8 @@ public:
     maybe 2 times number of candidates.
     **/
     void seat_voter(
-        int k
+        int k,
+        int axis
     ) noexcept {
         /**
         what should the standard deviation be?
@@ -520,37 +619,61 @@ public:
         auto& voter = voters_[k];
         double rn = rng_->normal() * kStdDev;
         double position = cluster.position_ + rn;
-        voter.position_ = position;
+        voter.position_.axis_[axis] = position;
         //LOG("=tsc= voter "<<k<<" in cluster "<<where<<" at "<<position);
     }
 
     /**
-    normalize the voters so they range from 0 to 1.
+    normalize all axes.
     **/
     void normalize() noexcept {
+        for (int axis = 0; axis < naxes_; ++axis) {
+            normalize(axis);
+        }
+    }
+
+    /**
+    normalize the voters so they range from 0 to 1 along this axis.
+    **/
+    void normalize(
+        int axis
+    ) noexcept {
         double mn = 1e99;
         double mx = -1e99;
         for (auto&& voter : voters_) {
-            mn = std::min(mn, voter.position_);
-            mx = std::max(mx, voter.position_);
+            mn = std::min(mn, voter.position_.axis_[axis]);
+            mx = std::max(mx, voter.position_.axis_[axis]);
         }
 
         double scale = 1.0 / (mx - mn);
         for (auto&& voter : voters_) {
-            double pos = voter.position_;
+            double pos = voter.position_.axis_[axis];
             pos -= mn;
             pos *= scale;
             pos = std::clamp(pos, 0.0, 1.0);
-            voter.position_ = pos;
+            voter.position_.axis_[axis] = pos;
         }
     }
 
-    void show() noexcept {
+    /**
+    show all axes.
+    **/
+    void show_distribution() noexcept {
         if (kShowElectorateDistribution == false) {
             return;
         }
-
         LOG("Electorate distribution:");
+        for (int axis = 0; axis < naxes_; ++axis) {
+            show_distribution(axis);
+        }
+    }
+
+    /**
+    show distribution for one axis.
+    **/
+    void show_distribution(
+        int axis
+    ) noexcept {
         constexpr int kNBins = 20;
         std::vector<int> bins;
         bins.resize(kNBins);
@@ -558,7 +681,8 @@ public:
             bins[i] = 0;
         }
         for (auto&& voter : voters_) {
-            int i = std::floor(voter.position_ * kNBins);
+            double position = voter.position_.axis_[axis];
+            int i = std::floor(position * kNBins);
             i = std::clamp(i, 0, kNBins - 1);
             ++bins[i];
         }
@@ -581,6 +705,7 @@ public:
     /** "constants" **/
     int ntrials_ = kNTrials;
     int nvoters_ = kNVoters;
+    int naxes_ = kNAxes;
     int electorate_method_ = kElectorateMethod;
     int ncandidates_ = kNCandidates;
     int canddiate_method_ = kCandidateMethod;
@@ -604,9 +729,15 @@ public:
     int monotonicity_ = 0;
 
     void run() noexcept {
-        LOG("Guthrie voting analysis:");
+        /** initialize the random number generators. **/
         rng_ = new(std::nothrow) RandomNumberGenerator();
         rng_->init();
+
+        /** some sanity checks. **/
+        sanity_checks();
+
+        /** hello, world. **/
+        LOG("Guthrie voting analysis:");
         show_header();
 
         /** run many trials. **/
@@ -617,7 +748,7 @@ public:
             }
 
             /** initialize the electorate and candidates. **/
-            electorate_.init(nvoters_, electorate_method_);
+            electorate_.init(nvoters_, electorate_method_, naxes_);
             find_best_candidate();
             init_candidates();
 
@@ -634,6 +765,29 @@ public:
 
         /** log the results. **/
         show_summary();
+    }
+
+    void sanity_checks() noexcept {
+        if (ntrials_ < 1) {
+            LOG("Error: Need at least 1 trial ("<<ntrials_<<").");
+            std::exit(1);
+        }
+        if (ncandidates_ < 3) {
+            LOG("Error: Need at least 3 candidates ("<<ncandidates_<<").");
+            exit(1);
+        }
+        if (nvoters_ < ncandidates_) {
+            LOG("Error: Need more voters ("<<nvoters_<<") than candidates ("<<ncandidates_<<").");
+            exit(1);
+        }
+
+        /** uniform electorate is a single axis. **/
+        if (kElectorateMethod == kElectorateUniform) {
+            if (naxes_ != 1) {
+                LOG("Warning: Uniform electorate requires number of issue axes ("<<naxes_<<") to be 1, overriding.");
+                naxes_ = 1;
+            }
+        }
     }
 
     /** show configuration. **/
@@ -660,19 +814,19 @@ public:
 
         int best = 0;
         double best_utility = 1e99;
-        double best_position = 0.0;
+        Position *best_position = nullptr;
         double total_utility = 0.0;
         for (int i = 0; i < nvoters_; ++i) {
-            double ipos = electorate_.voters_[i].position_;
+            auto& ipos = electorate_.voters_[i].position_;
             double utility = 0.0;
             for (int k = 0; k < nvoters_; ++k) {
-                double kpos = electorate_.voters_[k].position_;
-                utility += std::abs(kpos - ipos);
+                auto& kpos = electorate_.voters_[k].position_;
+                utility += ipos.distance(kpos);
             }
             if (utility < best_utility) {
                 best = i;
                 best_utility = utility;
-                best_position = ipos;
+                best_position = &ipos;
             }
             total_utility += utility;
         }
@@ -687,7 +841,7 @@ public:
 
         /** show results. **/
         LOG("Best candidate chosen from all voters:");
-        LOG("  Position: "<<best_position);
+        LOG("  Position: "<<best_position->to_string());
         LOG("  Utility : "<<best_utility);
         LOG("  Average : "<<theoretical_.average_);
     }
@@ -789,7 +943,7 @@ public:
     void show_candidate_positions() noexcept {
         LOG("Candidate positions:");
         for (auto&& candidate : candidates_ ) {
-            LOG(candidate.name_<<": "<<candidate.position_);
+            LOG(candidate.name_<<": "<<candidate.position_.to_string());
         }
     }
 
@@ -827,7 +981,7 @@ public:
 
         for (int i = 0; i < ncandidates_; ++i) {
             auto& other = candidates_[i];
-            double d = std::abs(candidate.position_ - other.position_);
+            double d = candidate.position_.distance(other.position_);
             int k = 0;
             for(;;) {
                 if (k>=i) {
@@ -859,11 +1013,9 @@ public:
         for (int i = 0; i < n; ++i) {
             /** calculate the utility for this candidate. **/
             auto& candidate = candidates_[i];
-            double cpos = candidate.position_;
             double utility = 0.0;
             for (auto&& voter : electorate_.voters_) {
-                double vpos = voter.position_;
-                utility += std::abs(cpos - vpos);
+                utility += candidate.position_.distance(voter.position_);
             }
             candidate.utility_ = utility;
 
@@ -904,14 +1056,14 @@ public:
     }
 
     int find_closest_candidate(
-        double position
+        Position &position
     ) noexcept {
         int closest_candidate = 0;
-        double closest_distance = 2.0;
+        double closest_distance = double(ncandidates_);
         int ncandidates = candidates_.size();
         for (int i = 0; i < ncandidates; ++i) {
             auto& candidate = candidates_[i];
-            double distance = std::abs(candidate.position_ - position);
+            double distance = candidate.position_.distance(position);
             if (distance < closest_distance) {
                 closest_candidate = i;
                 closest_distance = distance;
@@ -1213,14 +1365,13 @@ public:
         int bvotes = 0;
 
         /** candidate positions. **/
-        double apos = candidates_[a].position_;
-        double bpos = candidates_[b].position_;
+        auto& apos = candidates_[a].position_;
+        auto& bpos = candidates_[b].position_;
 
         /** count votes. **/
         for (auto&& voter : electorate_.voters_) {
-            double vpos = voter.position_;
-            double adist = std::abs(apos - vpos);
-            double bdist = std::abs(bpos - vpos);
+            double adist = voter.position_.distance(apos);
+            double bdist = voter.position_.distance(bpos);
             if (adist < bdist) {
                 ++avotes;
             }
