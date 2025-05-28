@@ -164,6 +164,11 @@ so they can't really be averaged meaningfully.
 could try using the worst possible candidate as the baseline.
 could try using the median voter/candidate as the baseline.
 
+we do not need check monotonicity when multiple candidates drop out,
+proof by induction.
+we assume we already verified we have monotonicity for N-1 candidates.
+we don't need to do that work again.
+
 things done:
 
 handle ties.
@@ -180,7 +185,6 @@ clustered voters,
 
 things to do:
 
-check monotonicity when multiple candidates drop out,
 multiple issue dimensions,
 non-linear utility or piece-wise linear utility,
 **/
