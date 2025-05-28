@@ -242,23 +242,23 @@ constexpr int kNVoters = 1000;
 //constexpr int kNVoters = 10*1000;
 
 /** number of candidates **/
-//constexpr int kNCandidates = 3;
+constexpr int kNCandidates = 3;
 //constexpr int kNCandidates = 4;
 //constexpr int kNCandidates = 5;
 //constexpr int kNCandidates = 6;
-constexpr int kNCandidates = 7;
+//constexpr int kNCandidates = 7;
 
 /** options for distributing the electorate. **/
 constexpr int kElectorateUniform = 0;
 constexpr int kElectorateRandom = 1;
 constexpr int kElectorateClusters = 2;
 //constexpr int kElectorateMethod = kElectorateUniform;
-//constexpr int kElectorateMethod = kElectorateRandom;
-constexpr int kElectorateMethod = kElectorateClusters;
+constexpr int kElectorateMethod = kElectorateRandom;
+//constexpr int kElectorateMethod = kElectorateClusters;
 
 /** options for number of issue dimensions (axes). **/
-constexpr int kNAxes = 1;
-//constexpr int kNAxes = 2;
+//constexpr int kNAxes = 1;
+constexpr int kNAxes = 2;
 
 /** options for choosing candidates **/
 constexpr int kCandidatesRandom = 0;
@@ -279,7 +279,7 @@ constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
 constexpr std::uint64_t kFixedSeed = 0;
-//constexpr std::uint64_t kFixedSeed = 1748220835211141066;
+//constexpr std::uint64_t kFixedSeed = 1748463505672718893;
 
 /**
 option to find the theoretical best candidate from the voters.
@@ -597,10 +597,8 @@ public:
         } else {
             /** populare clusters attract more people. **/
             int rn = rng_->generate(k);
-            //LOG("=tsc= rn="<<rn);
             for (auto&& cluster : clusters_) {
                 rn -= cluster.count_;
-                //LOG("=tsc= where="<<where<<" rn="<<rn);
                 if (rn < 0) {
                     break;
                 }
@@ -620,7 +618,6 @@ public:
         double rn = rng_->normal() * kStdDev;
         double position = cluster.position_ + rn;
         voter.position_.axis_[axis] = position;
-        //LOG("=tsc= voter "<<k<<" in cluster "<<where<<" at "<<position);
     }
 
     /**
@@ -664,6 +661,9 @@ public:
         }
         LOG("Electorate distribution:");
         for (int axis = 0; axis < naxes_; ++axis) {
+            if (naxes_ > 1) {
+                LOG("Axis: "<<axis);
+            }
             show_distribution(axis);
         }
     }
@@ -1423,8 +1423,17 @@ public:
                 }
             }
 
-            /** update the list of candidates. **/
-            candidates_[i] = original_candidates[i];
+            /**
+            update the list of candidates.
+            avoid buffer overrun at end of loop.
+            3 candidates.
+            i ranges from 0,1,2.
+            original size is 3.
+            current size is 2.
+            **/
+            if (i < ncandidates_) {
+                candidates_[i] = original_candidates[i];
+            }
         }
 
         /** restore the original candidates, count, and winner. **/

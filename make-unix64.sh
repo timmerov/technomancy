@@ -9,9 +9,9 @@ CORES=-j$(grep -c ^processor /proc/cpuinfo)
 
 echo Building...
 #. ./$GEN_CMD
-#pushd $BUILD_DIR_DEBUG
-#make $CORES
-#popd
-pushd $BUILD_DIR_RELEASE
+pushd $BUILD_DIR_DEBUG
 make $CORES
 popd
+#pushd $BUILD_DIR_RELEASE
+#make $CORES
+#popd
