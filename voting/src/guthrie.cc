@@ -158,6 +158,11 @@ satisfaction is calculated using maximum and average utility.
 i tried using max and average for all voters (expensive),
 and all candidates in the primary (not helpful).
 so status quo it is.
+and more ranting...
+when you're doing a summary, the satisfaction isn't to the same scale.
+so they can't really be averaged meaningfully.
+could try using the worst possible candidate as the baseline.
+could try using the median voter/candidate as the baseline.
 
 things done:
 
@@ -171,12 +176,13 @@ they don't. but that's okay.
 these are diabolical cases that no voting system can do better. except maybe range voting.
 multiple trials with summarized results,
 normalize electorate to range from 0.0 to 1.0.
+clustered voters,
 
 things to do:
 
-clustered voters,
+check monotonicity when multiple candidates drop out,
 multiple issue dimensions,
-check monotonicity when multiple candidates drop out.
+non-linear utility or piece-wise linear utility,
 **/
 
 #include "guthrie.h"
@@ -192,10 +198,10 @@ check monotonicity when multiple candidates drop out.
 namespace {
 
 /** number of trials. **/
-//constexpr int kNTrials = 1;
+constexpr int kNTrials = 1;
 //constexpr int kNTrials = 30;
 //constexpr int kNTrials = 300;
-constexpr int kNTrials = 1000;
+//constexpr int kNTrials = 1000;
 //constexpr int kNTrials = 30*1000;
 
 /** number of voters. **/
@@ -205,6 +211,12 @@ constexpr int kNTrials = 1000;
 constexpr int kNVoters = 1000;
 //constexpr int kNVoters = 10*1000;
 
+/** number of candidates **/
+//constexpr int kNCandidates = 3;
+constexpr int kNCandidates = 4;
+//constexpr int kNCandidates = 5;
+//constexpr int kNCandidates = 7;
+
 /** options for distributing the electorate. **/
 constexpr int kElectorateUniform = 0;
 constexpr int kElectorateRandom = 1;
@@ -212,11 +224,6 @@ constexpr int kElectorateClusters = 2;
 //constexpr int kElectorateMethod = kElectorateUniform;
 //constexpr int kElectorateMethod = kElectorateRandom;
 constexpr int kElectorateMethod = kElectorateClusters;
-
-/** number of candidates **/
-constexpr int kNCandidates = 3;
-//constexpr int kNCandidates = 5;
-//constexpr int kNCandidates = 7;
 
 /** options for choosing candidates **/
 constexpr int kCandidatesRandom = 0;
