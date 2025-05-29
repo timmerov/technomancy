@@ -98,8 +98,6 @@ with large electorates, is indistinguishable from a uniform distribution.
 C. clustered - voters are normally distributed around one of several points.
 how many clusters? how much spread? to be determined.
 
-so far i've implement 1,A,B,C.
-
 for single axis and uniform or random distribution...
 either there's a majority.
 or there's a condorcet winner.
@@ -208,10 +206,10 @@ these are diabolical cases that no voting system can do better. except maybe ran
 multiple trials with summarized results,
 normalize electorate to range from 0.0 to 1.0.
 clustered voters,
+multiple issue dimensions,
 
 things to do:
 
-multiple issue dimensions,
 non-linear utility or piece-wise linear utility,
 **/
 
@@ -228,9 +226,10 @@ non-linear utility or piece-wise linear utility,
 namespace {
 
 /** number of trials. **/
-constexpr int kNTrials = 1;
+//constexpr int kNTrials = 1;
+//constexpr int kNTrials = 10;
 //constexpr int kNTrials = 30;
-//constexpr int kNTrials = 300;
+constexpr int kNTrials = 300;
 //constexpr int kNTrials = 1000;
 //constexpr int kNTrials = 30*1000;
 
@@ -242,8 +241,8 @@ constexpr int kNVoters = 1000;
 //constexpr int kNVoters = 10*1000;
 
 /** number of candidates **/
+//constexpr int kNCandidates = 3;
 constexpr int kNCandidates = 3;
-//constexpr int kNCandidates = 4;
 //constexpr int kNCandidates = 5;
 //constexpr int kNCandidates = 6;
 //constexpr int kNCandidates = 7;
@@ -253,12 +252,28 @@ constexpr int kElectorateUniform = 0;
 constexpr int kElectorateRandom = 1;
 constexpr int kElectorateClusters = 2;
 //constexpr int kElectorateMethod = kElectorateUniform;
-constexpr int kElectorateMethod = kElectorateRandom;
-//constexpr int kElectorateMethod = kElectorateClusters;
+//constexpr int kElectorateMethod = kElectorateRandom;
+constexpr int kElectorateMethod = kElectorateClusters;
 
 /** options for number of issue dimensions (axes). **/
 //constexpr int kNAxes = 1;
 constexpr int kNAxes = 2;
+//constexpr int kNAxes = 3;
+
+/**
+option for relative weighting of the axes.
+the major axis has a weight of 1.0.
+successive axes are scaled by this factor.
+should be >0.0 and <=1.0.
+intutition says 0.4 would be reasonable.
+this means most real world issues are reasonably correlated.
+and/or the minor issues are less important than the major one.
+which seems to be the case.
+1.0 means we have many uncorrelated issues.
+and they are all equally important.
+which seems a bit of a stretch.
+**/
+constexpr double kAxisWeightDecay = 0.4;
 
 /** options for choosing candidates **/
 constexpr int kCandidatesRandom = 0;
@@ -279,7 +294,7 @@ constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
 constexpr std::uint64_t kFixedSeed = 0;
-//constexpr std::uint64_t kFixedSeed = 1748463505672718893;
+//constexpr std::uint64_t kFixedSeed = 1748465869951332177;
 
 /**
 option to find the theoretical best candidate from the voters.
@@ -624,8 +639,10 @@ public:
     normalize all axes.
     **/
     void normalize() noexcept {
+        double weight = 1.0;
         for (int axis = 0; axis < naxes_; ++axis) {
-            normalize(axis);
+            normalize(axis, weight);
+            weight *= kAxisWeightDecay;
         }
     }
 
@@ -633,7 +650,8 @@ public:
     normalize the voters so they range from 0 to 1 along this axis.
     **/
     void normalize(
-        int axis
+        int axis,
+        double weight
     ) noexcept {
         double mn = 1e99;
         double mx = -1e99;
@@ -647,6 +665,7 @@ public:
             double pos = voter.position_.axis_[axis];
             pos -= mn;
             pos *= scale;
+            pos *= weight;
             pos = std::clamp(pos, 0.0, 1.0);
             voter.position_.axis_[axis] = pos;
         }
@@ -721,6 +740,9 @@ public:
 
     /** summary **/
     double total_satisfaction_ = 0.0;
+    double total_satisfaction_plurality_ = 0.0;
+    double total_satisfaction_condorcet_ = 0.0;
+    int winner_plurality_ = 0;
     bool won_first_round_ = 0;
     int majority_winners_ = 0;
     double min_satisfaction_ = 1.0;
@@ -755,10 +777,7 @@ public:
             /** vote, find winner, check results. **/
             vote();
             find_winner();
-            /** for summary **/
-            if (won_first_round_) {
-                ++majority_winners_;
-            }
+            winner_summaries();
             show_satisfaction();
             check_criteria();
         }
@@ -1109,6 +1128,19 @@ public:
                 counts[favorite] += candidate.support_;
             }
 
+            /** keep stats for plurality winners. **/
+            if (round == 1) {
+                winner_plurality_ = 0;
+                int mx = -1;
+                for (int i = 0; i < ncandidates_; ++i) {
+                    int count = counts[i];
+                    if (count > mx) {
+                        mx = count;
+                        winner_plurality_ = i;
+                    }
+                }
+            }
+
             /** show first place vote counts. **/
             bool show_it = show_everything;
             if (show_required && round == 1) {
@@ -1208,6 +1240,22 @@ public:
     }
 
     /**
+    called after find_winner to collect data for the summary.
+    **/
+    void winner_summaries() noexcept {
+        /** accumulate the satisfaction for the plurality winner. **/
+        auto& candidate = candidates_[winner_plurality_];
+        LOG(candidate.name_<<" is the plurality winner.");
+        double sat = (actual_.average_ - candidate.utility_) / (actual_.average_ - actual_.best_);
+        total_satisfaction_plurality_ += sat;
+
+        /** track how many times we have win by majority. **/
+        if (won_first_round_) {
+            ++majority_winners_;
+        }
+    }
+
+    /**
     voter satisfaction is a function of the utility of a candidate.
     the best candidate has satisfaction 1.0.
     the average candidate has a satisfaction of 0.0.
@@ -1230,7 +1278,7 @@ public:
     }
 
     void calculate_satisfaction(
-        Utility utility
+        const Utility& utility
     ) noexcept {
         double best = utility.best_;
         double average = utility.average_;
@@ -1240,6 +1288,17 @@ public:
             double satisfaction = dutility / denom;
             LOG(candidate.name_<<": "<<satisfaction<<" ("<<dutility<<")");
         }
+    }
+
+    double calculate_satisfaction(
+        double candidate_utility,
+        const Utility& utility
+    ) noexcept {
+        double best = utility.best_;
+        double average = utility.average_;
+        double denom = average - best;
+        double satisfaction = (average - candidate_utility) / denom;
+        return satisfaction;
     }
 
     void check_criteria() noexcept {
@@ -1327,27 +1386,44 @@ public:
             }
         }
 
-        /** find the candidate with the most wins. **/
+        /**
+        find the candidate with the most wins.
+        find the average utility while we're here.
+        **/
         int max = -1;
         int winner = 0;
-        bool multiple = false;
+        int nwinners = 0;
+        double total_utility = 0.0;
         for (int i = 0; i < ncandidates_; ++i) {
             int w = wins[i];
+            bool sum_it = false;
             if (max == w) {
-                multiple = true;
-            }
-            if (max < w) {
+                ++nwinners;
+                sum_it = true;
+            } else if (max < w) {
                 winner = i;
-                multiple = false;
+                nwinners = 1;
                 max = w;
+                total_utility = 0;
+                sum_it = true;
+            }
+            if (sum_it) {
+                total_utility += candidates_[i].utility_;
             }
         }
 
         /** no winner if there's a cycle. **/
-        if (multiple) {
+        if (nwinners > 1) {
             LOG("Condorcet cycle exists.");
-            return -1;
+            winner = -1;
         }
+
+        /**
+        average the utility for all candidates in the cycle if any.
+        accumulate for the summary.
+        **/
+        double utility = total_utility / double(nwinners);
+        total_satisfaction_condorcet_ += calculate_satisfaction(utility, actual_);
 
         return winner;
     }
@@ -1455,10 +1531,12 @@ public:
         }
 
         double denom = double(ntrials_);
-        double satisfaction = double(total_satisfaction_) / denom;
+        double satisfaction = total_satisfaction_ / denom;
         double min_satisfaction = min_satisfaction_;
         double regret = 1.0 - satisfaction;
         double max_regret = 1.0 - min_satisfaction;
+        double satisfaction_plurality = total_satisfaction_plurality_ / denom;
+        double satisfaction_condorcet = total_satisfaction_condorcet_/ denom;
         double majority_winners = 100.0 * double(majority_winners_) / denom;
         double maximizes_satisfaction = 100.0 * double(winner_maximizes_satisfaction_) / denom;
         double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
@@ -1470,6 +1548,8 @@ public:
         LOG("Summary:");
         LOG("Voter satisfaction (min)     : "<<satisfaction<<" ("<<min_satisfaction<<")");
         LOG("Voter regret (max)           : "<<regret<<" ("<<max_regret<<")");
+        LOG("Voter satisfaction plurality : "<<satisfaction_plurality);
+        LOG("Voter satisfaction condorcet : "<<satisfaction_condorcet);
         LOG("Won outright by true majority: "<<majority_winners<<"%");
         LOG("Maximizes voter satisfaction : "<<maximizes_satisfaction<<"%");
         LOG("Agrees with Condorcet        : "<<is_condorcet<<"%");

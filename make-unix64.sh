@@ -12,6 +12,6 @@ echo Building...
 pushd $BUILD_DIR_DEBUG
 make $CORES
 popd
-#pushd $BUILD_DIR_RELEASE
-#make $CORES
-#popd
+pushd $BUILD_DIR_RELEASE
+make $CORES
+popd
