@@ -226,10 +226,10 @@ non-linear utility or piece-wise linear utility,
 namespace {
 
 /** number of trials. **/
-//constexpr int kNTrials = 1;
+constexpr int kNTrials = 1;
 //constexpr int kNTrials = 10;
 //constexpr int kNTrials = 30;
-constexpr int kNTrials = 300;
+//constexpr int kNTrials = 300;
 //constexpr int kNTrials = 1000;
 //constexpr int kNTrials = 30*1000;
 
@@ -293,29 +293,29 @@ default compromise is about 0.4.
 constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
-constexpr std::uint64_t kFixedSeed = 0;
-//constexpr std::uint64_t kFixedSeed = 1748465869951332177;
+//constexpr std::uint64_t kFixedSeed = 0;
+constexpr std::uint64_t kFixedSeed = 1748491490031460113;
 
 /**
 option to find the theoretical best candidate from the voters.
 this feature is expensive and not used by the art.
 **/
-//constexpr bool kFindTheoreticalBestCandidate = true;
-constexpr bool kFindTheoreticalBestCandidate = false;
+constexpr bool kFindTheoreticalBestCandidate = true;
+//constexpr bool kFindTheoreticalBestCandidate = false;
 
 /**
 option to show the electorate distribution.
 this is a bit spammy.
 **/
-//constexpr bool kShowElectorateDistribution = true;
-constexpr bool kShowElectorateDistribution = false;
+constexpr bool kShowElectorateDistribution = true;
+//constexpr bool kShowElectorateDistribution = false;
 
 /**
 option to show details of all coombs rounds.
 this is a bit spammy.
 **/
-//constexpr bool kShowCoombsRounds = true;
-constexpr bool kShowCoombsRounds = false;
+constexpr bool kShowCoombsRounds = true;
+//constexpr bool kShowCoombsRounds = false;
 
 
 /** some functions should sometimes be quiet. **/
@@ -382,6 +382,20 @@ public:
             sum2 += dx * dx;
         }
         double dist = std::sqrt(sum2);
+
+        /**
+        hack the distance to be more of a utility distance.
+        near 0 is even nearer zero.
+        at a threshold value the utility distance equals the distance.
+        over the threshold asymptotically approaches 1.0.
+        a threshold of about 0.3 t0 0.4 feels about right.
+        the exponent factor would be 3.2 to 4.0.
+        **/
+#if 0
+        constexpr double kScaleFactor = 3.9;
+        dist = 1.0 - std::exp(- kScaleFactor * dist * dist);
+#endif
+
         return dist;
     }
 
@@ -459,6 +473,7 @@ public:
 
     /** ranking of other candidates. **/
     std::vector<int> rankings_;
+    std::vector<double> distances_;
 
     /** utility **/
     double utility_ = 0.0;
@@ -978,13 +993,14 @@ public:
             LOG("Candidate rankings of other candidates:");
             for (auto&& candidate : candidates_ ) {
                 std::stringstream ss;
-                ss << candidate.name_ << ":";
+                ss<<candidate.name_<<":";
                 for (int i = 1; i < ncandidates_; ++i) {
                     int rank = candidate.rankings_[i];
+                    double dist = candidate.distances_[i];
                     if (i > 1) {
-                        ss << " >";
+                        ss<<" >";
                     }
-                    ss << " " << candidates_[rank].name_;
+                    ss<<" "<<candidates_[rank].name_<<" ("<<dist<<")";
                 }
                 LOG(ss.str());
             }
@@ -994,25 +1010,22 @@ public:
     void rank_other_candidates(
         Candidate& candidate
     ) noexcept {
-        std::vector<double> distance;
-        distance.reserve(ncandidates_);
         candidate.rankings_.reserve(ncandidates_);
+        candidate.distances_.reserve(ncandidates_);
+        candidate.rankings_.resize(0);
+        candidate.distances_.resize(0);
 
         for (int i = 0; i < ncandidates_; ++i) {
             auto& other = candidates_[i];
             double d = candidate.position_.distance(other.position_);
             int k = 0;
-            for(;;) {
-                if (k>=i) {
+            for (; k < i; ++k) {
+                if (candidate.distances_[k] > d) {
                     break;
                 }
-                if (distance[k] > d) {
-                    break;
-                }
-                ++k;
             }
-            distance.insert(distance.begin() + k, d);
             candidate.rankings_.insert(candidate.rankings_.begin() + k, i);
+            candidate.distances_.insert(candidate.distances_.begin() + k, d);
         }
     }
 
@@ -1351,7 +1364,7 @@ public:
 
         /** best candididate has satisfaction of 1.0. **/
         double regret = 1.0 - satisfaction;
-        LOG("Voter bayesian regret (standard): "<<regret);
+        LOG("Voter bayesian regret: "<<regret);
 
         /** update summary **/
         total_satisfaction_ += satisfaction;
@@ -1359,6 +1372,14 @@ public:
 
         return winner;
     }
+
+    class HeadToHead {
+    public:
+        int winner_ = 0;
+        int loser_ = 0;
+        int winner_votes_ = 0;
+        int loser_votes_ = 0;
+    };
 
     /**
     condorcet wins the most head to head races.
@@ -1375,14 +1396,11 @@ public:
         /** count head to head victories. **/
         for (int i = 0; i < ncandidates_; ++i) {
             for (int k = i + 1; k < ncandidates_; ++k) {
-                bool result = head_to_head(i, k);
-                if (result) {
-                    LOG(candidates_[i].name_<<" > "<<candidates_[k].name_);
-                    ++wins[i];
-                } else {
-                    LOG(candidates_[k].name_<<" > "<<candidates_[i].name_);
-                    ++wins[k];
-                }
+                HeadToHead result;
+                head_to_head(i, k, result);
+                LOG(candidates_[result.winner_].name_<<" ("<<result.winner_votes_<<") > "
+                    <<candidates_[result.loser_].name_<<" ("<<result.loser_votes_<<")");
+                ++wins[result.winner_];
             }
         }
 
@@ -1432,9 +1450,10 @@ public:
     return true if candidate a will beat candidate b
     in a head to head matchup.
     **/
-    bool head_to_head(
+    void head_to_head(
         int a,
-        int b
+        int b,
+        HeadToHead &result
     ) noexcept {
         /** init counts **/
         int avotes = 0;
@@ -1459,7 +1478,17 @@ public:
         and that we're looking for a winner.
         in which case, by the rules, a wins ties.
         **/
-        return (avotes >= bvotes);
+        if (avotes >= bvotes) {
+            result.winner_ = a;
+            result.loser_ = b;
+            result.winner_votes_ = avotes;
+            result.loser_votes_ = bvotes;
+        } else {
+            result.winner_ = b;
+            result.loser_ = a;
+            result.winner_votes_ = bvotes;
+            result.loser_votes_ = avotes;
+        }
     }
 
     int check_monotonicity() noexcept {
