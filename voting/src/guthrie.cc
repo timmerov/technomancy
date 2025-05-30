@@ -287,29 +287,36 @@ default compromise is about 0.4.
 constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
-constexpr std::uint64_t kSeedChoice = 0;
-//constexpr std::uint64_t kSeedChoice = 1748491490031460113;
+//constexpr std::uint64_t kSeedChoice = 0;
+constexpr std::uint64_t kSeedChoice = 1748632174640245442;
 
 /**
 option to find the theoretical best candidate from the voters.
 this feature is expensive and not used by the art.
 **/
-//constexpr bool kFindTheoreticalBestCandidate = true;
-constexpr bool kFindTheoreticalBestCandidate = false;
+constexpr bool kFindTheoreticalBestCandidate = true;
+//constexpr bool kFindTheoreticalBestCandidate = false;
 
 /**
 option to show the electorate distribution.
 this is a bit spammy.
 **/
-//constexpr bool kShowElectorateDistribution = true;
-constexpr bool kShowElectorateDistribution = false;
+constexpr bool kShowElectorateDistribution = true;
+//constexpr bool kShowElectorateDistribution = false;
+
+/**
+option to show the voter blocs.
+this is a bit spammy.
+**/
+constexpr bool kShowVoterBlocs = true;
+//constexpr bool kShowVoterBlocs = false;
 
 /**
 option to show details of all coombs rounds.
 this is a bit spammy.
 **/
-//constexpr bool kShowCoombsRounds = true;
-constexpr bool kShowCoombsRounds = false;
+constexpr bool kShowCoombsRounds = true;
+//constexpr bool kShowCoombsRounds = false;
 
 
 /** some functions should sometimes be quiet. **/
@@ -328,6 +335,9 @@ public:
     double average_ = 0;
 };
 
+typedef std::vector<int> Rankings;
+typedef std::vector<double> Distances;
+
 class Candidate {
 public:
     /** generated name **/
@@ -340,8 +350,8 @@ public:
     int support_ = 0;
 
     /** ranking of other candidates. **/
-    std::vector<int> rankings_;
-    std::vector<double> distances_;
+    Rankings rankings_;
+    Distances distances_;
 
     /** utility **/
     double utility_ = 0.0;
@@ -353,6 +363,17 @@ public:
     }
 };
 typedef std::vector<Candidate> Candidates;
+
+class Bloc {
+public:
+    /** voters in this bloc. **/
+    int size_ = 0;
+
+    /** distances to candidates in ranked order. **/
+    Distances distances_;
+};
+
+typedef std::map<Rankings, Bloc> BlocMap;
 
 class GuthrieImpl {
 public:
@@ -369,6 +390,7 @@ public:
     /** the electorate and the candidates. **/
     Electorate electorate_;
     Candidates candidates_;
+    BlocMap bloc_map_;
 
     /** results from the trial. **/
     int winner_ = 0;
@@ -421,7 +443,7 @@ public:
             init_candidates();
 
             /** vote, find winner, check results. **/
-            digest_electorate();
+            create_blocs();
             vote();
             find_winner();
             winner_summaries();
@@ -509,9 +531,9 @@ public:
 
         /** show results. **/
         LOG("Best candidate chosen from all voters:");
-        LOG("  Position: "<<best_position->to_string());
-        LOG("  Utility : "<<best_utility);
-        LOG("  Average : "<<theoretical_.average_);
+        LOG(" Position: "<<best_position->to_string());
+        LOG(" Utility : "<<best_utility);
+        LOG(" Average : "<<theoretical_.average_);
     }
 
     void init_candidates() noexcept {
@@ -586,6 +608,7 @@ public:
             if (n <= ncandidates_) {
                 break;
             }
+            create_blocs(kQuiet);
             vote();
             int worst = 0;
             int worst_support = 0x7FFFFFFF;
@@ -611,7 +634,7 @@ public:
     void show_candidate_positions() noexcept {
         LOG("Candidate positions:");
         for (auto&& candidate : candidates_ ) {
-            LOG(candidate.name_<<": "<<candidate.position_.to_string());
+            LOG(" "<<candidate.name_<<": "<<candidate.position_.to_string());
         }
     }
 
@@ -627,7 +650,7 @@ public:
             LOG("Candidate rankings of other candidates:");
             for (auto&& candidate : candidates_ ) {
                 std::stringstream ss;
-                ss<<candidate.name_<<":";
+                ss<<" "<<candidate.name_<<":";
                 for (int i = 1; i < ncandidates_; ++i) {
                     int rank = candidate.rankings_[i];
                     double dist = candidate.distances_[i];
@@ -646,8 +669,8 @@ public:
     ) noexcept {
         candidate.rankings_.reserve(ncandidates_);
         candidate.distances_.reserve(ncandidates_);
-        candidate.rankings_.resize(0);
-        candidate.distances_.resize(0);
+        candidate.rankings_.clear();
+        candidate.distances_.clear();
 
         for (int i = 0; i < ncandidates_; ++i) {
             auto& other = candidates_[i];
@@ -702,81 +725,73 @@ public:
     }
 
     /**
-    experimental function to see if we can coagulate
-    a large number of voters into a small number of groups.
+    divide the electorate up into blocks.
+    computing the distance between voters and candidates is expensive.
+    will get worse when we convert from distance to utility.
     **/
-    void digest_electorate() noexcept {
+    void create_blocs(
+        bool quiet = (kShowVoterBlocs==false)
+    ) noexcept {
         /**
-        it seems like we repeatedly calculate the distance from voter to candidate.
-        seems inefficient and expensive.
-        especially when we move to an actual utility function instead of a distance function.
-
         when there are 3 candidates...
         the voters can only be ABC, ACB, BAC, BCA, CAB, CBA.
-        drop the rankings into a map.
         **/
-        typedef std::vector<int> Rankings;
-        typedef std::vector<double> Distances;
-        class Group {
-        public:
-            int count_ = 0;
-            Distances distances_;
-        };
-        std::map<Rankings, Group> digest;
-        Rankings r;
-        Group g;
-        auto& d = g.distances_;
+        bloc_map_.clear();
+        Rankings rankings;
+        Distances distances;
         int n = candidates_.size();
-        r.reserve(n);
-        d.reserve(n);
 
-        //LOG("=tsc= digesting electorate");
         for (auto&& voter : electorate_.voters_) {
-            r.resize(0);
-            d.resize(0);
+            rankings.reserve(n);
+            distances.reserve(n);
+            rankings.clear();
+            distances.clear();
 
             for (int i = 0; i < n; ++i) {
                 double distance = voter.position_.distance(candidates_[i].position_);
                 int k = 0;
                 for (; k < i; ++k) {
-                    if (d[k] > distance) {
+                    if (distances[k] > distance) {
                         break;
                     }
                 }
-                r.insert(r.begin() + k, i);
-                d.insert(d.begin() + k, distance);
+                rankings.insert(rankings.begin() + k, i);
+                distances.insert(distances.begin() + k, distance);
             }
 
-            auto it = digest.find(r);
-            if (it == digest.end()) {
-                g.count_ = 1;
-                digest.insert({r, g});
-                /*LOG("=tsc= inserting");
-                for (int i = 0; i < n; ++i) {
-                    LOG("=tsc= rank="<<r[i]<<" dist="<<d[i]);
-                }*/
+            auto it = bloc_map_.find(rankings);
+            if (it == bloc_map_.end()) {
+                Bloc bloc;
+                bloc.size_ = 1;
+                bloc.distances_ = std::move(distances);
+                bloc_map_.insert({std::move(rankings), std::move(bloc)});
             } else {
-                /*LOG("=tsc= accumulating");
+                auto& found_bloc = it->second;
+                ++found_bloc.size_;
                 for (int i = 0; i < n; ++i) {
-                    LOG("=tsc= rank="<<r[i]<<" dist="<<d[i]);
-                }*/
-                auto& gg = it->second;
-                auto& dd = gg.distances_;
-                ++gg.count_;
-                for (int i = 0; i < n; ++i) {
-                    dd[i] += d[i];
+                    found_bloc.distances_[i] += distances[i];
                 }
             }
         }
 
-        LOG("=tsc= digested map:");
-        for (auto&& it : digest) {
-            auto& rankings = it.first;
-            auto& group = it.second;
-            auto& distances = group.distances_;
-            LOG("=tsc= count="<<group.count_);
-            for (int i = 0; i < n; ++i) {
-                LOG("=tsc= rank="<<rankings[i]<<" dist="<<distances[i]);
+        if (quiet == false) {
+            int n = bloc_map_.size();
+            LOG("Voter blocs ("<<n<<"):");
+            for (auto&& it : bloc_map_) {
+                auto& rankings = it.first;
+                auto& bloc = it.second;
+                std::stringstream ss;
+                ss<<" ";
+                int nrankings = rankings.size();
+                for (int k = 0; k < nrankings; ++k) {
+                    int which = rankings[k];
+                    ss<<candidates_[which].name_;
+                }
+                ss<<" size: "<<bloc.size_<<" distances:";
+                for (int i = 0; i < nrankings; ++i) {
+                    ss<<" "<<bloc.distances_[i];
+                }
+                LOG(ss.str());
             }
         }
     }
@@ -791,31 +806,15 @@ public:
         }
 
         /**
-        for each voter...
-        find the closest candidate.
-        increment their support.
+        for each voter bloc...
+        give the support to that candidate.
         **/
-        for (auto&& voter : electorate_.voters_) {
-            int favorite = find_closest_candidate(voter.position_);
-            ++candidates_[favorite].support_;
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
+            int favorite = rankings[0];
+            candidates_[favorite].support_ += bloc.size_;
         }
-    }
-
-    int find_closest_candidate(
-        Position &position
-    ) noexcept {
-        int closest_candidate = 0;
-        double closest_distance = double(ncandidates_);
-        int ncandidates = candidates_.size();
-        for (int i = 0; i < ncandidates; ++i) {
-            auto& candidate = candidates_[i];
-            double distance = candidate.position_.distance(position);
-            if (distance < closest_distance) {
-                closest_candidate = i;
-                closest_distance = distance;
-            }
-        }
-        return closest_candidate;
     }
 
     void find_winner(
@@ -877,7 +876,7 @@ public:
                 LOG("First place vote counts:");
                 for (int i = 0; i < ncandidates_; ++i) {
                     auto& candidate = candidates_[i];
-                    LOG(candidate.name_<<": "<<counts[i]);
+                    LOG(" "<<candidate.name_<<": "<<counts[i]);
                 }
             }
 
@@ -945,20 +944,20 @@ public:
                 LOG("Last place vote counts:");
                 for (int i = 0; i < ncandidates_; ++i) {
                     auto& candidate = candidates_[i];
-                    LOG(candidate.name_<<": "<<counts[i]);
+                    LOG(" "<<candidate.name_<<": "<<counts[i]);
                 }
-                LOG("Candidate "<<candidates_[loser].name_<<" has the most last place votes - eliminated.");
+                LOG(" Candidate "<<candidates_[loser].name_<<" has the most last place votes - eliminated.");
 
                 LOG("Updated rankings:");
                 for (auto&& candidate : candidates_ ) {
                     std::stringstream ss;
-                    ss << candidate.name_ << ":";
+                    ss<<" "<<candidate.name_<<":";
                     for (int i = 0; i < last_index; ++i) {
                         int rank = candidate.rankings_[i];
                         if (i > 0) {
-                            ss << " >";
+                            ss<<" >";
                         }
-                        ss << " " << candidates_[rank].name_;
+                        ss<<" "<<candidates_[rank].name_;
                     }
                     LOG(ss.str());
                 }
@@ -1013,7 +1012,7 @@ public:
         for (auto&& candidate : candidates_) {
             double dutility = average - candidate.utility_;
             double satisfaction = dutility / denom;
-            LOG(candidate.name_<<": "<<satisfaction<<" ("<<dutility<<")");
+            LOG(" "<<candidate.name_<<": "<<satisfaction<<" ("<<dutility<<")");
         }
     }
 
@@ -1112,7 +1111,7 @@ public:
             for (int k = i + 1; k < ncandidates_; ++k) {
                 HeadToHead result;
                 head_to_head(i, k, result);
-                LOG(candidates_[result.winner_].name_<<" ("<<result.winner_votes_<<") > "
+                LOG(" "<<candidates_[result.winner_].name_<<" ("<<result.winner_votes_<<") > "
                     <<candidates_[result.loser_].name_<<" ("<<result.loser_votes_<<")");
                 ++wins[result.winner_];
             }
@@ -1231,6 +1230,7 @@ public:
             if (i != original_winner) {
                 /** re-vote. **/
                 rank_candidates(kQuiet);
+                create_blocs(kQuiet);
                 vote();
                 find_winner(kQuiet);
 

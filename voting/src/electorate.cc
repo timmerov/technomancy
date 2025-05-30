@@ -296,7 +296,7 @@ void Electorate::show_distribution() noexcept {
     LOG("Electorate distribution:");
     for (int axis = 0; axis < naxes_; ++axis) {
         if (naxes_ > 1) {
-            LOG("Axis: "<<axis);
+            LOG(" Axis: "<<axis);
         }
         show_distribution(axis);
     }
@@ -324,6 +324,6 @@ void Electorate::show_distribution(
     for (int i = 0; i < kNBins; ++i) {
         double mx = double(i+1) / kNBins;
         double frac = 100.0 * double(bins[i]) / nvoters;
-        LOG(mx<<": "<<bins[i]<<" "<<frac<<"%");
+        LOG("  "<<mx<<": "<<bins[i]<<" "<<frac<<"%");
     }
 }
