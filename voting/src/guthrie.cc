@@ -323,7 +323,7 @@ constexpr bool kShowCoombsRounds = false;
 constexpr bool kQuiet = true;
 
 
-class Utility {
+class SatisfactionMetrics {
 public:
     /** candidate with the best utility. **/
     int which_ = 0;
@@ -394,8 +394,8 @@ public:
 
     /** results from the trial. **/
     int winner_ = 0;
-    Utility theoretical_;
-    Utility actual_;
+    SatisfactionMetrics theoretical_;
+    SatisfactionMetrics actual_;
 
     /** summary **/
     double total_satisfaction_ = 0.0;
@@ -687,7 +687,7 @@ public:
     }
 
     void calculate_utilities(
-        Utility& result
+        SatisfactionMetrics& result
     ) noexcept {
         /** this might be the primary with extra candidates. **/
         int n = candidates_.size();
@@ -1004,10 +1004,10 @@ public:
     }
 
     void calculate_satisfaction(
-        const Utility& utility
+        const SatisfactionMetrics& metric
     ) noexcept {
-        double best = utility.best_;
-        double average = utility.average_;
+        double best = metric.best_;
+        double average = metric.average_;
         double denom = average - best;
         for (auto&& candidate : candidates_) {
             double dutility = average - candidate.utility_;
@@ -1017,13 +1017,13 @@ public:
     }
 
     double calculate_satisfaction(
-        double candidate_utility,
-        const Utility& utility
+        double utility,
+        const SatisfactionMetrics& metric
     ) noexcept {
-        double best = utility.best_;
-        double average = utility.average_;
+        double best = metric.best_;
+        double average = metric.average_;
         double denom = average - best;
-        double satisfaction = (average - candidate_utility) / denom;
+        double satisfaction = (average - utility) / denom;
         return satisfaction;
     }
 
