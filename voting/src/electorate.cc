@@ -132,9 +132,6 @@ void Electorate::init() noexcept {
     if (method_ != kElectorateUniform) {
         normalize();
     }
-
-    /** show the distribution. **/
-    show_distribution();
 }
 
 /** allocate space for the voter positions. **/

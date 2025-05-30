@@ -219,11 +219,11 @@ non-linear utility or piece-wise linear utility,
 namespace {
 
 /** number of trials. **/
-constexpr int kNTrials = 1;
+//constexpr int kNTrials = 1;
 //constexpr int kNTrials = 10;
 //constexpr int kNTrials = 30;
 //constexpr int kNTrials = 300;
-//constexpr int kNTrials = 1000;
+constexpr int kNTrials = 1000;
 //constexpr int kNTrials = 10*1000;
 //constexpr int kNTrials = 30*1000;
 
@@ -287,22 +287,22 @@ default compromise is about 0.4.
 constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
-//constexpr std::uint64_t kSeedChoice = 0;
-constexpr std::uint64_t kSeedChoice = 1748632174640245442;
+constexpr std::uint64_t kSeedChoice = 0;
+//constexpr std::uint64_t kSeedChoice = 1748632174640245442;
 
 /**
 option to find the theoretical best candidate from the voters.
 this feature is expensive and not used by the art.
 **/
-constexpr bool kFindTheoreticalBestCandidate = true;
-//constexpr bool kFindTheoreticalBestCandidate = false;
+//constexpr bool kFindTheoreticalBestCandidate = true;
+constexpr bool kFindTheoreticalBestCandidate = false;
 
 /**
 option to show the electorate distribution.
 this is a bit spammy.
 **/
-constexpr bool kShowElectorateDistribution = true;
-//constexpr bool kShowElectorateDistribution = false;
+//constexpr bool kShowElectorateDistribution = true;
+constexpr bool kShowElectorateDistribution = false;
 
 /**
 option to show the voter blocs.
@@ -315,8 +315,8 @@ constexpr bool kShowVoterBlocs = true;
 option to show details of all coombs rounds.
 this is a bit spammy.
 **/
-constexpr bool kShowCoombsRounds = true;
-//constexpr bool kShowCoombsRounds = false;
+//constexpr bool kShowCoombsRounds = true;
+constexpr bool kShowCoombsRounds = false;
 
 
 /** some functions should sometimes be quiet. **/
@@ -436,7 +436,7 @@ public:
 
             /** initialize the electorate and candidates. **/
             electorate_.init();
-            if (kShowElectorateDistribution == false) {
+            if (kShowElectorateDistribution) {
                 electorate_.show_distribution();
             }
             find_best_candidate();
