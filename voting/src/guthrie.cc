@@ -1180,23 +1180,27 @@ public:
         int b,
         HeadToHead &result
     ) noexcept {
-        /** init counts **/
+        /** init vote counts. **/
         int avotes = 0;
         int bvotes = 0;
 
-        /** candidate positions. **/
-        auto& apos = candidates_[a].position_;
-        auto& bpos = candidates_[b].position_;
+        /** for each voter bloc. **/
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
 
-        /** count votes. **/
-        for (auto&& voter : electorate_.voters_) {
-            double autil = voter.position_.utility(apos);
-            double butil = voter.position_.utility(bpos);
-            if (autil >= butil) {
-                ++avotes;
+            /** give the votes to whichever is first. */
+            for (auto&& which : rankings) {
+                if (which == a) {
+                    avotes += bloc.size_;
+                    break;
+                }
+                if (which == b) {
+                    bvotes += bloc.size_;
+                    break;
+                }
             }
         }
-        bvotes = electorate_.nvoters_ - avotes;
 
         /**
         we assume that a comes before b in the candidate list.
