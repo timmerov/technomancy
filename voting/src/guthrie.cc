@@ -214,15 +214,17 @@ non-linear utility or piece-wise linear utility,
 **/
 
 #include "guthrie.h"
+#include "random.h"
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
 
 #include <algorithm>
-#include <chrono>
+#include <cmath>
 #include <iomanip>
 #include <map>
-#include <random>
+#include <vector>
+
 
 namespace {
 
@@ -295,8 +297,8 @@ default compromise is about 0.4.
 constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
-constexpr std::uint64_t kFixedSeed = 0;
-//constexpr std::uint64_t kFixedSeed = 1748491490031460113;
+constexpr std::uint64_t kSeedChoice = 0;
+//constexpr std::uint64_t kSeedChoice = 1748491490031460113;
 
 /**
 option to find the theoretical best candidate from the voters.
@@ -322,45 +324,6 @@ constexpr bool kShowCoombsRounds = false;
 
 /** some functions should sometimes be quiet. **/
 constexpr bool kQuiet = true;
-
-class RandomNumberGenerator {
-public:
-    RandomNumberGenerator() = default;
-    ~RandomNumberGenerator() = default;
-
-    std::uint64_t seed_ = 0;
-    std::mt19937_64 rng_;
-    std::uniform_real_distribution<double> unif_;
-    std::normal_distribution<double> norm_;
-
-    void init() noexcept {
-        seed_ = kFixedSeed;
-        if (seed_ == 0) {
-            seed_ = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-        }
-        std::seed_seq ss{uint32_t(seed_ & 0xffffffff), uint32_t(seed_>>32)};
-        rng_.seed(ss);
-        unif_ = std::uniform_real_distribution<double>(0.0, 1.0);
-        norm_ = std::normal_distribution<double>(0.0, 1.0);
-    }
-
-    double generate() noexcept {
-        double x = unif_(rng_);
-        return x;
-    }
-
-    int generate(int max) noexcept {
-        double x = generate();
-        int i = std::floor(x * double(max));
-        return i;
-    }
-
-    double normal() noexcept {
-        double x = norm_(rng_);
-        return x;
-    }
-};
-static RandomNumberGenerator *rng_ = nullptr;
 
 class Position {
 public:
@@ -565,7 +528,7 @@ public:
         for (int i = 0; i < nvoters_; ++i) {
             auto& axis = voters_[i].position_.axis_;
             for (int k = 0; k < naxes_; ++k) {
-                axis[k] = rng_->generate();
+                axis[k] = Rng::generate();
             }
         }
     }
@@ -591,7 +554,7 @@ public:
         clusters_.resize(nclusters);
         for (auto&& cluster : clusters_) {
             cluster.count_ = 0;
-            cluster.position_ = rng_->generate();
+            cluster.position_ = Rng::generate();
         }
         std::sort(clusters_.begin(), clusters_.end());
 
@@ -628,7 +591,7 @@ public:
             where = k;
         } else {
             /** populare clusters attract more people. **/
-            int rn = rng_->generate(k);
+            int rn = Rng::generate(k);
             for (auto&& cluster : clusters_) {
                 rn -= cluster.count_;
                 if (rn < 0) {
@@ -647,7 +610,7 @@ public:
 
         /** position the voter. **/
         auto& voter = voters_[k];
-        double rn = rng_->normal() * kStdDev;
+        double rn = Rng::normal() * kStdDev;
         double position = cluster.position_ + rn;
         voter.position_.axis_[axis] = position;
     }
@@ -769,8 +732,7 @@ public:
 
     void run() noexcept {
         /** initialize the random number generators. **/
-        rng_ = new(std::nothrow) RandomNumberGenerator();
-        rng_->init();
+        RandomNumberGenerator::init(kSeedChoice);
 
         /** some sanity checks. **/
         sanity_checks();
@@ -829,14 +791,16 @@ public:
 
     /** show configuration. **/
     void show_header() noexcept {
+        auto seed = Rng::get_seed();
+
         LOG("Configuration:");
         LOG("Number trials    : "<<ntrials_);
         LOG("Number voters    : "<<nvoters_);
         LOG("Number candidates: "<<ncandidates_);
-        if (kFixedSeed == 0) {
-            LOG("Random seed      : "<<rng_->seed_);
+        if (kSeedChoice == 0) {
+            LOG("Random seed      : "<<seed);
         } else {
-            LOG("Fixed seed       : "<<rng_->seed_);
+            LOG("Fixed seed       : "<<seed);
         }
     }
 
@@ -934,7 +898,7 @@ public:
         for (auto&& candidate : candidates_) {
             int i = 0;
             for(;;) {
-                i = rng_->generate(nvoters_);
+                i = Rng::generate(nvoters_);
                 if (duplicates[i] == false) {
                     break;
                 }
