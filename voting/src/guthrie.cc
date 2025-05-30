@@ -221,6 +221,7 @@ non-linear utility or piece-wise linear utility,
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
+#include <map>
 #include <random>
 
 namespace {
@@ -231,6 +232,7 @@ constexpr int kNTrials = 1;
 //constexpr int kNTrials = 30;
 //constexpr int kNTrials = 300;
 //constexpr int kNTrials = 1000;
+//constexpr int kNTrials = 10*1000;
 //constexpr int kNTrials = 30*1000;
 
 /** number of voters. **/
@@ -293,29 +295,29 @@ default compromise is about 0.4.
 constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
-//constexpr std::uint64_t kFixedSeed = 0;
-constexpr std::uint64_t kFixedSeed = 1748491490031460113;
+constexpr std::uint64_t kFixedSeed = 0;
+//constexpr std::uint64_t kFixedSeed = 1748491490031460113;
 
 /**
 option to find the theoretical best candidate from the voters.
 this feature is expensive and not used by the art.
 **/
-constexpr bool kFindTheoreticalBestCandidate = true;
-//constexpr bool kFindTheoreticalBestCandidate = false;
+//constexpr bool kFindTheoreticalBestCandidate = true;
+constexpr bool kFindTheoreticalBestCandidate = false;
 
 /**
 option to show the electorate distribution.
 this is a bit spammy.
 **/
-constexpr bool kShowElectorateDistribution = true;
-//constexpr bool kShowElectorateDistribution = false;
+//constexpr bool kShowElectorateDistribution = true;
+constexpr bool kShowElectorateDistribution = false;
 
 /**
 option to show details of all coombs rounds.
 this is a bit spammy.
 **/
-constexpr bool kShowCoombsRounds = true;
-//constexpr bool kShowCoombsRounds = false;
+//constexpr bool kShowCoombsRounds = true;
+constexpr bool kShowCoombsRounds = false;
 
 
 /** some functions should sometimes be quiet. **/
@@ -790,6 +792,7 @@ public:
             init_candidates();
 
             /** vote, find winner, check results. **/
+            digest_electorate();
             vote();
             find_winner();
             winner_summaries();
@@ -1065,6 +1068,86 @@ public:
         result.which_ = best_candidate;
         result.best_ = best_utility;
         result.average_ = random_utility;
+    }
+
+    /**
+    experimental function to see if we can coagulate
+    a large number of voters into a small number of groups.
+    **/
+    void digest_electorate() noexcept {
+        /**
+        it seems like we repeatedly calculate the distance from voter to candidate.
+        seems inefficient and expensive.
+        especially when we move to an actual utility function instead of a distance function.
+
+        when there are 3 candidates...
+        the voters can only be ABC, ACB, BAC, BCA, CAB, CBA.
+        drop the rankings into a map.
+        **/
+        typedef std::vector<int> Rankings;
+        typedef std::vector<double> Distances;
+        class Group {
+        public:
+            int count_ = 0;
+            Distances distances_;
+        };
+        std::map<Rankings, Group> digest;
+        Rankings r;
+        Group g;
+        auto& d = g.distances_;
+        int n = candidates_.size();
+        r.reserve(n);
+        d.reserve(n);
+
+        //LOG("=tsc= digesting electorate");
+        for (auto&& voter : electorate_.voters_) {
+            r.resize(0);
+            d.resize(0);
+
+            for (int i = 0; i < n; ++i) {
+                double distance = voter.position_.distance(candidates_[i].position_);
+                int k = 0;
+                for (; k < i; ++k) {
+                    if (d[k] > distance) {
+                        break;
+                    }
+                }
+                r.insert(r.begin() + k, i);
+                d.insert(d.begin() + k, distance);
+            }
+
+            auto it = digest.find(r);
+            if (it == digest.end()) {
+                g.count_ = 1;
+                digest.insert({r, g});
+                /*LOG("=tsc= inserting");
+                for (int i = 0; i < n; ++i) {
+                    LOG("=tsc= rank="<<r[i]<<" dist="<<d[i]);
+                }*/
+            } else {
+                /*LOG("=tsc= accumulating");
+                for (int i = 0; i < n; ++i) {
+                    LOG("=tsc= rank="<<r[i]<<" dist="<<d[i]);
+                }*/
+                auto& gg = it->second;
+                auto& dd = gg.distances_;
+                ++gg.count_;
+                for (int i = 0; i < n; ++i) {
+                    dd[i] += d[i];
+                }
+            }
+        }
+
+        LOG("=tsc= digested map:");
+        for (auto&& it : digest) {
+            auto& rankings = it.first;
+            auto& group = it.second;
+            auto& distances = group.distances_;
+            LOG("=tsc= count="<<group.count_);
+            for (int i = 0; i < n; ++i) {
+                LOG("=tsc= rank="<<rankings[i]<<" dist="<<distances[i]);
+            }
+        }
     }
 
     void vote() noexcept {
