@@ -48,14 +48,18 @@ public:
     }
 };
 
-/** return the distance to another position. **/
-double Position::distance(
+/**
+calculate the utility of the other's position.
+utility is defined to be 1.0 when distance is 0.0.
+utility decreases with distance.
+**/
+double Position::utility(
     const Position& other
 ) noexcept {
     int naxes = axis_.size();
     if (naxes == 1) {
-        double dist = std::abs(axis_[0] - other.axis_[0]);
-        return dist;
+        double utility = 1.0 - std::abs(axis_[0] - other.axis_[0]);
+        return utility;
     }
     double sum2 = 0.0;
     for (int i = 0; i < naxes; ++i) {
@@ -64,20 +68,26 @@ double Position::distance(
     }
     double dist = std::sqrt(sum2);
 
+    /** the simplest model for utility is 1.0 - distance. **/
+    double utility = 1.0 - dist;
+
     /**
+    ==experimental==
+    non-linear utility.
+
     hack the distance to be more of a utility distance.
-    near 0 is even nearer zero.
-    at a threshold value the utility distance equals the distance.
-    over the threshold asymptotically approaches 1.0.
+    near 0.0 is even nearer 1.0.
+    at a threshold value the utility equals the 1.0 - distance.
+    over the threshold asymptotically approaches 0.0.
     a threshold of about 0.3 t0 0.4 feels about right.
     the exponent factor would be 3.2 to 4.0.
     **/
 #if 0
     constexpr double kScaleFactor = 3.9;
-    dist = 1.0 - std::exp(- kScaleFactor * dist * dist);
+    double utility = std::exp(- kScaleFactor * dist * dist);
 #endif
 
-    return dist;
+    return utility;
 }
 
 /** format the position as a string. **/

@@ -219,11 +219,11 @@ non-linear utility or piece-wise linear utility,
 namespace {
 
 /** number of trials. **/
-//constexpr int kNTrials = 1;
+constexpr int kNTrials = 1;
 //constexpr int kNTrials = 10;
 //constexpr int kNTrials = 30;
 //constexpr int kNTrials = 300;
-constexpr int kNTrials = 1000;
+//constexpr int kNTrials = 1000;
 //constexpr int kNTrials = 10*1000;
 //constexpr int kNTrials = 30*1000;
 
@@ -287,8 +287,8 @@ default compromise is about 0.4.
 constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
-constexpr std::uint64_t kSeedChoice = 0;
-//constexpr std::uint64_t kSeedChoice = 1748632174640245442;
+//constexpr std::uint64_t kSeedChoice = 0;
+constexpr std::uint64_t kSeedChoice = 1748638784683180555;
 
 /**
 option to find the theoretical best candidate from the voters.
@@ -315,8 +315,8 @@ constexpr bool kShowVoterBlocs = true;
 option to show details of all coombs rounds.
 this is a bit spammy.
 **/
-//constexpr bool kShowCoombsRounds = true;
-constexpr bool kShowCoombsRounds = false;
+constexpr bool kShowCoombsRounds = true;
+//constexpr bool kShowCoombsRounds = false;
 
 
 /** some functions should sometimes be quiet. **/
@@ -336,7 +336,7 @@ public:
 };
 
 typedef std::vector<int> Rankings;
-typedef std::vector<double> Distances;
+typedef std::vector<double> Utilities;
 
 class Candidate {
 public:
@@ -351,7 +351,7 @@ public:
 
     /** ranking of other candidates. **/
     Rankings rankings_;
-    Distances distances_;
+    Utilities utilities_;
 
     /** utility **/
     double utility_ = 0.0;
@@ -370,7 +370,7 @@ public:
     int size_ = 0;
 
     /** distances to candidates in ranked order. **/
-    Distances distances_;
+    Utilities utilities_;
 };
 
 typedef std::map<Rankings, Bloc> BlocMap;
@@ -441,9 +441,8 @@ public:
             }
             find_best_candidate();
             init_candidates();
-
-            /** vote, find winner, check results. **/
             create_blocs();
+            calculate_utilities(actual_);
             vote();
             find_winner();
             winner_summaries();
@@ -511,9 +510,9 @@ public:
             double utility = 0.0;
             for (int k = 0; k < electorate_.nvoters_; ++k) {
                 auto& kpos = electorate_.voters_[k].position_;
-                utility += ipos.distance(kpos);
+                utility += ipos.utility(kpos);
             }
-            if (utility < best_utility) {
+            if (utility > best_utility) {
                 best = i;
                 best_utility = utility;
                 best_position = &ipos;
@@ -553,7 +552,6 @@ public:
         name_candidates();
         show_candidate_positions();
         rank_candidates();
-        calculate_utilities(actual_);
     }
 
     void pick_candidates_from_electorate() noexcept {
@@ -653,11 +651,11 @@ public:
                 ss<<" "<<candidate.name_<<":";
                 for (int i = 1; i < ncandidates_; ++i) {
                     int rank = candidate.rankings_[i];
-                    double dist = candidate.distances_[i];
+                    double utility = candidate.utilities_[i];
                     if (i > 1) {
                         ss<<" >";
                     }
-                    ss<<" "<<candidates_[rank].name_<<" ("<<dist<<")";
+                    ss<<" "<<candidates_[rank].name_<<" ("<<utility<<")";
                 }
                 LOG(ss.str());
             }
@@ -668,48 +666,62 @@ public:
         Candidate& candidate
     ) noexcept {
         candidate.rankings_.reserve(ncandidates_);
-        candidate.distances_.reserve(ncandidates_);
+        candidate.utilities_.reserve(ncandidates_);
         candidate.rankings_.clear();
-        candidate.distances_.clear();
+        candidate.utilities_.clear();
 
         for (int i = 0; i < ncandidates_; ++i) {
             auto& other = candidates_[i];
-            double d = candidate.position_.distance(other.position_);
+            double utility = candidate.position_.utility(other.position_);
             int k = 0;
             for (; k < i; ++k) {
-                if (candidate.distances_[k] > d) {
+                if (utility > candidate.utilities_[k]) {
                     break;
                 }
             }
             candidate.rankings_.insert(candidate.rankings_.begin() + k, i);
-            candidate.distances_.insert(candidate.distances_.begin() + k, d);
+            candidate.utilities_.insert(candidate.utilities_.begin() + k, utility);
         }
     }
 
+    /**
+    calculate the total utilities of all of the candidates.
+    **/
     void calculate_utilities(
         SatisfactionMetrics& result
     ) noexcept {
+
+        /** reset the candidate utilities. **/
+        for (auto& candidate : candidates_) {
+            candidate.utility_ = 0.0;
+        }
+
+        /** use the voter blocks. **/
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
+            int n = rankings.size();
+            for (int i = 0; i < n; ++i) {
+                int which = rankings[i];
+                candidates_[which].utility_ += bloc.utilities_[i];
+            }
+        }
+
         /** this might be the primary with extra candidates. **/
         int n = candidates_.size();
 
         /**
-        calculate candidate utility.
-        remember who is best.
+        find the best candidate.
+        their utility.
+        and the total utility.
         **/
         int best_candidate = 0;
-        double best_utility = 1e99;
+        double best_utility = -1.0;
         double total_utility = 0.0;
         for (int i = 0; i < n; ++i) {
-            /** calculate the utility for this candidate. **/
-            auto& candidate = candidates_[i];
-            double utility = 0.0;
-            for (auto&& voter : electorate_.voters_) {
-                utility += candidate.position_.distance(voter.position_);
-            }
-            candidate.utility_ = utility;
-
             /** update best and sum **/
-            if (best_utility > utility) {
+            double utility = candidates_[i].utility_;
+            if (utility > best_utility) {
                 best_candidate = i;
                 best_utility = utility;
             }
@@ -717,11 +729,12 @@ public:
         }
 
         /** compute utility or random candidate. **/
-        double random_utility = total_utility / double(n);
+        double average_utility = total_utility / double(n);
 
+        /** return results. **/
         result.which_ = best_candidate;
         result.best_ = best_utility;
-        result.average_ = random_utility;
+        result.average_ = average_utility;
     }
 
     /**
@@ -738,38 +751,38 @@ public:
         **/
         bloc_map_.clear();
         Rankings rankings;
-        Distances distances;
+        Utilities utilities;
         int n = candidates_.size();
 
         for (auto&& voter : electorate_.voters_) {
             rankings.reserve(n);
-            distances.reserve(n);
+            utilities.reserve(n);
             rankings.clear();
-            distances.clear();
+            utilities.clear();
 
             for (int i = 0; i < n; ++i) {
-                double distance = voter.position_.distance(candidates_[i].position_);
+                double utility = voter.position_.utility(candidates_[i].position_);
                 int k = 0;
                 for (; k < i; ++k) {
-                    if (distances[k] > distance) {
+                    if (utility > utilities[k]) {
                         break;
                     }
                 }
                 rankings.insert(rankings.begin() + k, i);
-                distances.insert(distances.begin() + k, distance);
+                utilities.insert(utilities.begin() + k, utility);
             }
 
             auto it = bloc_map_.find(rankings);
             if (it == bloc_map_.end()) {
                 Bloc bloc;
                 bloc.size_ = 1;
-                bloc.distances_ = std::move(distances);
+                bloc.utilities_ = std::move(utilities);
                 bloc_map_.insert({std::move(rankings), std::move(bloc)});
             } else {
                 auto& found_bloc = it->second;
                 ++found_bloc.size_;
                 for (int i = 0; i < n; ++i) {
-                    found_bloc.distances_[i] += distances[i];
+                    found_bloc.utilities_[i] += utilities[i];
                 }
             }
         }
@@ -787,9 +800,9 @@ public:
                     int which = rankings[k];
                     ss<<candidates_[which].name_;
                 }
-                ss<<" size: "<<bloc.size_<<" distances:";
+                ss<<" size: "<<bloc.size_<<" utilities:";
                 for (int i = 0; i < nrankings; ++i) {
-                    ss<<" "<<bloc.distances_[i];
+                    ss<<" "<<bloc.utilities_[i];
                 }
                 LOG(ss.str());
             }
@@ -1008,9 +1021,9 @@ public:
     ) noexcept {
         double best = metric.best_;
         double average = metric.average_;
-        double denom = average - best;
+        double denom = best - average;
         for (auto&& candidate : candidates_) {
-            double dutility = average - candidate.utility_;
+            double dutility = candidate.utility_ - average;
             double satisfaction = dutility / denom;
             LOG(" "<<candidate.name_<<": "<<satisfaction<<" ("<<dutility<<")");
         }
@@ -1022,8 +1035,7 @@ public:
     ) noexcept {
         double best = metric.best_;
         double average = metric.average_;
-        double denom = average - best;
-        double satisfaction = (average - utility) / denom;
+        double satisfaction = (utility - average) / (best - average);
         return satisfaction;
     }
 
@@ -1178,9 +1190,9 @@ public:
 
         /** count votes. **/
         for (auto&& voter : electorate_.voters_) {
-            double adist = voter.position_.distance(apos);
-            double bdist = voter.position_.distance(bpos);
-            if (adist < bdist) {
+            double autil = voter.position_.utility(apos);
+            double butil = voter.position_.utility(bpos);
+            if (autil >= butil) {
                 ++avotes;
             }
         }

@@ -25,8 +25,8 @@ public:
 
     std::vector<double> axis_;
 
-    /** return the distance to another position. **/
-    double distance(const Position& other) noexcept;
+    /** return the utility to another position. **/
+    double utility(const Position& other) noexcept;
 
     /** format the position as a string. **/
     std::string to_string() noexcept;
