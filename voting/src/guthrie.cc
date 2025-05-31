@@ -271,8 +271,8 @@ constexpr double kAxisWeightDecay = 0.4;
 
 /** options for choosing candidates **/
 constexpr int kCandidatesRandom = 0;
-constexpr int kCanddiatesSingleTransferableVote = 1;
-constexpr int kCandidateMethod = kCanddiatesSingleTransferableVote;
+constexpr int kCandidatesSingleTransferableVote = 1;
+constexpr int kCandidateMethod = kCandidatesSingleTransferableVote;
 
 /**
 with the single transferable vote primary...
@@ -287,8 +287,8 @@ default compromise is about 0.4.
 constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
-//constexpr std::uint64_t kSeedChoice = 0;
-constexpr std::uint64_t kSeedChoice = 1748638784683180555;
+constexpr std::uint64_t kSeedChoice = 0;
+//constexpr std::uint64_t kSeedChoice = 1748638784683180555;
 
 /**
 option to find the theoretical best candidate from the voters.
@@ -315,8 +315,8 @@ constexpr bool kShowVoterBlocs = true;
 option to show details of all coombs rounds.
 this is a bit spammy.
 **/
-constexpr bool kShowCoombsRounds = true;
-//constexpr bool kShowCoombsRounds = false;
+//constexpr bool kShowCoombsRounds = true;
+constexpr bool kShowCoombsRounds = false;
 
 
 /** some functions should sometimes be quiet. **/
@@ -441,7 +441,6 @@ public:
             }
             find_best_candidate();
             init_candidates();
-            create_blocs();
             calculate_utilities(actual_);
             vote();
             find_winner();
@@ -557,7 +556,7 @@ public:
     void pick_candidates_from_electorate() noexcept {
         /** choose the number of candidates based on the specified method. **/
         int n = ncandidates_;
-        if (canddiate_method_ == kCanddiatesSingleTransferableVote) {
+        if (canddiate_method_ == kCandidatesSingleTransferableVote) {
             /** use the cube root of the numbe of voters. **/
             double cube_root = std::pow(double(electorate_.nvoters_), kPrimaryPower);
             n = (int) std::round(cube_root);
@@ -582,6 +581,7 @@ public:
         for (int i = 0; i < electorate_.nvoters_; ++i) {
             duplicates[i] = false;
         }
+        char name = 'a';
         for (auto&& candidate : candidates_) {
             int i = 0;
             for(;;) {
@@ -591,11 +591,18 @@ public:
                 }
             }
             duplicates[i] = true;
+            candidate.name_ = name++;
             candidate.position_ = electorate_.voters_[i].position_;
         }
     }
 
     void single_transferable_vote_primary() noexcept {
+        /**
+        creating blocs is expensive.
+        reducing blocks is cheaper.
+        **/
+        create_blocs(kQuiet);
+
         /**
         reduce the number of candidates.
         remove the ones with the lowest vote counts.
@@ -606,7 +613,6 @@ public:
             if (n <= ncandidates_) {
                 break;
             }
-            create_blocs(kQuiet);
             vote();
             int worst = 0;
             int worst_support = 0x7FFFFFFF;
@@ -618,6 +624,7 @@ public:
                 }
             }
             candidates_.erase(candidates_.begin() + worst);
+            reduce_blocs(worst, kQuiet);
         }
     }
 
@@ -760,6 +767,7 @@ public:
             rankings.clear();
             utilities.clear();
 
+            /** create the rankings and the utility. **/
             for (int i = 0; i < n; ++i) {
                 double utility = voter.position_.utility(candidates_[i].position_);
                 int k = 0;
@@ -772,13 +780,16 @@ public:
                 utilities.insert(utilities.begin() + k, utility);
             }
 
+            /** find the key. **/
             auto it = bloc_map_.find(rankings);
             if (it == bloc_map_.end()) {
+                /** add new bloc. **/
                 Bloc bloc;
                 bloc.size_ = 1;
                 bloc.utilities_ = std::move(utilities);
                 bloc_map_.insert({std::move(rankings), std::move(bloc)});
             } else {
+                /** add to the existing bloc. **/
                 auto& found_bloc = it->second;
                 ++found_bloc.size_;
                 for (int i = 0; i < n; ++i) {
@@ -788,24 +799,102 @@ public:
         }
 
         if (quiet == false) {
-            int n = bloc_map_.size();
-            LOG("Voter blocs ("<<n<<"):");
-            for (auto&& it : bloc_map_) {
-                auto& rankings = it.first;
-                auto& bloc = it.second;
-                std::stringstream ss;
-                ss<<" ";
-                int nrankings = rankings.size();
-                for (int k = 0; k < nrankings; ++k) {
-                    int which = rankings[k];
-                    ss<<candidates_[which].name_;
+            show_bloc_map();
+        }
+    }
+
+    /**
+    the k-th candidate has been removed.
+    recreate the blocs without him.
+    recreate the new keys and the new utilities.
+    **/
+    void reduce_blocs(
+        int k,
+        bool quiet = (kShowVoterBlocs==false)
+    ) noexcept {
+        Rankings new_rankings;
+        Utilities new_utilities;
+        BlocMap new_bloc_map;
+
+        int n = candidates_.size();
+
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
+
+            new_rankings.reserve(n);
+            new_utilities.reserve(n);
+            new_rankings.clear();
+            new_utilities.clear();
+
+            /**
+            copy the old rankings and utilities
+            omitting the former k-th candidate.
+            adjust number for the new candidates.
+
+            the original block map has keys of size n+1.
+            hence the less than or equal.
+            **/
+            for (int i = 0; i <= n; ++i) {
+                int r = rankings[i];
+                if (r == k) {
+                    /** skip the removed candidate. **/
+                    continue;
                 }
-                ss<<" size: "<<bloc.size_<<" utilities:";
-                for (int i = 0; i < nrankings; ++i) {
-                    ss<<" "<<bloc.utilities_[i];
+                double u = bloc.utilities_[i];
+                int new_r = r;
+                if (new_r > k) {
+                    /** later candidates change index. **/
+                    --new_r;
                 }
-                LOG(ss.str());
+                new_rankings.push_back(new_r);
+                new_utilities.push_back(u);
             }
+
+            /** find the new rankings in the map. **/
+            auto rit = new_bloc_map.find(new_rankings);
+            if (rit == new_bloc_map.end()) {
+                /** add a new bloc. **/
+                Bloc new_bloc;
+                new_bloc.size_ = bloc.size_;
+                new_bloc.utilities_ = std::move(new_utilities);
+                new_bloc_map.insert({std::move(new_rankings), std::move(new_bloc)});
+            } else {
+                /** accumulate into an existing bloc. **/
+                auto& found_bloc = rit->second;
+                found_bloc.size_ += bloc.size_;
+                for (int i = 0; i < n; ++i) {
+                    found_bloc.utilities_[i] += new_utilities[i];
+                }
+            }
+        }
+
+        /** blow away the old bloc. **/
+        bloc_map_ = std::move(new_bloc_map);
+
+        if (quiet == false) {
+            show_bloc_map();
+        }
+    }
+
+    void show_bloc_map() noexcept {
+        int n = bloc_map_.size();
+        LOG("Voter blocs ("<<n<<"):");
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
+            std::stringstream ss;
+            ss<<" ";
+            int nrankings = rankings.size();
+            for (int k = 0; k < nrankings; ++k) {
+                int which = rankings[k];
+                ss<<candidates_[which].name_;
+            }
+            ss<<" size: "<<bloc.size_<<" utilities:";
+            for (int i = 0; i < nrankings; ++i) {
+                ss<<" "<<bloc.utilities_[i];
+            }
+            LOG(ss.str());
         }
     }
 
