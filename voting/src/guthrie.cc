@@ -308,8 +308,8 @@ constexpr bool kShowElectorateDistribution = false;
 option to show the voter blocs.
 this is a bit spammy.
 **/
-constexpr bool kShowVoterBlocs = true;
-//constexpr bool kShowVoterBlocs = false;
+//constexpr bool kShowVoterBlocs = true;
+constexpr bool kShowVoterBlocs = false;
 
 /**
 option to show details of all coombs rounds.
@@ -545,10 +545,13 @@ public:
         **/
         LOG("Selecting candidates from the electorate.");
         pick_candidates_from_electorate();
-        single_transferable_vote_primary();
         /** sort them. **/
         std::sort(candidates_.begin(), candidates_.end());
+        single_transferable_vote_primary();
         name_candidates();
+        if (kShowVoterBlocs) {
+            show_bloc_map();
+        }
         show_candidate_positions();
         rank_candidates();
     }
@@ -601,7 +604,7 @@ public:
         creating blocs is expensive.
         reducing blocks is cheaper.
         **/
-        create_blocs(kQuiet);
+        create_blocs();
 
         /**
         reduce the number of candidates.
@@ -624,7 +627,7 @@ public:
                 }
             }
             candidates_.erase(candidates_.begin() + worst);
-            reduce_blocs(worst, kQuiet);
+            reduce_blocs(worst);
         }
     }
 
@@ -749,9 +752,7 @@ public:
     computing the distance between voters and candidates is expensive.
     will get worse when we convert from distance to utility.
     **/
-    void create_blocs(
-        bool quiet = (kShowVoterBlocs==false)
-    ) noexcept {
+    void create_blocs() noexcept {
         /**
         when there are 3 candidates...
         the voters can only be ABC, ACB, BAC, BCA, CAB, CBA.
@@ -769,7 +770,8 @@ public:
 
             /** create the rankings and the utility. **/
             for (int i = 0; i < n; ++i) {
-                double utility = voter.position_.utility(candidates_[i].position_);
+                auto& candidate = candidates_[i];
+                double utility = voter.position_.utility(candidate.position_);
                 int k = 0;
                 for (; k < i; ++k) {
                     if (utility > utilities[k]) {
@@ -797,10 +799,6 @@ public:
                 }
             }
         }
-
-        if (quiet == false) {
-            show_bloc_map();
-        }
     }
 
     /**
@@ -809,8 +807,7 @@ public:
     recreate the new keys and the new utilities.
     **/
     void reduce_blocs(
-        int k,
-        bool quiet = (kShowVoterBlocs==false)
+        int k
     ) noexcept {
         Rankings new_rankings;
         Utilities new_utilities;
@@ -871,10 +868,6 @@ public:
 
         /** blow away the old bloc. **/
         bloc_map_ = std::move(new_bloc_map);
-
-        if (quiet == false) {
-            show_bloc_map();
-        }
     }
 
     void show_bloc_map() noexcept {
@@ -1331,11 +1324,13 @@ public:
 
         /** remove one of the non-winners and revote. **/
         for (int i = 0; i < ncandidates; ++i) {
+            show_candidate_positions();
+
             /** skip the winner. **/
             if (i != original_winner) {
                 /** re-vote. **/
                 rank_candidates(kQuiet);
-                create_blocs(kQuiet);
+                create_blocs();
                 vote();
                 find_winner(kQuiet);
 
