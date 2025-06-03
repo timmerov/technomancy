@@ -400,13 +400,15 @@ public:
 
     /** summary **/
     double total_satisfaction_ = 0.0;
-    double total_satisfaction_plurality_ = 0.0;
     double total_satisfaction_condorcet_ = 0.0;
+    double total_satisfaction_borda_ = 0.0;
+    double total_satisfaction_plurality_ = 0.0;
     int majority_winners_ = 0;
     double min_satisfaction_ = 1.0;
     int winner_maximizes_satisfaction_ = 0;
-    int winner_is_plurality_ = 0;
     int winner_is_condorcet_ = 0;
+    int winner_is_borda_ = 0;
+    int winner_is_plurality_ = 0;
     int monotonicity_ = 0;
 
     void run() noexcept {
@@ -1088,18 +1090,22 @@ public:
         LOG("");
         LOG("Checking voting criteria.");
         int max_satisfaction = find_max_satisfaction_candidate();
-        int plurality = find_plurality_winner();
         int condorcet = find_condorcet_winner();
+        int borda = find_borda_winner();
+        int plurality = find_plurality_winner();
         int monotonicity = check_monotonicity();
 
         if (winner_ == max_satisfaction) {
             ++winner_maximizes_satisfaction_;
         }
-        if (winner_ == plurality) {
-            ++winner_is_plurality_;
-        }
         if (winner_ == condorcet) {
             ++winner_is_condorcet_;
+        }
+        if (winner_ == borda) {
+            ++winner_is_borda_;
+        }
+        if (winner_ == plurality) {
+            ++winner_is_plurality_;
         }
         if (winner_ == monotonicity) {
             ++monotonicity_;
@@ -1108,13 +1114,15 @@ public:
         LOG("");
         LOG("Voting criteria results:");
         const char *result = nullptr;
-        LOG("Guthrie   winner            : "<<candidates_[winner_].name_);
+        LOG("Guthrie winner              : "<<candidates_[winner_].name_);
         result = result_to_string(winner_, max_satisfaction);
         LOG("Maximizes voter satisfaction: "<<candidates_[max_satisfaction].name_<<" "<<result);
-        result = result_to_string(winner_, plurality);
-        LOG("Plurality winner            : "<<candidates_[plurality].name_<<" "<<result);
         result = result_to_string(winner_, monotonicity);
         LOG("Condorcet winner            : "<<candidates_[condorcet].name_<<" "<<result);
+        result = result_to_string(winner_, monotonicity);
+        LOG("Borda winner                : "<<candidates_[borda].name_<<" "<<result);
+        result = result_to_string(winner_, plurality);
+        LOG("Plurality winner            : "<<candidates_[plurality].name_<<" "<<result);
         result = result_to_string(winner_, monotonicity);
         LOG("Monotonicity                : "<<candidates_[monotonicity].name_<<" "<<result);
     }
@@ -1130,70 +1138,18 @@ public:
     }
 
     int find_max_satisfaction_candidate() noexcept {
-        /** show results **/
-        int winner = actual_.which_;
-        auto& best_candidate = candidates_[winner];
-        LOG(best_candidate.name_<<" maximizes voter satisfaction.");
+        /** max satisfaction candidate. **/
+        int satisfaction_winner = actual_.which_;
 
-        /** satisfaction = (utility - average) / (best - average) **/
+        /** satisfaction of winner. **/
         auto& winning_candidate = candidates_[winner_];
-        double satisfaction = (winning_candidate.utility_ - actual_.average_) / (actual_.best_ - actual_.average_);
-
-        /** best candididate has satisfaction of 1.0. **/
-        double regret = 1.0 - satisfaction;
-        LOG("Voter bayesian regret: "<<regret);
+        double satisfaction = calculate_satisfaction(winning_candidate.utility_, actual_);
 
         /** update summary **/
         total_satisfaction_ += satisfaction;
         min_satisfaction_ = std::min(min_satisfaction_, satisfaction);
 
-        return winner;
-    }
-
-    /**
-    calledfind the plurality winner.
-    **/
-    int find_plurality_winner() noexcept {
-        std::vector<int> counts;
-        counts.reserve(ncandidates_);
-        counts.resize(ncandidates_);
-
-        /** clear the counts. **/
-        for (int i = 0; i < ncandidates_; ++i) {
-            counts[i] = 0;
-        }
-
-        /** sum the votes. **/
-        for (auto&& it : bloc_map_) {
-            auto& rankings = it.first;
-            auto& bloc = it.second;
-
-            int first = rankings[0];
-            counts[first] += bloc.size_;
-        }
-
-        /** find the winner. **/
-        int winner = 0;
-        int votes = -1;
-        for (int i = 0; i < ncandidates_; ++i) {
-            int count = counts[i];
-            if (count > votes) {
-                winner = i;
-                votes = count;
-            }
-        }
-
-        /** accumulate the satisfaction. **/
-        auto& candidate = candidates_[winner];
-        double sat = (actual_.average_ - candidate.utility_) / (actual_.average_ - actual_.best_);
-        total_satisfaction_plurality_ += sat;
-
-        /** was it a majority? **/
-        if (2*votes > electorate_.nvoters_) {
-            ++majority_winners_;
-        }
-
-        return winner;
+        return satisfaction_winner;
     }
 
     class HeadToHead {
@@ -1318,6 +1274,93 @@ public:
         }
     }
 
+    /**
+    borda count 0 for first, 1 for second, ...
+    lowest total wins.
+    **/
+    int find_borda_winner() noexcept {
+        /** initialize number of wins for each candidate. **/
+        std::vector<int> counts;
+        counts.resize(ncandidates_);
+        for (int i = 0; i < ncandidates_; ++i) {
+            counts[i] = 0;
+        }
+
+        /** for each voter bloc. **/
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
+
+            for (int i = 0; i < ncandidates_; ++i) {
+                int which = rankings[i];
+                counts[which] += i * bloc.size_;
+            }
+        }
+
+        int winner = 0;
+        int min = 0x7FFFFFFF;
+        for (int i = 0; i < ncandidates_; ++i) {
+            int count = counts[i];
+            if (min > count ) {
+                winner = i;
+                min = count;
+            }
+        }
+
+        /** accumulate the satisfaction. **/
+        auto& candidate = candidates_[winner];
+        double sat = calculate_satisfaction(candidate.utility_, actual_);
+        total_satisfaction_borda_ += sat;
+
+        return winner;
+    }
+
+    /**
+    calledfind the plurality winner.
+    **/
+    int find_plurality_winner() noexcept {
+        std::vector<int> counts;
+        counts.reserve(ncandidates_);
+        counts.resize(ncandidates_);
+
+        /** clear the counts. **/
+        for (int i = 0; i < ncandidates_; ++i) {
+            counts[i] = 0;
+        }
+
+        /** sum the votes. **/
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
+
+            int first = rankings[0];
+            counts[first] += bloc.size_;
+        }
+
+        /** find the winner. **/
+        int winner = 0;
+        int votes = -1;
+        for (int i = 0; i < ncandidates_; ++i) {
+            int count = counts[i];
+            if (count > votes) {
+                winner = i;
+                votes = count;
+            }
+        }
+
+        /** accumulate the satisfaction. **/
+        auto& candidate = candidates_[winner];
+        double sat = calculate_satisfaction(candidate.utility_, actual_);
+        total_satisfaction_plurality_ += sat;
+
+        /** was it a majority? **/
+        if (2*votes > electorate_.nvoters_) {
+            ++majority_winners_;
+        }
+
+        return winner;
+    }
+
     int check_monotonicity() noexcept {
         /** assume we pass. **/
         int monotonicity = winner_;
@@ -1374,11 +1417,6 @@ public:
         ncandidates_ = ncandidates;
         winner_ = original_winner;
 
-        /** log that we passed the test. **/
-        if (monotonicity == original_winner) {
-            LOG(original_winner_name<<" wins if any other candidate doesn't run.");
-        }
-
         return monotonicity;
     }
 
@@ -1392,12 +1430,14 @@ public:
         double min_satisfaction = min_satisfaction_;
         double regret = 1.0 - satisfaction;
         double max_regret = 1.0 - min_satisfaction;
-        double satisfaction_plurality = total_satisfaction_plurality_ / denom;
         double satisfaction_condorcet = total_satisfaction_condorcet_/ denom;
+        double satisfaction_borda = total_satisfaction_borda_/ denom;
+        double satisfaction_plurality = total_satisfaction_plurality_ / denom;
         double majority_winners = 100.0 * double(majority_winners_) / denom;
         double maximizes_satisfaction = 100.0 * double(winner_maximizes_satisfaction_) / denom;
-        double is_plurality = 100.0 * double(winner_is_plurality_) / denom;
         double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
+        double is_borda = 100.0 * double(winner_is_borda_) / denom;
+        double is_plurality = 100.0 * double(winner_is_plurality_) / denom;
         double monotonicity = 100.0 * double(monotonicity_) / denom;
 
         LOG("");
@@ -1406,12 +1446,14 @@ public:
         LOG("Summary:");
         LOG("Voter satisfaction (min)     : "<<satisfaction<<" ("<<min_satisfaction<<")");
         LOG("Voter regret (max)           : "<<regret<<" ("<<max_regret<<")");
-        LOG("Voter satisfaction plurality : "<<satisfaction_plurality);
         LOG("Voter satisfaction condorcet : "<<satisfaction_condorcet);
+        LOG("Voter satisfaction borda     : "<<satisfaction_borda);
+        LOG("Voter satisfaction plurality : "<<satisfaction_plurality);
         LOG("Won outright by true majority: "<<majority_winners<<"%");
         LOG("Maximizes voter satisfaction : "<<maximizes_satisfaction<<"%");
-        LOG("Agrees with plurality        : "<<is_plurality<<"%");
         LOG("Agrees with condorcet        : "<<is_condorcet<<"%");
+        LOG("Agrees with borda            : "<<is_borda<<"%");
+        LOG("Agrees with plurality        : "<<is_plurality<<"%");
         LOG("Monotonicity                 : "<<monotonicity<<"%");
     }
 };
