@@ -400,6 +400,7 @@ public:
 
     /** summary **/
     double total_satisfaction_ = 0.0;
+    double total_satisfaction_monotonicity_ = 0.0;
     double total_satisfaction_range_ = 0.0;
     double total_satisfaction_condorcet_ = 0.0;
     double total_satisfaction_borda_ = 0.0;
@@ -1615,6 +1616,10 @@ public:
         /** remove the first candidate. **/
         candidates_.erase(candidates_.begin());
 
+        /** for summary **/
+        int nwinners = 0;
+        double total_utility = 0.0;
+
         /** remove one of the non-winners and revote. **/
         for (int i = 0; i < ncandidates; ++i) {
             /** skip the winner. **/
@@ -1626,10 +1631,13 @@ public:
                 find_winner(kQuiet);
 
                 /** check by name, not index. **/
-                char winner_name = candidates_[winner_].name_;
+                auto& candidate = candidates_[winner_];
+                char winner_name = candidate.name_;
                 if (winner_name != original_winner_name) {
                     monotonicity = i;
                     LOG(winner_name<<" wins if "<<original_candidates[i].name_<<" doesn't run.");
+                    ++nwinners;
+                    total_utility += candidate.utility_;
                 }
             }
 
@@ -1651,6 +1659,16 @@ public:
         ncandidates_ = ncandidates;
         winner_ = original_winner;
 
+        /** accumulate satisfaction. **/
+        double utility;
+        if (nwinners == 0) {
+            utility = candidates_[winner_].utility_;
+        } else {
+            utility = total_utility / double(nwinners);
+        }
+        double sat = calculate_satisfaction(utility, actual_);
+        total_satisfaction_monotonicity_ += sat;
+
         return monotonicity;
     }
 
@@ -1665,6 +1683,7 @@ public:
         double min_satisfaction = min_satisfaction_;
         double regret = 1.0 - satisfaction;
         double max_regret = 1.0 - min_satisfaction;
+        double satisfaction_monotonicity = total_satisfaction_monotonicity_ / denom;
         double satisfaction_range = total_satisfaction_range_/ denom;
         double satisfaction_condorcet = total_satisfaction_condorcet_/ denom;
         double satisfaction_borda = total_satisfaction_borda_/ denom;
@@ -1687,24 +1706,25 @@ public:
         show_header();
         LOG("");
         LOG("Summary:");
-        LOG("Voter satisfaction (min)    : "<<satisfaction<<" ("<<min_satisfaction<<")");
-        LOG("Voter regret (max)          : "<<regret<<" ("<<max_regret<<")");
-        LOG("Voter satisfaction range    : "<<satisfaction_range);
-        LOG("Voter satisfaction condorcet: "<<satisfaction_condorcet);
-        LOG("Voter satisfaction borda    : "<<satisfaction_borda);
-        LOG("Voter satisfaction approval : "<<satisfaction_approval);
-        LOG("Voter satisfaction ranked   : "<<satisfaction_ranked);
-        LOG("Voter satisfaction plurality: "<<satisfaction_plurality);
-        LOG("Maximizes voter satisfaction: "<<maximizes_satisfaction<<"%");
-        LOG("Agrees with range           : "<<is_range<<"%");
-        LOG("Agrees with condorcet       : "<<is_condorcet_min<<"% "<<is_condorcet_max<<"%");
-        LOG("Agrees with borda           : "<<is_borda<<"%");
-        LOG("Agrees with approval        : "<<is_approval<<"%");
-        LOG("Agrees with ranked          : "<<is_ranked<<"%");
-        LOG("Agrees with plurality       : "<<is_plurality<<"%");
-        LOG("Monotonicity                : "<<monotonicity<<"%");
-        LOG("Won by majority             : "<<majority_winners<<"%");
-        LOG("Condorcet cycles            : "<<condorcet_cycles<<"%");
+        LOG("Voter satisfaction (min)      : "<<satisfaction<<" ("<<min_satisfaction<<")");
+        LOG("Voter regret (max)            : "<<regret<<" ("<<max_regret<<")");
+        LOG("Voter satisfaction (strategic): "<<satisfaction_monotonicity);
+        LOG("Voter satisfaction range      : "<<satisfaction_range);
+        LOG("Voter satisfaction condorcet  : "<<satisfaction_condorcet);
+        LOG("Voter satisfaction borda      : "<<satisfaction_borda);
+        LOG("Voter satisfaction approval   : "<<satisfaction_approval);
+        LOG("Voter satisfaction ranked     : "<<satisfaction_ranked);
+        LOG("Voter satisfaction plurality  : "<<satisfaction_plurality);
+        LOG("Maximizes voter satisfaction  : "<<maximizes_satisfaction<<"%");
+        LOG("Agrees with range             : "<<is_range<<"%");
+        LOG("Agrees with condorcet         : "<<is_condorcet_min<<"% "<<is_condorcet_max<<"%");
+        LOG("Agrees with borda             : "<<is_borda<<"%");
+        LOG("Agrees with approval          : "<<is_approval<<"%");
+        LOG("Agrees with ranked            : "<<is_ranked<<"%");
+        LOG("Agrees with plurality         : "<<is_plurality<<"%");
+        LOG("Monotonicity                  : "<<monotonicity<<"%");
+        LOG("Won by majority               : "<<majority_winners<<"%");
+        LOG("Condorcet cycles              : "<<condorcet_cycles<<"%");
     }
 };
 
