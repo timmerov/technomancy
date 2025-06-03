@@ -404,6 +404,7 @@ public:
     double total_satisfaction_condorcet_ = 0.0;
     double total_satisfaction_borda_ = 0.0;
     double total_satisfaction_approval_ = 0.0;
+    double total_satisfaction_ranked_ = 0.0;
     double total_satisfaction_plurality_ = 0.0;
     int majority_winners_ = 0;
     double min_satisfaction_ = 1.0;
@@ -412,6 +413,7 @@ public:
     int winner_is_condorcet_ = 0;
     int winner_is_borda_ = 0;
     int winner_is_approval_ = 0;
+    int winner_is_ranked_ = 0;
     int winner_is_plurality_ = 0;
     int monotonicity_ = 0;
 
@@ -1098,6 +1100,7 @@ public:
         int condorcet = find_condorcet_winner();
         int borda = find_borda_winner();
         int approval = find_approval_winner();
+        int ranked = find_ranked_winner();
         int plurality = find_plurality_winner();
         int monotonicity = check_monotonicity();
 
@@ -1115,6 +1118,9 @@ public:
         }
         if (winner_ == approval) {
             ++winner_is_approval_;
+        }
+        if (winner_ == ranked) {
+            ++winner_is_ranked_;
         }
         if (winner_ == plurality) {
             ++winner_is_plurality_;
@@ -1137,6 +1143,8 @@ public:
         LOG("Borda winner                : "<<candidates_[borda].name_<<" "<<result);
         result = result_to_string(winner_, approval);
         LOG("Approval winner             : "<<candidates_[approval].name_<<" "<<result);
+        result = result_to_string(winner_, ranked);
+        LOG("Ranked choice winner (IRV)  : "<<candidates_[ranked].name_<<" "<<result);
         result = result_to_string(winner_, plurality);
         LOG("Plurality winner            : "<<candidates_[plurality].name_<<" "<<result);
         result = result_to_string(winner_, monotonicity);
@@ -1430,6 +1438,111 @@ public:
         return winner;
     }
 
+    class RankedChoice {
+    public:
+        Rankings rankings_;
+        int size_;
+    };
+    typedef std::vector<RankedChoice> RankedChoices;
+
+    /**
+    ranked choice voting.
+    **/
+    int find_ranked_winner() noexcept {
+        int ranked_winner = -1;
+
+        /** copy the voter blocs. **/
+        int nblocs = bloc_map_.size();
+        RankedChoices ranked_choices;
+        ranked_choices.reserve(nblocs);
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
+
+            RankedChoice ranked_choice;
+            ranked_choice.rankings_ = rankings;
+            ranked_choice.size_ = bloc.size_;
+            ranked_choices.push_back(std::move(ranked_choice));
+        }
+
+        /** allocate vote counts. **/
+        std::vector<int> counts;
+        counts.reserve(ncandidates_);
+        counts.resize(ncandidates_);
+
+        /** initialize a list of elligible candidates. **/
+        std::vector<int> candidates;
+        candidates.reserve(ncandidates_);
+        candidates.resize(ncandidates_);
+        for (int i = 0; i < ncandidates_; ++i) {
+            candidates[i] = i;
+        }
+
+        /** repeat until we have a winner. **/
+        for (int ncandidates = ncandidates_; ncandidates > 0; --ncandidates) {
+            /** clear the vote counts. **/
+            for (int i = 0; i < ncandidates_; ++i) {
+                counts[i] = 0;
+            }
+
+            /** count the first place votes. **/
+            for (auto&& rc : ranked_choices) {
+                int which = rc.rankings_[0];
+                counts[which] += rc.size_;
+            }
+
+            /** find the one with the most and the one with the least. **/
+            int winner = -1;
+            int loser = -1;
+            int max = -1;
+            int min = 0x7FFFFFFF;
+            for (int i = 0; i < ncandidates; ++i) {
+                int which = candidates[i];
+                int count = counts[which];
+                if (max < count) {
+                    winner = i;
+                    max = count;
+                }
+                if (min > count) {
+                    loser = i;
+                    min = count;
+                }
+            }
+
+            /** check for a majority winner. **/
+            if (2*max > electorate_.nvoters_) {
+                ranked_winner = winner;
+                break;
+            }
+
+            /** remove the loser. **/
+            for (auto&& rc : ranked_choices) {
+                auto& rankings = rc.rankings_;
+                for (int i = 0; i < ncandidates; ++i) {
+                    int which = rankings[i];
+                    if (which == loser) {
+                        rankings.erase(rankings.begin() + i);
+                        break;
+                    }
+                }
+            }
+            for (int i = 0; i < ncandidates; ++i) {
+                int which = candidates[i];
+                if (which == loser) {
+                    candidates.erase(candidates.begin() + i);
+                    break;
+                }
+            }
+        }
+
+        /** accumulate the satisfaction. **/
+        auto& candidate = candidates_[ranked_winner];
+        double sat = calculate_satisfaction(candidate.utility_, actual_);
+        total_satisfaction_ranked_ += sat;
+
+        return ranked_winner;
+    }
+
     /**
     calledfind the plurality winner.
     **/
@@ -1549,12 +1662,14 @@ public:
         double satisfaction_condorcet = total_satisfaction_condorcet_/ denom;
         double satisfaction_borda = total_satisfaction_borda_/ denom;
         double satisfaction_approval = total_satisfaction_approval_/ denom;
+        double satisfaction_ranked = total_satisfaction_ranked_/ denom;
         double satisfaction_plurality = total_satisfaction_plurality_ / denom;
         double maximizes_satisfaction = 100.0 * double(winner_maximizes_satisfaction_) / denom;
         double is_range = 100.0 * double(winner_is_range_) / denom;
         double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
         double is_borda = 100.0 * double(winner_is_borda_) / denom;
         double is_approval = 100.0 * double(winner_is_approval_) / denom;
+        double is_ranked = 100.0 * double(winner_is_ranked_) / denom;
         double is_plurality = 100.0 * double(winner_is_plurality_) / denom;
         double monotonicity = 100.0 * double(monotonicity_) / denom;
         double majority_winners = 100.0 * double(majority_winners_) / denom;
@@ -1569,12 +1684,14 @@ public:
         LOG("Voter satisfaction condorcet: "<<satisfaction_condorcet);
         LOG("Voter satisfaction borda    : "<<satisfaction_borda);
         LOG("Voter satisfaction approval : "<<satisfaction_approval);
+        LOG("Voter satisfaction ranked   : "<<satisfaction_ranked);
         LOG("Voter satisfaction plurality: "<<satisfaction_plurality);
         LOG("Maximizes voter satisfaction: "<<maximizes_satisfaction<<"%");
         LOG("Agrees with range           : "<<is_range<<"%");
         LOG("Agrees with condorcet       : "<<is_condorcet<<"%");
         LOG("Agrees with borda           : "<<is_borda<<"%");
         LOG("Agrees with approval        : "<<is_approval<<"%");
+        LOG("Agrees with ranked          : "<<is_ranked<<"%");
         LOG("Agrees with plurality       : "<<is_plurality<<"%");
         LOG("Monotonicity                : "<<monotonicity<<"%");
         LOG("Won by majority             : "<<majority_winners<<"%");
