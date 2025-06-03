@@ -219,11 +219,11 @@ non-linear utility or piece-wise linear utility,
 namespace {
 
 /** number of trials. **/
-constexpr int kNTrials = 1;
+//constexpr int kNTrials = 1;
 //constexpr int kNTrials = 10;
 //constexpr int kNTrials = 30;
 //constexpr int kNTrials = 300;
-//constexpr int kNTrials = 1000;
+constexpr int kNTrials = 1000;
 //constexpr int kNTrials = 10*1000;
 //constexpr int kNTrials = 30*1000;
 
@@ -289,6 +289,7 @@ constexpr double kPrimaryPower = 0.4;
 /** option to use a fixed seed for testing. **/
 constexpr std::uint64_t kSeedChoice = 0;
 //constexpr std::uint64_t kSeedChoice = 1748638784683180555;
+//constexpr std::uint64_t kSeedChoice = 1748827154751444505;
 
 /**
 option to find the theoretical best candidate from the voters.
@@ -401,11 +402,10 @@ public:
     double total_satisfaction_ = 0.0;
     double total_satisfaction_plurality_ = 0.0;
     double total_satisfaction_condorcet_ = 0.0;
-    int winner_plurality_ = 0;
-    bool won_first_round_ = 0;
     int majority_winners_ = 0;
     double min_satisfaction_ = 1.0;
     int winner_maximizes_satisfaction_ = 0;
+    int winner_is_plurality_ = 0;
     int winner_is_condorcet_ = 0;
     int monotonicity_ = 0;
 
@@ -444,7 +444,6 @@ public:
             calculate_utilities(actual_);
             vote();
             find_winner();
-            winner_summaries();
             show_satisfaction();
             check_criteria();
         }
@@ -924,9 +923,6 @@ public:
         std::vector<int> counts;
         counts.resize(ncandidates_);
 
-        /** summary statistics. **/
-        won_first_round_ = false;
-
         /**
         normally we can find the winner in N-1 rounds.
         unless there's a tie in the last round.
@@ -949,19 +945,6 @@ public:
                 counts[favorite] += candidate.support_;
             }
 
-            /** keep stats for plurality winners. **/
-            if (round == 1) {
-                winner_plurality_ = 0;
-                int mx = -1;
-                for (int i = 0; i < ncandidates_; ++i) {
-                    int count = counts[i];
-                    if (count > mx) {
-                        mx = count;
-                        winner_plurality_ = i;
-                    }
-                }
-            }
-
             /** show first place vote counts. **/
             bool show_it = show_everything;
             if (show_required && round == 1) {
@@ -982,10 +965,6 @@ public:
                     if (show_required) {
                         auto& candidate = candidates_[i];
                         LOG(candidate.name_<<" wins Guthrie voting in round "<<round<<".");
-                    }
-                    /** summary statistic. **/
-                    if (round == 1) {
-                        won_first_round_ = true;
                     }
                     return;
                 }
@@ -1061,22 +1040,6 @@ public:
     }
 
     /**
-    called after find_winner to collect data for the summary.
-    **/
-    void winner_summaries() noexcept {
-        /** accumulate the satisfaction for the plurality winner. **/
-        auto& candidate = candidates_[winner_plurality_];
-        LOG(candidate.name_<<" is the plurality winner.");
-        double sat = (actual_.average_ - candidate.utility_) / (actual_.average_ - actual_.best_);
-        total_satisfaction_plurality_ += sat;
-
-        /** track how many times we have win by majority. **/
-        if (won_first_round_) {
-            ++majority_winners_;
-        }
-    }
-
-    /**
     voter satisfaction is a function of the utility of a candidate.
     the best candidate has satisfaction 1.0.
     the average candidate has a satisfaction of 0.0.
@@ -1125,11 +1088,15 @@ public:
         LOG("");
         LOG("Checking voting criteria.");
         int max_satisfaction = find_max_satisfaction_candidate();
-        int condorcet = find_condorcet_candidate();
+        int plurality = find_plurality_winner();
+        int condorcet = find_condorcet_winner();
         int monotonicity = check_monotonicity();
 
         if (winner_ == max_satisfaction) {
             ++winner_maximizes_satisfaction_;
+        }
+        if (winner_ == plurality) {
+            ++winner_is_plurality_;
         }
         if (winner_ == condorcet) {
             ++winner_is_condorcet_;
@@ -1141,12 +1108,15 @@ public:
         LOG("");
         LOG("Voting criteria results:");
         const char *result = nullptr;
+        LOG("Guthrie   winner            : "<<candidates_[winner_].name_);
         result = result_to_string(winner_, max_satisfaction);
-        LOG("Maximizes voter satisfaction: "<<result);
-        result = result_to_string(winner_, condorcet);
-        LOG("Condorcet majority          : "<<result);
+        LOG("Maximizes voter satisfaction: "<<candidates_[max_satisfaction].name_<<" "<<result);
+        result = result_to_string(winner_, plurality);
+        LOG("Plurality winner            : "<<candidates_[plurality].name_<<" "<<result);
         result = result_to_string(winner_, monotonicity);
-        LOG("Monotonicity                : "<<result);
+        LOG("Condorcet winner            : "<<candidates_[condorcet].name_<<" "<<result);
+        result = result_to_string(winner_, monotonicity);
+        LOG("Monotonicity                : "<<candidates_[monotonicity].name_<<" "<<result);
     }
 
     const char *result_to_string(int winner, int expected) noexcept {
@@ -1180,6 +1150,52 @@ public:
         return winner;
     }
 
+    /**
+    calledfind the plurality winner.
+    **/
+    int find_plurality_winner() noexcept {
+        std::vector<int> counts;
+        counts.reserve(ncandidates_);
+        counts.resize(ncandidates_);
+
+        /** clear the counts. **/
+        for (int i = 0; i < ncandidates_; ++i) {
+            counts[i] = 0;
+        }
+
+        /** sum the votes. **/
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
+
+            int first = rankings[0];
+            counts[first] += bloc.size_;
+        }
+
+        /** find the winner. **/
+        int winner = 0;
+        int votes = -1;
+        for (int i = 0; i < ncandidates_; ++i) {
+            int count = counts[i];
+            if (count > votes) {
+                winner = i;
+                votes = count;
+            }
+        }
+
+        /** accumulate the satisfaction. **/
+        auto& candidate = candidates_[winner];
+        double sat = (actual_.average_ - candidate.utility_) / (actual_.average_ - actual_.best_);
+        total_satisfaction_plurality_ += sat;
+
+        /** was it a majority? **/
+        if (2*votes > electorate_.nvoters_) {
+            ++majority_winners_;
+        }
+
+        return winner;
+    }
+
     class HeadToHead {
     public:
         int winner_ = 0;
@@ -1191,7 +1207,7 @@ public:
     /**
     condorcet wins the most head to head races.
     **/
-    int find_condorcet_candidate() noexcept {
+    int find_condorcet_winner() noexcept {
         /** initialize number of wins for each candidate. **/
         std::vector<int> wins;
         wins.resize(ncandidates_);
@@ -1324,8 +1340,6 @@ public:
 
         /** remove one of the non-winners and revote. **/
         for (int i = 0; i < ncandidates; ++i) {
-            show_candidate_positions();
-
             /** skip the winner. **/
             if (i != original_winner) {
                 /** re-vote. **/
@@ -1382,6 +1396,7 @@ public:
         double satisfaction_condorcet = total_satisfaction_condorcet_/ denom;
         double majority_winners = 100.0 * double(majority_winners_) / denom;
         double maximizes_satisfaction = 100.0 * double(winner_maximizes_satisfaction_) / denom;
+        double is_plurality = 100.0 * double(winner_is_plurality_) / denom;
         double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
         double monotonicity = 100.0 * double(monotonicity_) / denom;
 
@@ -1395,7 +1410,8 @@ public:
         LOG("Voter satisfaction condorcet : "<<satisfaction_condorcet);
         LOG("Won outright by true majority: "<<majority_winners<<"%");
         LOG("Maximizes voter satisfaction : "<<maximizes_satisfaction<<"%");
-        LOG("Agrees with Condorcet        : "<<is_condorcet<<"%");
+        LOG("Agrees with plurality        : "<<is_plurality<<"%");
+        LOG("Agrees with condorcet        : "<<is_condorcet<<"%");
         LOG("Monotonicity                 : "<<monotonicity<<"%");
     }
 };
