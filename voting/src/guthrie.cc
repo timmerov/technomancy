@@ -411,6 +411,7 @@ public:
     int winner_maximizes_satisfaction_ = 0;
     int winner_is_range_ = 0;
     int winner_is_condorcet_ = 0;
+    int condorcet_cycles_ = 0;
     int winner_is_borda_ = 0;
     int winner_is_approval_ = 0;
     int winner_is_ranked_ = 0;
@@ -1283,6 +1284,7 @@ public:
         if (nwinners > 1) {
             LOG("Condorcet cycle exists.");
             winner = -1;
+            ++condorcet_cycles_;
         }
 
         /**
@@ -1491,7 +1493,7 @@ public:
                 counts[which] += rc.size_;
             }
 
-            /** find the one with the most and the one with the least. **/
+            /** find the candidates with the most and least first place votes. **/
             int winner = -1;
             int loser = -1;
             int max = -1;
@@ -1499,11 +1501,13 @@ public:
             for (int i = 0; i < ncandidates; ++i) {
                 int which = candidates[i];
                 int count = counts[which];
+                /** by rule, first in the list wins ties. **/
                 if (max < count) {
                     winner = i;
                     max = count;
                 }
-                if (min > count) {
+                /** by rule, last in the list loses ties. **/
+                if (min >= count) {
                     loser = i;
                     min = count;
                 }
@@ -1515,7 +1519,7 @@ public:
                 break;
             }
 
-            /** remove the loser. **/
+            /** remove the loser from the rankings. **/
             for (auto&& rc : ranked_choices) {
                 auto& rankings = rc.rankings_;
                 for (int i = 0; i < ncandidates; ++i) {
@@ -1526,6 +1530,8 @@ public:
                     }
                 }
             }
+
+            /** remove the loser from the candidate list. **/
             for (int i = 0; i < ncandidates; ++i) {
                 int which = candidates[i];
                 if (which == loser) {
@@ -1654,6 +1660,7 @@ public:
         }
 
         double denom = double(ntrials_);
+        double non_cycle_trials = double(ntrials_ - condorcet_cycles_);
         double satisfaction = total_satisfaction_ / denom;
         double min_satisfaction = min_satisfaction_;
         double regret = 1.0 - satisfaction;
@@ -1666,13 +1673,15 @@ public:
         double satisfaction_plurality = total_satisfaction_plurality_ / denom;
         double maximizes_satisfaction = 100.0 * double(winner_maximizes_satisfaction_) / denom;
         double is_range = 100.0 * double(winner_is_range_) / denom;
-        double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
+        double is_condorcet_min = 100.0 * double(winner_is_condorcet_) / denom;
+        double is_condorcet_max = 100.0 * double(winner_is_condorcet_) / non_cycle_trials;
         double is_borda = 100.0 * double(winner_is_borda_) / denom;
         double is_approval = 100.0 * double(winner_is_approval_) / denom;
         double is_ranked = 100.0 * double(winner_is_ranked_) / denom;
         double is_plurality = 100.0 * double(winner_is_plurality_) / denom;
         double monotonicity = 100.0 * double(monotonicity_) / denom;
         double majority_winners = 100.0 * double(majority_winners_) / denom;
+        double condorcet_cycles = 100.0 * double(condorcet_cycles_) / denom;
 
         LOG("");
         show_header();
@@ -1688,13 +1697,14 @@ public:
         LOG("Voter satisfaction plurality: "<<satisfaction_plurality);
         LOG("Maximizes voter satisfaction: "<<maximizes_satisfaction<<"%");
         LOG("Agrees with range           : "<<is_range<<"%");
-        LOG("Agrees with condorcet       : "<<is_condorcet<<"%");
+        LOG("Agrees with condorcet       : "<<is_condorcet_min<<"% "<<is_condorcet_max<<"%");
         LOG("Agrees with borda           : "<<is_borda<<"%");
         LOG("Agrees with approval        : "<<is_approval<<"%");
         LOG("Agrees with ranked          : "<<is_ranked<<"%");
         LOG("Agrees with plurality       : "<<is_plurality<<"%");
         LOG("Monotonicity                : "<<monotonicity<<"%");
         LOG("Won by majority             : "<<majority_winners<<"%");
+        LOG("Condorcet cycles            : "<<condorcet_cycles<<"%");
     }
 };
 
