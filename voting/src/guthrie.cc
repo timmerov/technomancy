@@ -400,6 +400,7 @@ public:
 
     /** summary **/
     double total_satisfaction_ = 0.0;
+    double total_satisfaction_range_ = 0.0;
     double total_satisfaction_condorcet_ = 0.0;
     double total_satisfaction_borda_ = 0.0;
     double total_satisfaction_approval_ = 0.0;
@@ -407,6 +408,7 @@ public:
     int majority_winners_ = 0;
     double min_satisfaction_ = 1.0;
     int winner_maximizes_satisfaction_ = 0;
+    int winner_is_range_ = 0;
     int winner_is_condorcet_ = 0;
     int winner_is_borda_ = 0;
     int winner_is_approval_ = 0;
@@ -1092,6 +1094,7 @@ public:
         LOG("");
         LOG("Checking voting criteria.");
         int max_satisfaction = find_max_satisfaction_candidate();
+        int range = find_range_winner();
         int condorcet = find_condorcet_winner();
         int borda = find_borda_winner();
         int approval = find_approval_winner();
@@ -1100,6 +1103,9 @@ public:
 
         if (winner_ == max_satisfaction) {
             ++winner_maximizes_satisfaction_;
+        }
+        if (winner_ == range) {
+            ++winner_is_range_;
         }
         if (winner_ == condorcet) {
             ++winner_is_condorcet_;
@@ -1123,6 +1129,8 @@ public:
         LOG("Guthrie winner              : "<<candidates_[winner_].name_);
         result = result_to_string(winner_, max_satisfaction);
         LOG("Maximizes voter satisfaction: "<<candidates_[max_satisfaction].name_<<" "<<result);
+        result = result_to_string(winner_, range);
+        LOG("Range winner                : "<<candidates_[range].name_<<" "<<result);
         result = result_to_string(winner_, condorcet);
         LOG("Condorcet winner            : "<<candidates_[condorcet].name_<<" "<<result);
         result = result_to_string(winner_, borda);
@@ -1158,6 +1166,52 @@ public:
         min_satisfaction_ = std::min(min_satisfaction_, satisfaction);
 
         return satisfaction_winner;
+    }
+
+    /**
+    assign a range based on utilities for each block.
+    **/
+    int find_range_winner() noexcept {
+        /** initialize rating for each candidate. **/
+        std::vector<double> ratings;
+        ratings.resize(ncandidates_);
+        for (int i = 0; i < ncandidates_; ++i) {
+            ratings[i] = 0.0;
+        }
+
+        /** for each voter bloc. **/
+        for (auto&& it : bloc_map_) {
+            auto& rankings = it.first;
+            auto& bloc = it.second;
+            double first = bloc.utilities_[0];
+            double last = bloc.utilities_[ncandidates_-1];
+            double denom = first - last;
+
+            for (int i = 0; i < ncandidates_; ++i) {
+                double utility = bloc.utilities_[i];
+                double rating = (utility - last) / denom;
+                int which = rankings[i];
+                ratings[which] += rating * double(bloc.size_);
+            }
+        }
+
+        /** find the largest rating. **/
+        int winner = 0;
+        double max = -1.0;
+        for (int i = 0; i < ncandidates_; ++i) {
+            double rating = ratings[i];
+            if (max < rating ) {
+                winner = i;
+                max = rating;
+            }
+        }
+
+        /** accumulate the satisfaction. **/
+        auto& candidate = candidates_[winner];
+        double sat = calculate_satisfaction(candidate.utility_, actual_);
+        total_satisfaction_range_ += sat;
+
+        return winner;
     }
 
     class HeadToHead {
@@ -1491,11 +1545,13 @@ public:
         double min_satisfaction = min_satisfaction_;
         double regret = 1.0 - satisfaction;
         double max_regret = 1.0 - min_satisfaction;
+        double satisfaction_range = total_satisfaction_range_/ denom;
         double satisfaction_condorcet = total_satisfaction_condorcet_/ denom;
         double satisfaction_borda = total_satisfaction_borda_/ denom;
         double satisfaction_approval = total_satisfaction_approval_/ denom;
         double satisfaction_plurality = total_satisfaction_plurality_ / denom;
         double maximizes_satisfaction = 100.0 * double(winner_maximizes_satisfaction_) / denom;
+        double is_range = 100.0 * double(winner_is_range_) / denom;
         double is_condorcet = 100.0 * double(winner_is_condorcet_) / denom;
         double is_borda = 100.0 * double(winner_is_borda_) / denom;
         double is_approval = 100.0 * double(winner_is_approval_) / denom;
@@ -1509,11 +1565,13 @@ public:
         LOG("Summary:");
         LOG("Voter satisfaction (min)    : "<<satisfaction<<" ("<<min_satisfaction<<")");
         LOG("Voter regret (max)          : "<<regret<<" ("<<max_regret<<")");
+        LOG("Voter satisfaction range    : "<<satisfaction_range);
         LOG("Voter satisfaction condorcet: "<<satisfaction_condorcet);
         LOG("Voter satisfaction borda    : "<<satisfaction_borda);
         LOG("Voter satisfaction approval : "<<satisfaction_approval);
         LOG("Voter satisfaction plurality: "<<satisfaction_plurality);
         LOG("Maximizes voter satisfaction: "<<maximizes_satisfaction<<"%");
+        LOG("Agrees with range           : "<<is_range<<"%");
         LOG("Agrees with condorcet       : "<<is_condorcet<<"%");
         LOG("Agrees with borda           : "<<is_borda<<"%");
         LOG("Agrees with approval        : "<<is_approval<<"%");
