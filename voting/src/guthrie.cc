@@ -236,8 +236,8 @@ constexpr int kNVoters = 1000;
 
 /** number of candidates **/
 //constexpr int kNCandidates = 3;
-constexpr int kNCandidates = 3;
-//constexpr int kNCandidates = 5;
+//constexpr int kNCandidates = 4;
+constexpr int kNCandidates = 5;
 //constexpr int kNCandidates = 6;
 //constexpr int kNCandidates = 7;
 
@@ -246,13 +246,13 @@ constexpr int kNCandidates = 3;
 //constexpr int kElectorateMethod = kElectorateRandom;
 constexpr int kElectorateMethod = kElectorateClusters;
 
-/** options for number of issue dimensions (axes). **/
-//constexpr int kNAxes = 1;
-constexpr int kNAxes = 2;
-//constexpr int kNAxes = 3;
-
 /** options for clustered method. **/
 constexpr int kNClusters = kNCandidates * 2;
+
+/** options for number of issue dimensions (axes). **/
+//constexpr int kNAxes = 1;
+//constexpr int kNAxes = 2;
+constexpr int kNAxes = 3;
 
 /**
 option for relative weighting of the axes.
@@ -288,8 +288,7 @@ constexpr double kPrimaryPower = 0.4;
 
 /** option to use a fixed seed for testing. **/
 constexpr std::uint64_t kSeedChoice = 0;
-//constexpr std::uint64_t kSeedChoice = 1748638784683180555;
-//constexpr std::uint64_t kSeedChoice = 1748827154751444505;
+//constexpr std::uint64_t kSeedChoice = 1749001466860975755;
 
 /**
 option to find the theoretical best candidate from the voters.
@@ -497,6 +496,22 @@ public:
             LOG("Random seed      : "<<seed);
         } else {
             LOG("Fixed seed       : "<<seed);
+        }
+        switch (electorate_.method_) {
+        case kElectorateUniform:
+            LOG("Electorate       : uniform");
+            break;
+        case kElectorateRandom:
+            LOG("Electorate       : random");
+            break;
+        case kElectorateClusters:
+            LOG("Electorate       : clusters ("<<electorate_.nclusters_<<")");
+            break;
+        }
+        if (electorate_.naxes_ == 1) {
+            LOG("Issue axes       : "<<electorate_.naxes_);
+        } else {
+            LOG("Issue axes       : "<<electorate_.naxes_<<" ("<<electorate_.axis_weight_decay_<<")");
         }
     }
 
@@ -1131,6 +1146,11 @@ public:
             ++monotonicity_;
         }
 
+        char condorcet_name = '?';
+        if (condorcet >= 0) {
+            condorcet_name = candidates_[condorcet].name_;
+        }
+
         LOG("");
         LOG("Voting criteria results:");
         const char *result = nullptr;
@@ -1140,7 +1160,7 @@ public:
         result = result_to_string(winner_, range);
         LOG("Range winner                : "<<candidates_[range].name_<<" "<<result);
         result = result_to_string(winner_, condorcet);
-        LOG("Condorcet winner            : "<<candidates_[condorcet].name_<<" "<<result);
+        LOG("Condorcet winner            : "<<condorcet_name<<" "<<result);
         result = result_to_string(winner_, borda);
         LOG("Borda winner                : "<<candidates_[borda].name_<<" "<<result);
         result = result_to_string(winner_, approval);
@@ -1504,12 +1524,12 @@ public:
                 int count = counts[which];
                 /** by rule, first in the list wins ties. **/
                 if (max < count) {
-                    winner = i;
+                    winner = which;
                     max = count;
                 }
                 /** by rule, last in the list loses ties. **/
                 if (min >= count) {
-                    loser = i;
+                    loser = which;
                     min = count;
                 }
             }
@@ -1540,6 +1560,10 @@ public:
                     break;
                 }
             }
+        }
+
+        if (ranked_winner < 0) {
+            LOG("=tsc= uh oh! irv failed to find winner." );
         }
 
         /** accumulate the satisfaction. **/
