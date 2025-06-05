@@ -29,8 +29,6 @@ how many clusters? how much spread? to be determined.
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
-//#include <map>
-//#include <vector>
 
 
 class Cluster {
@@ -39,7 +37,7 @@ public:
     int count_ = 0;
 
     /** position **/
-    double position_ = 0.0;
+    Position position_;
 
     /** for sorting **/
     bool operator < (const Cluster& other) const
@@ -179,32 +177,26 @@ void Electorate::random() noexcept {
 }
 
 /**
-cluster each axis independently.
+chinese restaurant process.
 **/
 void Electorate::clusters() noexcept {
     LOG("Electorate is clustered.");
-    for (int axis = 0; axis < naxes_; ++axis) {
-        clusters(axis);
-    }
-}
 
-/**
-chinese restaurant process.
-**/
-void Electorate::clusters(
-    int axis
-) noexcept {
     /** create empty clusters. **/
     Clusters clusters;
     clusters.resize(nclusters_);
     for (auto&& cluster : clusters) {
         cluster.count_ = 0;
-        cluster.position_ = Rng::generate();
+        cluster.position_.axis_.reserve(naxes_);
+        cluster.position_.axis_.resize(naxes_);
+        for (int i = 0; i < naxes_; ++i) {
+            cluster.position_.axis_[i] = Rng::generate();
+        }
     }
     std::sort(clusters.begin(), clusters.end());
 
     for (int i = 0; i < nvoters_; ++i) {
-        seat_voter(clusters, i, axis);
+        seat_voter(clusters, i);
     }
 }
 
@@ -219,8 +211,7 @@ maybe 2 times number of candidates.
 **/
 void Electorate::seat_voter(
     Clusters& clusters,
-    int k,
-    int axis
+    int k
 ) noexcept {
     /**
     what should the standard deviation be?
@@ -256,9 +247,11 @@ void Electorate::seat_voter(
 
     /** position the voter. **/
     auto& voter = voters_[k];
-    double rn = Rng::normal() * kStdDev;
-    double position = cluster.position_ + rn;
-    voter.position_.axis_[axis] = position;
+    for (int i = 0; i < naxes_; ++i) {
+        double rn = Rng::normal() * kStdDev;
+        double position = cluster.position_.axis_[i] + rn;
+        voter.position_.axis_[i] = position;
+    }
 }
 
 /**

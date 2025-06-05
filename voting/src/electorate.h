@@ -76,8 +76,7 @@ private:
     void ranked() noexcept;
     void random() noexcept;
     void clusters() noexcept;
-    void clusters(int axis) noexcept;
-    void seat_voter(Clusters &clusters, int k, int axis) noexcept;
+    void seat_voter(Clusters &clusters, int k) noexcept;
     void normalize() noexcept;
     void normalize(int axis, double weight) noexcept;
     void show_distribution(int axis) noexcept;
