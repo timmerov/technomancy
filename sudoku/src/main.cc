@@ -44,17 +44,24 @@ public:
     std::string name_;
     int cells[9];
 };
-
 typedef std::vector<Region> Regions;
+
+class Cell {
+public:
+    int value_;
+    int known_;
+};
 
 class Sudoku {
 public:
-    int board_[81];
+    Cell board_[81];
     Regions regions_;
 
     void run() noexcept {
         init();
+        std::cout<<"Givens:"<<std::endl;
         print_board();
+        solve_brute_force();
     }
 
     void init() noexcept {
@@ -67,8 +74,9 @@ public:
         init_board_row(6, {0, 0, 5,  1, 0, 0,  2, 0, 0});
         init_board_row(7, {3, 0, 0,  0, 0, 0,  0, 8, 1});
         init_board_row(8, {0, 9, 0,  0, 0, 0,  0, 0, 0});
+        copy_board_to_known();
         init_regions();
-        check_regions();
+        check_regions_exit();
     }
 
     void init_board_row(
@@ -91,7 +99,7 @@ public:
         int val
     ) noexcept {
         int idx = 9*row + col;
-        board_[idx] = val;
+        board_[idx].value_ = val;
     }
 
     int get_board(
@@ -99,8 +107,14 @@ public:
         int col
     ) noexcept {
         int idx = 9*row + col;
-        int val = board_[idx];
+        int val = board_[idx].value_;
         return val;
+    }
+
+    void copy_board_to_known() noexcept {
+        for (int i = 0; i < 9*9; ++i) {
+            board_[i].known_ = board_[i].value_;
+        }
     }
 
     void init_regions() noexcept {
@@ -183,7 +197,7 @@ public:
         }
     }
 
-    void check_regions() noexcept {
+    void check_regions_exit() noexcept {
         bool error = false;
         for (auto rgn : regions_) {
             int used[10];
@@ -192,7 +206,7 @@ public:
             }
             for (int i = 0; i < 9; ++i) {
                 int idx = rgn.cells[i];
-                int val = board_[idx];
+                int val = board_[idx].value_;
                 ++used[val];
             }
             for (int i = 1; i <= 9; ++i) {
@@ -241,6 +255,96 @@ public:
             std::cout<<val<<" ";
         }
         std::cout<<std::endl;
+    }
+
+    /**
+    it's clear this method cannot possibly work.
+    there are 81 cells.
+    at least 17 of which must be given.
+    that leave 64 cells with 9 possible values.
+    9^64 = 1e61.
+    which is significantly larger than will fit in a 64 bit integer.
+    10 billion=1e10 takes 2 minutes.
+    brute forcing all possible solutions will take 1e45 years.
+    the sun will be a cold dark cinder by then.
+    **/
+    void solve_brute_force() noexcept {
+        init_brute_force();
+        std::cout<<"Start Brute Force"<<std::endl;
+        print_board();
+        agm::int64 print_i = 3;
+        for (agm::int64 i = 0; i < 10*1000*1000*1000LL; ++i) {
+            bool solved = check_regions();
+            if (solved) {
+                std::cout<<"Solved: "<<solved<<std::endl;
+                break;
+            }
+            bool done = increment_board();
+            if (done) {
+                std::cout<<"Unsolvable."<<std::endl;
+                break;
+            }
+            if (i == print_i) {
+                print_i *= 3;
+                std::cout<<"Iteration: "<<i<<std::endl;
+                print_board();
+            }
+        }
+    }
+
+    void init_brute_force() noexcept {
+        for (int i = 0; i < 9*9; ++i) {
+            int val = board_[i].known_;
+            if (val == 0) {
+                val = 1;
+            }
+            board_[i].value_ = val;
+        }
+    }
+
+    bool check_regions() noexcept {
+        for (auto rgn : regions_) {
+            int used = 0;
+            for (int i = 0; i < 9; ++i) {
+                int idx = rgn.cells[i];
+                int val = board_[idx].value_;
+                int bit = 1 << val;
+                if (used & bit) {
+                    return false;
+                }
+                used |= bit;
+            }
+        }
+        return true;
+    }
+
+    /**
+    increment cells from 1 to 9.
+    then reset to 1 and increment the next cell.
+    return true when we run out of cells to increment.
+    **/
+    bool increment_board() noexcept {
+        /** find the first cell we can increment. **/
+        for (int i = 0; i < 9*9; ++i) {
+            /** skip cells with known values. **/
+            int known = board_[i].known_;
+            if (known != 0) {
+                continue;
+            }
+            /** increment with rollover. **/
+            int val = board_[i].value_ + 1;
+            if (val > 9) {
+                val = 1;
+            }
+            board_[i].value_ = val;
+            /** if we didn't rollover then we're finished. **/
+            if (val != 1) {
+                return false;
+            }
+            /** this cell rolled over. go to the next one. **/
+        }
+        /** out of cells to increment. we're done. **/
+        return true;
     }
 };
 
