@@ -39,10 +39,12 @@ cells must contain 0 or a unique digit.
 
 namespace {
 
+static const int kAllValid = 0b1111111110;
+
 class Region {
 public:
     std::string name_;
-    int cells[9];
+    int cells_[9];
 };
 typedef std::vector<Region> Regions;
 
@@ -50,6 +52,7 @@ class Cell {
 public:
     int value_;
     int known_;
+    int valid_;
 };
 
 class Sudoku {
@@ -61,7 +64,12 @@ public:
         init();
         std::cout<<"Givens:"<<std::endl;
         print_board();
-        solve_brute_force();
+
+        /** takes 10^45 years. **/
+        //solve_brute_force();
+
+        /** find the gimmes. then brute force. **/
+        solve_gimmes();
     }
 
     void init() noexcept {
@@ -141,7 +149,7 @@ public:
 
         for (int col = 0; col < 9; ++col) {
             int idx = 9*row + col;
-            rgn.cells[col] = idx;
+            rgn.cells_[col] = idx;
         }
         regions_.push_back(rgn);
     }
@@ -163,7 +171,7 @@ public:
 
         for (int row = 0; row < 9; ++row) {
             int idx= 9*row + col;
-            rgn.cells[row] = idx;
+            rgn.cells_[row] = idx;
         }
         regions_.push_back(rgn);
     }
@@ -192,9 +200,10 @@ public:
             for (int k = 0; k < 3; ++k) {
                 int col = 3*x + k;
                 int idx = 9*row + col;
-                rgn.cells[m++] = idx;
+                rgn.cells_[m++] = idx;
             }
         }
+        regions_.push_back(rgn);
     }
 
     void check_regions_exit() noexcept {
@@ -205,7 +214,7 @@ public:
                 used[i] = 0;
             }
             for (int i = 0; i < 9; ++i) {
-                int idx = rgn.cells[i];
+                int idx = rgn.cells_[i];
                 int val = board_[idx].value_;
                 ++used[val];
             }
@@ -303,10 +312,10 @@ public:
     }
 
     bool check_regions() noexcept {
-        for (auto rgn : regions_) {
+        for (auto &&rgn : regions_) {
             int used = 0;
             for (int i = 0; i < 9; ++i) {
-                int idx = rgn.cells[i];
+                int idx = rgn.cells_[i];
                 int val = board_[idx].value_;
                 int bit = 1 << val;
                 if (used & bit) {
@@ -345,6 +354,85 @@ public:
         }
         /** out of cells to increment. we're done. **/
         return true;
+    }
+
+    void solve_gimmes() noexcept {
+        set_valid();
+        std::cout<<"Valid values:"<<std::endl;
+        print_valid();
+    }
+
+    void set_valid() noexcept {
+        /** everything is valid. **/
+        for (int i = 0; i < 9*9; ++i) {
+            board_[i].valid_ = kAllValid;
+        }
+        /** remove invalid bits. **/
+        for (auto &&rgn : regions_) {
+            int invalid = 0;
+            for (int i = 0; i < 9; ++i) {
+                int cell = rgn.cells_[i];
+                int known = board_[cell].known_;
+                invalid |= 1 << known;
+            }
+            int valid = kAllValid & ~invalid;
+            for (int i = 0; i < 9; ++i) {
+                int cell = rgn.cells_[i];
+                board_[cell].valid_ &= valid;
+            }
+        }
+        /** restore known cells. **/
+        for (int i = 0; i < 9*9; ++i) {
+            int known = board_[i].known_;
+            if (known > 0) {
+                board_[i].valid_ = 1 << known;
+            }
+        }
+    }
+
+    void print_valid() noexcept {
+        print_valid_separator();
+        print_valid_row(0);
+        print_valid_row(1);
+        print_valid_row(2);
+        print_valid_separator();
+        print_valid_row(3);
+        print_valid_row(4);
+        print_valid_row(5);
+        print_valid_separator();
+        print_valid_row(6);
+        print_valid_row(7);
+        print_valid_row(8);
+        print_valid_separator();
+    }
+
+    void print_valid_separator() noexcept {
+        std::cout<<"+-------------------------------+-------------------------------+-------------------------------+"<<std::endl;
+    }
+
+    void print_valid_row(
+        int row
+    ) noexcept {
+        for (int col = 0; col <= 9; ++col) {
+            if ((col % 3) == 0) {
+                std::cout<<"| ";
+            }
+            if (col == 9) {
+                break;
+            }
+            int idx = 9*row + col;
+            int valid = board_[idx].valid_;
+            for (int i = 1; i <= 9; ++i) {
+                int bit = 1 << i;
+                if (valid & bit) {
+                    std::cout<<i;
+                } else {
+                    std::cout<<".";
+                }
+            }
+            std::cout<<" ";
+        }
+        std::cout<<std::endl;
     }
 };
 
