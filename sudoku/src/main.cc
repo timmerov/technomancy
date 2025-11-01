@@ -40,6 +40,7 @@ cells must contain 0 or a unique digit.
 namespace {
 
 static const int kAllValid = 0b1111111110;
+static const int kUniqueTableSize = kAllValid + 1;
 
 class Region {
 public:
@@ -59,6 +60,7 @@ class Sudoku {
 public:
     Cell board_[81];
     Regions regions_;
+    int unique_table_[kUniqueTableSize];
 
     void run() noexcept {
         init();
@@ -357,9 +359,28 @@ public:
     }
 
     void solve_gimmes() noexcept {
-        set_valid();
-        std::cout<<"Valid values:"<<std::endl;
-        print_valid();
+        init_unique_table();
+
+        for(;;) {
+            set_valid();
+            std::cout<<"Valid values:"<<std::endl;
+            print_valid();
+            int nfound = find_gimmes();
+            std::cout<<"Gimmes: "<<nfound<<std::endl;
+            if (nfound == 0) {
+                break;
+            }
+        }
+    }
+
+    void init_unique_table() noexcept {
+        for (int i = 0; i < kUniqueTableSize; ++i) {
+            unique_table_[i] = 0;
+        }
+        for (int i = 1; i <= 9; ++i) {
+            int bit = 1 << i;
+            unique_table_[bit] = i;
+        }
     }
 
     void set_valid() noexcept {
@@ -433,6 +454,25 @@ public:
             std::cout<<" ";
         }
         std::cout<<std::endl;
+    }
+
+    int find_gimmes() noexcept {
+        int nfound = 0;
+        for (int i = 0; i < 9*9; ++i) {
+            int known = board_[i].known_;
+            if (known > 0) {
+                continue;
+            }
+            int valid = board_[i].valid_;
+            int unique = unique_table_[valid];
+            if (unique == 0) {
+                continue;
+            }
+            ++nfound;
+            board_[i].value_ = unique;
+            board_[i].known_ = unique;
+        }
+        return nfound;
     }
 };
 
