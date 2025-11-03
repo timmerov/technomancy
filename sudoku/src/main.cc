@@ -26,7 +26,6 @@ column is 9x1 cells.
 box is 3x3 cells.
 a region is a row, column, or box.
 cells must contain 0 or a unique digit.
-
 **/
 
 #include <aggiornamento/aggiornamento.h>
@@ -363,12 +362,35 @@ public:
 
         for(;;) {
             set_valid();
-            std::cout<<"Valid values:"<<std::endl;
+            std::cout<<"Valid Values:"<<std::endl;
             print_valid();
             int nfound = find_gimmes();
             std::cout<<"Gimmes: "<<nfound<<std::endl;
             if (nfound == 0) {
                 break;
+            }
+        }
+
+        init_gimme_force();
+        std::cout<<"Start Gimme Force:"<<std::endl;
+        print_board();
+
+        agm::int64 print_i = 3;
+        for (agm::int64 i = 0; i < 10*1000*1000*1000LL; ++i) {
+            bool solved = check_regions();
+            if (solved) {
+                std::cout<<"Solved: "<<solved<<std::endl;
+                break;
+            }
+            bool done = increment_board_valid();
+            if (done) {
+                std::cout<<"Unsolvable."<<std::endl;
+                break;
+            }
+            if (i == print_i) {
+                print_i *= 3;
+                std::cout<<"Iteration: "<<i<<std::endl;
+                print_board();
             }
         }
     }
@@ -473,6 +495,47 @@ public:
             board_[i].known_ = unique;
         }
         return nfound;
+    }
+
+    void init_gimme_force() noexcept {
+        for (int i = 0; i < 9*9; ++i) {
+            int valid = board_[i].valid_;
+            for (int k = 1; k < 9; ++k) {
+                int bit = 1 << k;
+                if (valid & bit) {
+                    board_[i].value_ = k;
+                    break;
+                }
+            }
+        }
+    }
+
+    bool increment_board_valid() noexcept {
+        for (int i = 0; i < 9*9; ++i) {
+            int known = board_[i].known_;
+            if (known != 0) {
+                continue;
+            }
+            bool rolled_over = false;
+            int x = board_[i].value_ + 1;
+            int valid = board_[i].valid_;
+            for(;;) {
+                if (x > 9) {
+                    rolled_over = true;
+                    x = 1;
+                }
+                int bit = 1 << x;
+                if (valid & bit) {
+                    break;
+                }
+                ++x;
+            }
+            board_[i].value_ = x;
+            if (rolled_over == false) {
+                return false;
+            }
+        }
+        return true;
     }
 };
 
