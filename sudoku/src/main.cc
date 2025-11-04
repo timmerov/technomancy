@@ -73,7 +73,10 @@ public:
         //solve_gimmes();
 
         /** find gimmes and exclusions. then brute force. **/
-        solve_exclusions();
+        //solve_exclusions();
+
+        /** find gimmes and exclusions. stop brute force when board is unsolvable. **/
+        solve_smarter();
     }
 
     void init() noexcept {
@@ -288,7 +291,7 @@ public:
         print_board();
         agm::int64 print_i = 3;
         for (agm::int64 i = 0; i < 10*1000*1000*1000LL; ++i) {
-            bool solved = check_regions();
+            bool solved = check_solved();
             if (solved) {
                 std::cout<<"Solved: "<<solved<<std::endl;
                 break;
@@ -316,7 +319,7 @@ public:
         }
     }
 
-    bool check_regions() noexcept {
+    bool check_solved() noexcept {
         for (auto &&rgn : regions_) {
             int used = 0;
             for (int i = 0; i < 9; ++i) {
@@ -485,7 +488,7 @@ public:
 
         agm::int64 print_i = 3;
         for (agm::int64 i = 0; i < 10*1000*1000*1000LL; ++i) {
-            bool solved = check_regions();
+            bool solved = check_solved();
             if (solved) {
                 std::cout<<"Solved: "<<solved<<std::endl;
                 break;
@@ -651,6 +654,309 @@ public:
         cell.known_ = known_value;
         cell.value_ = known_value;
         cell.valid_ = 1 << known_value;
+    }
+
+    /**
+    smarter solver.
+    it's still brute force.
+    but it backtracks when the board is unsolvable.
+    which should speed things up considerably.
+
+    board values are initialized to known or 0.
+    set valid bits from cell values.
+    find all gimmes and exclusions. set their cell values. reset valid bits.
+    A. set unknown cell to first valid value.
+    B. reset valid bits.
+    find all gimmes and exclusions. set their cell values. reset valid bits.
+    if solved then done.
+    if solvable then
+        advance to next unknown cell. return to B.
+    not solvable.
+    set cell to next valid value. return to A.
+    set cell to first valid value. go to next unknown cell. return to A.
+    **/
+    void solve_smarter() noexcept {
+        /** assume initialized to known or 0. **/
+        /** set all gimme and exclusive cells. **/
+        find_gimmes_exclusions_set_values();
+
+        /** save gimmes and exclusives as known. **/
+        copy_board_to_known();
+
+        /** start at the first cell. **/
+        int current = 0;
+        for(;;) {
+/* A */
+            /** advance to the next cell with no value. **/
+            current = find_next_value_0_cell(current);
+            check_board_index(current);
+
+            /** set its value to the first valid value. **/
+            set_cell_to_first_valid_value(current);
+
+            bool loop = true;
+            while (loop == true) {
+                loop = false;
+/* B */
+                /** set all gimme and exclusive cells. **/
+                find_gimmes_exclusions_set_values();
+
+                /** is the board solved. **/
+                bool solved = check_solved();
+                if (solved) {
+                    /** celebrate. **/
+                    return;
+                }
+
+                /** is the board still solvable. **/
+                bool solvable = check_solvable();
+                if (solvable == false) {
+                    /** not solvable. **/
+                    for(;;) {
+/* C */
+                        bool rolled_over = advance_cell_value(current);
+                        if (rolled_over) {
+                            /** clear all cell values from current to end. **/
+                            clear_values_from(current);
+
+                            /** reset valid values. **/
+                            set_valid_by_values();
+
+                            /** backtrack **/
+                            current = find_previous_unknown_cell(current);
+                            check_board_index(current);
+
+                            continue;
+                            /* goto C */
+                        }
+
+                        /* goto B */
+                        loop = true;
+                        break;
+                    }
+                    if (loop) {
+                        /* goto B */
+                        continue;
+                    }
+                }
+            }
+
+            /** solvable. advance to the next unknown cell. **/
+            ++current;
+            check_board_index(current);
+            /* goto A */
+        }
+    }
+
+    void find_gimmes_exclusions_set_values() noexcept {
+        int nfound = 0;
+        do {
+            set_valid_by_values();
+            nfound = find_gimmes_set_values();
+            nfound += find_exclusions_set_values();
+        }
+        while (nfound > 0);
+    }
+
+    int find_gimmes_set_values() noexcept {
+        int nfound = 0;
+        for (int i = 0; i < 9*9; ++i) {
+            int known = board_[i].known_;
+            if (known > 0) {
+                continue;
+            }
+            int valid = board_[i].valid_;
+            int unique = unique_table_[valid];
+            if (unique == 0) {
+                continue;
+            }
+            ++nfound;
+            auto& cell = board_[i];
+            cell.value_ = unique;
+            cell.valid_ = 1 << unique;
+        }
+        return nfound;
+    }
+
+    /**
+    look for regions where a value appears in exactly one cell.
+    **/
+    int find_exclusions_set_values() noexcept {
+        static const int kCellUnknown = -1;
+        static const int kMultipleCells = -2;
+
+        int nfound = 0;
+
+        /** for each region. **/
+        for (auto &&rgn : regions_) {
+            /** init every digit is at an unknown cell. **/
+            int excluded_cells[10];
+            for (int i = 0; i < 10; ++i) {
+                excluded_cells[i] = kCellUnknown;
+            }
+
+            /** for each cell in the region. **/
+            for (int i = 0; i < 9; ++i) {
+                int cell = rgn.cells_[i];
+                /** get the cell's valid bits. **/
+                int valid = board_[cell].valid_;
+                /** for each value. **/
+                for (int k = 1; k <= 9; ++k) {
+                    /** value k is not valid. **/
+                    int bit = 1 << k;
+                    if ((valid & bit) == 0) {
+                        continue;
+                    }
+                    /** value k is valid. **/
+                    int prev = excluded_cells[k];
+                    if (prev == kCellUnknown) {
+                        /** first encounter, remember where. **/
+                        excluded_cells[k] = cell;
+                    } else {
+                        /** we have seen this value before. **/
+                        excluded_cells[k] = kMultipleCells;
+                    }
+                }
+            }
+
+            /** check for cells unique to the region. **/
+            for (int i = 1; i <= 9; ++i) {
+                int idx = excluded_cells[i];
+                if (idx < 0) {
+                    continue;
+                }
+                /** skip already known cells. **/
+                int known = board_[idx].known_;
+                if (known > 0) {
+                    continue;
+                }
+                /** we found an exclusive cell. **/
+                ++nfound;
+                auto& cell = board_[idx];
+                cell.value_ = i;
+                cell.valid_ = 1 << i;
+            }
+        }
+
+        return nfound;
+    }
+
+    int find_next_value_0_cell(
+        int start
+    ) noexcept {
+        int idx = start;
+        for (; idx < 9*9; ++idx) {
+            int value = board_[idx].value_;
+            if (value == 0) {
+                break;
+            }
+        }
+        return idx;
+    }
+
+    void check_board_index(
+        int idx
+    ) noexcept {
+        if (idx < 0 || idx >= 9*9) {
+            LOG("Cell index out of range: "<<idx);
+            exit(1);
+        }
+    }
+
+    void set_cell_to_first_valid_value(
+        int idx
+    ) noexcept {
+        auto& cell = board_[idx];
+        int valid = cell.valid_;
+        for (int i = 1; i <= 9; ++i) {
+            int bit = 1 << i;
+            if (valid & bit) {
+                cell.value_ = i;
+                break;
+            }
+        }
+    }
+
+    bool check_solvable() noexcept {
+        for (auto&& rgn : regions_) {
+            int possible = 0;
+            for (int i = 0; i < 9; ++i) {
+                int cell = rgn.cells_[i];
+                int valid = board_[cell].valid_;
+                possible |= valid;
+            }
+            possible &= kAllValid;
+            if (possible != kAllValid) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** return true if we roll over. **/
+    bool advance_cell_value(
+        int idx
+    ) noexcept {
+        auto& cell = board_[idx];
+        int value = cell.value_ + 1;
+        int valid = cell.valid_;
+        for (int i = value; i <= 9; ++i) {
+            int bit = 1 << i;
+            if (valid & bit) {
+                cell.value_ = i;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void clear_values_from(
+        int start
+    ) noexcept {
+        for (int i = start; i < 9*9; ++i) {
+            auto& cell = board_[i];
+            cell.value_ = cell.known_;
+        }
+    }
+
+    void set_valid_by_values() noexcept {
+        /** everything is valid. **/
+        for (int i = 0; i < 9*9; ++i) {
+            board_[i].valid_ = kAllValid;
+        }
+        /** remove invalid bits. **/
+        for (auto &&rgn : regions_) {
+            int invalid = 0;
+            for (int i = 0; i < 9; ++i) {
+                int cell = rgn.cells_[i];
+                int value = board_[cell].value_;
+                invalid |= 1 << value;
+            }
+            int valid = kAllValid & ~invalid;
+            for (int i = 0; i < 9; ++i) {
+                int cell = rgn.cells_[i];
+                board_[cell].valid_ &= valid;
+            }
+        }
+        /** restore cells with values. **/
+        for (int i = 0; i < 9*9; ++i) {
+            int value = board_[i].value_;
+            if (value > 0) {
+                board_[i].valid_ = 1 << value;
+            }
+        }
+    }
+
+    int find_previous_unknown_cell(
+        int start
+    ) noexcept {
+        for (int i = start - 1; i >= 0; --i) {
+            int known = board_[i].known_;
+            if (known > 0) {
+                return i;
+            }
+        }
+        return -1;
     }
 };
 
