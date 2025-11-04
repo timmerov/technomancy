@@ -693,6 +693,7 @@ public:
 
             /** set its value to the first valid value. **/
             set_cell_to_first_valid_value(current);
+            print_board();
 
             bool loop = true;
             while (loop == true) {
@@ -705,6 +706,7 @@ public:
                 bool solved = check_solved();
                 if (solved) {
                     /** celebrate. **/
+                    std::cout<<"Solved!"<<std::endl;
                     return;
                 }
 
@@ -730,6 +732,8 @@ public:
                             /* goto C */
                         }
 
+                        std::cout<<"Not solvable. Resetting."<<std::endl;
+                        print_board();
                         /* goto B */
                         loop = true;
                         break;
@@ -756,24 +760,31 @@ public:
             nfound += find_exclusions_set_values();
         }
         while (nfound > 0);
+        std::cout<<"Set gimmes and exclusions:"<<std::endl;
+        print_board();
     }
 
     int find_gimmes_set_values() noexcept {
         int nfound = 0;
         for (int i = 0; i < 9*9; ++i) {
-            int known = board_[i].known_;
-            if (known > 0) {
+            /** skip cells that have a value. **/
+            auto& cell = board_[i];
+            int value = cell.value_;
+            if (value > 0) {
                 continue;
             }
-            int valid = board_[i].valid_;
+            /** skip cells with multiple valid values. **/
+            int valid = cell.valid_;
             int unique = unique_table_[valid];
             if (unique == 0) {
                 continue;
             }
             ++nfound;
-            auto& cell = board_[i];
             cell.value_ = unique;
             cell.valid_ = 1 << unique;
+            int row = i / 9;
+            int col = i % 9;
+            std::cout<<"Found gimme: cell["<<row<<","<<col<<"]="<<unique<<std::endl;
         }
         return nfound;
     }
@@ -789,7 +800,7 @@ public:
 
         /** for each region. **/
         for (auto &&rgn : regions_) {
-            /** init every digit is at an unknown cell. **/
+            /** start with every digit at an unknown cell. **/
             int excluded_cells[10];
             for (int i = 0; i < 10; ++i) {
                 excluded_cells[i] = kCellUnknown;
@@ -802,7 +813,7 @@ public:
                 int valid = board_[cell].valid_;
                 /** for each value. **/
                 for (int k = 1; k <= 9; ++k) {
-                    /** value k is not valid. **/
+                    /** skip invalid values of k. **/
                     int bit = 1 << k;
                     if ((valid & bit) == 0) {
                         continue;
@@ -821,20 +832,24 @@ public:
 
             /** check for cells unique to the region. **/
             for (int i = 1; i <= 9; ++i) {
+                /** skip digits at unknown or multiple locations. **/
                 int idx = excluded_cells[i];
                 if (idx < 0) {
                     continue;
                 }
-                /** skip already known cells. **/
-                int known = board_[idx].known_;
-                if (known > 0) {
+                /** skip cells with values. **/
+                auto& cell = board_[idx];
+                int value = board_[idx].value_;
+                if (value > 0) {
                     continue;
                 }
                 /** we found an exclusive cell. **/
                 ++nfound;
-                auto& cell = board_[idx];
                 cell.value_ = i;
                 cell.valid_ = 1 << i;
+                int row = idx / 9;
+                int col = idx % 9;
+                std::cout<<"Found exclusion: cell["<<row<<","<<col<<"]="<<i<<std::endl;
             }
         }
 
@@ -871,6 +886,9 @@ public:
         for (int i = 1; i <= 9; ++i) {
             int bit = 1 << i;
             if (valid & bit) {
+                int row = idx / 9;
+                int col = idx % 9;
+                std::cout<<"Guessing cell["<<row<<","<<col<<"]="<<i<<std::endl;
                 cell.value_ = i;
                 break;
             }
