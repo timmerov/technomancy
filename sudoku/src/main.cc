@@ -71,6 +71,22 @@ public:
     }
 
     void init() noexcept {
+        /** pick one. **/
+        //init_example();
+        //init_easy_v1b1p1();
+        //init_novice_v1b1p1();
+        //init_intermediate_v1b1p1();
+        //init_challenging_v1b1p1();
+        //init_tough_v1b1p1();
+        init_super_tough_v1b1p1();
+
+        copy_board_to_known();
+        init_regions();
+        check_regions_exit();
+        init_unique_table();
+    }
+
+    void init_example() noexcept {
         init_board_row(0, {0, 0, 0,  0, 0, 0,  0, 6, 0});
         init_board_row(1, {2, 8, 0,  0, 0, 0,  0, 0, 4});
         init_board_row(2, {0, 0, 7,  0, 0, 5,  8, 0, 0});
@@ -80,10 +96,90 @@ public:
         init_board_row(6, {0, 0, 5,  1, 0, 0,  2, 0, 0});
         init_board_row(7, {3, 0, 0,  0, 0, 0,  0, 8, 1});
         init_board_row(8, {0, 9, 0,  0, 0, 0,  0, 0, 0});
-        copy_board_to_known();
-        init_regions();
-        check_regions_exit();
-        init_unique_table();
+    }
+
+    void init_easy_v1b1p1() noexcept {
+        init_board_row(0, {2, 0, 5,  0, 0, 7,  0, 0, 6});
+        init_board_row(1, {4, 0, 0,  9, 6, 0,  0, 2, 0});
+        init_board_row(2, {0, 0, 0,  0, 8, 0,  0, 4, 5});
+        init_board_row(3, {9, 8, 0,  0, 7, 4,  0, 0, 0});
+        init_board_row(4, {5, 7, 0,  8, 0, 2,  0, 6, 9});
+        init_board_row(5, {0, 0, 0,  6, 3, 0,  0, 5, 7});
+        init_board_row(6, {7, 5, 0,  0, 2, 0,  0, 0, 0});
+        init_board_row(7, {0, 6, 0,  0, 5, 1,  0, 0, 2});
+        init_board_row(8, {3, 0, 0,  4, 0, 0,  5, 0, 8});
+    }
+
+    void init_novice_v1b1p1() noexcept {
+        init_board_row(0, {0, 0, 7,  8, 0, 0,  0, 0, 2});
+        init_board_row(1, {0, 0, 0,  0, 0, 0,  8, 4, 0});
+        init_board_row(2, {8, 0, 9,  1, 0, 0,  6, 7, 0});
+        init_board_row(3, {0, 6, 0,  7, 0, 0,  0, 0, 4});
+        init_board_row(4, {4, 7, 5,  0, 9, 0,  1, 6, 3});
+        init_board_row(5, {2, 0, 0,  0, 0, 4,  0, 8, 0});
+        init_board_row(6, {0, 8, 1,  0, 0, 5,  3, 0, 9});
+        init_board_row(7, {0, 2, 4,  0, 0, 0,  0, 0, 0});
+        init_board_row(8, {9, 0, 0,  0, 0, 7,  4, 0, 0});
+    }
+
+    void init_intermediate_v1b1p1() noexcept {
+        init_board_row(0, {0, 2, 4,  3, 8, 0,  0, 0, 0});
+        init_board_row(1, {0, 0, 0,  0, 0, 6,  0, 0, 7});
+        init_board_row(2, {0, 5, 8,  0, 0, 0,  4, 0, 0});
+        init_board_row(3, {4, 0, 0,  0, 1, 0,  0, 0, 0});
+        init_board_row(4, {0, 0, 0,  7, 0, 5,  0, 0, 0});
+        init_board_row(5, {0, 0, 0,  0, 2, 0,  0, 0, 8});
+        init_board_row(6, {0, 0, 1,  0, 0, 0,  6, 7, 0});
+        init_board_row(7, {3, 0, 0,  5, 0, 0,  0, 0, 0});
+        init_board_row(8, {0, 0, 0,  0, 4, 9,  2, 1, 0});
+    }
+
+    void init_challenging_v1b1p1() noexcept {
+        init_board_row(0, {0, 0, 0,  0, 0, 0,  2, 0, 8});
+        init_board_row(1, {9, 2, 0,  0, 0, 4,  0, 0, 0});
+        init_board_row(2, {0, 0, 0,  2, 0, 8,  0, 7, 1});
+        init_board_row(3, {0, 3, 6,  0, 0, 0,  0, 0, 0});
+        init_board_row(4, {0, 0, 0,  7, 0, 9,  0, 0, 0});
+        init_board_row(5, {0, 0, 0,  0, 0, 0,  6, 4, 0});
+        init_board_row(6, {8, 6, 0,  4, 0, 1,  0, 0, 0});
+        init_board_row(7, {0, 0, 0,  9, 0, 0,  0, 2, 7});
+        init_board_row(8, {2, 0, 9,  0, 0, 0,  0, 0, 0});
+    }
+
+    void init_tough_v1b1p1() noexcept {
+        init_board_row(0, {3, 0, 0,  0, 0, 0,  0, 6, 0});
+        init_board_row(1, {6, 0, 7,  9, 0, 0,  0, 8, 0});
+        init_board_row(2, {0, 0, 0,  0, 0, 7,  0, 0, 0});
+        init_board_row(3, {1, 4, 0,  0, 8, 0,  0, 0, 0});
+        init_board_row(4, {0, 0, 3,  2, 0, 5,  7, 0, 0});
+        init_board_row(5, {0, 0, 0,  0, 9, 0,  0, 4, 8});
+        init_board_row(6, {0, 0, 0,  5, 0, 0,  0, 0, 0});
+        init_board_row(7, {0, 5, 0,  0, 0, 2,  6, 0, 1});
+        init_board_row(8, {0, 1, 0,  0, 0, 0,  0, 0, 3});
+    }
+
+    void init_super_tough_v1b1p1() noexcept {
+        init_board_row(0, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+        init_board_row(1, {8, 0, 0,  0, 2, 0,  0, 0, 5});
+        init_board_row(2, {0, 0, 0,  0, 0, 6,  2, 4, 0});
+        init_board_row(3, {0, 3, 8,  0, 0, 7,  1, 0, 0});
+        init_board_row(4, {2, 0, 4,  0, 0, 0,  3, 0, 9});
+        init_board_row(5, {0, 0, 7,  4, 0, 0,  5, 2, 0});
+        init_board_row(6, {0, 7, 2,  5, 0, 0,  0, 0, 0});
+        init_board_row(7, {6, 0, 0,  0, 8, 0,  0, 0, 1});
+        init_board_row(8, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+    }
+
+    void init_template() noexcept {
+        init_board_row(0, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+        init_board_row(1, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+        init_board_row(2, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+        init_board_row(3, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+        init_board_row(4, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+        init_board_row(5, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+        init_board_row(6, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+        init_board_row(7, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+        init_board_row(8, {0, 0, 0,  0, 0, 0,  0, 0, 0});
     }
 
     void init_board_row(
@@ -347,6 +443,12 @@ public:
         /** save gimmes and exclusives as known. **/
         copy_board_to_known();
 
+        /** is the board solved. **/
+        bool solved = check_solved();
+        if (solved) {
+            return;
+        }
+
         /** start at the first cell. **/
         int current = 0;
         for(;;) {
@@ -357,7 +459,17 @@ public:
 
             /** set its value to the first valid value. **/
             set_cell_to_first_valid_value(current);
+
+            /**
+            bug here.
+            we need to set the valid bits for all of the cells.
+            which will clear the valid bits for this cell.
+            but we need the valid bits to be the old value
+            when we advance the cell value.
+            **/
+
             print_board();
+            print_valid();
 
             bool loop = true;
             while (loop == true) {
@@ -369,8 +481,6 @@ public:
                 /** is the board solved. **/
                 bool solved = check_solved();
                 if (solved) {
-                    /** celebrate. **/
-                    std::cout<<"Solved!"<<std::endl;
                     return;
                 }
 
@@ -417,13 +527,25 @@ public:
     }
 
     void find_gimmes_exclusions() noexcept {
-        int nfound = 0;
-        do {
-            set_valid();
-            nfound = find_gimmes();
-            nfound += find_exclusions();
+        set_valid();
+        for(;;) {
+            int ngimmes = find_gimmes();
+            if (ngimmes > 0) {
+                set_valid();
+                print_board();
+                print_valid();
+            }
+            int nexclusions = find_exclusions();
+            if (nexclusions > 0) {
+                set_valid();
+                print_board();
+                print_valid();
+            }
+            int nfound = ngimmes + nexclusions;
+            if (nfound == 0) {
+                break;
+            }
         }
-        while (nfound > 0);
         std::cout<<"Set gimmes and exclusions:"<<std::endl;
         print_board();
     }
@@ -600,6 +722,8 @@ public:
                 used |= bit;
             }
         }
+        /** celebrate. **/
+        std::cout<<"Solved!"<<std::endl;
         return true;
     }
 
