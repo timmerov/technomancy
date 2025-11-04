@@ -70,7 +70,10 @@ public:
         //solve_brute_force();
 
         /** find the gimmes. then brute force. **/
-        solve_gimmes();
+        //solve_gimmes();
+
+        /** find gimmes and exclusions. then brute force. **/
+        solve_exclusions();
     }
 
     void init() noexcept {
@@ -86,6 +89,7 @@ public:
         copy_board_to_known();
         init_regions();
         check_regions_exit();
+        init_unique_table();
     }
 
     void init_board_row(
@@ -358,8 +362,6 @@ public:
     }
 
     void solve_gimmes() noexcept {
-        init_unique_table();
-
         for(;;) {
             set_valid();
             std::cout<<"Valid Values:"<<std::endl;
@@ -370,29 +372,8 @@ public:
                 break;
             }
         }
-
-        init_gimme_force();
-        std::cout<<"Start Gimme Force:"<<std::endl;
         print_board();
-
-        agm::int64 print_i = 3;
-        for (agm::int64 i = 0; i < 10*1000*1000*1000LL; ++i) {
-            bool solved = check_regions();
-            if (solved) {
-                std::cout<<"Solved: "<<solved<<std::endl;
-                break;
-            }
-            bool done = increment_board_valid();
-            if (done) {
-                std::cout<<"Unsolvable."<<std::endl;
-                break;
-            }
-            if (i == print_i) {
-                print_i *= 3;
-                std::cout<<"Iteration: "<<i<<std::endl;
-                print_board();
-            }
-        }
+        solve_brute_force_valid();
     }
 
     void init_unique_table() noexcept {
@@ -491,13 +472,38 @@ public:
                 continue;
             }
             ++nfound;
-            board_[i].value_ = unique;
-            board_[i].known_ = unique;
+            set_known_cell(i, unique);
         }
         return nfound;
     }
 
-    void init_gimme_force() noexcept {
+    void solve_brute_force_valid() noexcept {
+        init_brute_force_valid();
+        std::cout<<"Start brute force valid values:"<<std::endl;
+
+        count_possibles();
+
+        agm::int64 print_i = 3;
+        for (agm::int64 i = 0; i < 10*1000*1000*1000LL; ++i) {
+            bool solved = check_regions();
+            if (solved) {
+                std::cout<<"Solved: "<<solved<<std::endl;
+                break;
+            }
+            bool done = increment_board_valid();
+            if (done) {
+                std::cout<<"Unsolvable."<<std::endl;
+                break;
+            }
+            if (i == print_i) {
+                print_i *= 3;
+                std::cout<<"Iteration: "<<i<<std::endl;
+                print_board();
+            }
+        }
+    }
+
+    void init_brute_force_valid() noexcept {
         for (int i = 0; i < 9*9; ++i) {
             int valid = board_[i].valid_;
             for (int k = 1; k < 9; ++k) {
@@ -508,6 +514,22 @@ public:
                 }
             }
         }
+    }
+
+    void count_possibles() noexcept {
+        double count = 1.0;
+        for (int i = 0; i < 9*9; ++i) {
+            int valid = board_[i].valid_;
+            int bits = 0;
+            for (int k = 1; k <= 9; ++k) {
+                int bit = 1 << k;
+                if (valid & bit) {
+                    ++bits;
+                }
+            }
+            count *= double(bits);
+        }
+        std::cout<<"Number of possible arrangements: "<<count<<std::endl;
     }
 
     bool increment_board_valid() noexcept {
@@ -536,6 +558,99 @@ public:
             }
         }
         return true;
+    }
+
+    void solve_exclusions() noexcept {
+        for(;;) {
+            set_valid();
+            std::cout<<"Valid Values:"<<std::endl;
+            print_valid();
+            int nfound = find_gimmes();
+            std::cout<<"Gimmes: "<<nfound<<std::endl;
+            if (nfound > 0) {
+                print_board();
+                continue;
+            }
+            nfound = find_exclusions();
+            std::cout<<"Exclusions: "<<nfound<<std::endl;
+            if (nfound > 0) {
+                print_board();
+                continue;
+            }
+            break;
+        }
+        solve_brute_force_valid();
+    }
+
+    /**
+    look for regions where a value appears in exactly one cell.
+    **/
+    int find_exclusions() noexcept {
+        static const int kCellUnknown = -1;
+        static const int kMultipleCells = -2;
+
+        int nfound = 0;
+
+        /** for each region. **/
+        for (auto &&rgn : regions_) {
+            /** init every digit is at an unknown cell. **/
+            int excluded_cells[10];
+            for (int i = 0; i < 10; ++i) {
+                excluded_cells[i] = kCellUnknown;
+            }
+
+            /** for each cell in the region. **/
+            for (int i = 0; i < 9; ++i) {
+                int cell = rgn.cells_[i];
+                /** get the cell's valid bits. **/
+                int valid = board_[cell].valid_;
+                /** for each value. **/
+                for (int k = 1; k <= 9; ++k) {
+                    /** value k is not valid. **/
+                    int bit = 1 << k;
+                    if ((valid & bit) == 0) {
+                        continue;
+                    }
+                    /** value k is valid. **/
+                    int prev = excluded_cells[k];
+                    if (prev == kCellUnknown) {
+                        /** first encounter, remember where. **/
+                        excluded_cells[k] = cell;
+                    } else {
+                        /** we have seen this value before. **/
+                        excluded_cells[k] = kMultipleCells;
+                    }
+                }
+            }
+
+            /** check for cells unique to the region. **/
+            for (int i = 1; i <= 9; ++i) {
+                int idx = excluded_cells[i];
+                if (idx < 0) {
+                    continue;
+                }
+                /** skip already known cells. **/
+                int known = board_[idx].known_;
+                if (known > 0) {
+                    continue;
+                }
+                /** we found an exclusive cell. **/
+                ++nfound;
+                set_known_cell(idx, i);
+            }
+        }
+
+        return nfound;
+    }
+
+    void set_known_cell(
+        int idx,
+        int known_value
+    ) noexcept {
+        auto& cell = board_[idx];
+        cell.known_ = known_value;
+        cell.value_ = known_value;
+        cell.valid_ = 1 << known_value;
     }
 };
 
