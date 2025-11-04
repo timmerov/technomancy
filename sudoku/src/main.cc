@@ -50,9 +50,10 @@ typedef std::vector<Region> Regions;
 
 class Cell {
 public:
-    int value_;
-    int known_;
-    int valid_;
+    int value_ = 0;
+    int known_ = 0;
+    int valid_ = 0;
+    int search_ = 0;
 };
 
 class Sudoku {
@@ -457,19 +458,16 @@ public:
             current = find_next_value_0_cell(current);
             check_board_index(current);
 
+            /** save the valid value. **/
+            copy_valid_to_search(current);
+
             /** set its value to the first valid value. **/
             set_cell_to_first_valid_value(current);
-
-            /**
-            bug here.
-            we need to set the valid bits for all of the cells.
-            which will clear the valid bits for this cell.
-            but we need the valid bits to be the old value
-            when we advance the cell value.
-            **/
-
             print_board();
-            print_valid();
+
+            /** update the valid bits. **/
+            set_valid();
+            //print_valid();
 
             bool loop = true;
             while (loop == true) {
@@ -490,14 +488,12 @@ public:
                     /** not solvable. **/
                     for(;;) {
 /* C */
-                        bool rolled_over = advance_cell_value(current);
-                        if (rolled_over) {
-                            /** clear all cell values from current to end. **/
-                            clear_values_from(current);
+                        /** clear all cell values after current. **/
+                        clear_values_from(current+1);
 
-                            /** reset valid values. **/
-                            set_valid();
-
+                        /** try another value for the current cell. **/
+                        int new_value = advance_cell_value(current);
+                        if (new_value == 0) {
                             /** backtrack **/
                             current = find_previous_unknown_cell(current);
                             check_board_index(current);
@@ -506,7 +502,9 @@ public:
                             /* goto C */
                         }
 
-                        std::cout<<"Not solvable. Resetting."<<std::endl;
+                        int row = current / 9;
+                        int col = current % 9;
+                        std::cout<<"Not solvable. Changing guess: cell["<<row<<","<<col<<"]="<<new_value<<std::endl;
                         print_board();
                         /* goto B */
                         loop = true;
@@ -532,14 +530,14 @@ public:
             int ngimmes = find_gimmes();
             if (ngimmes > 0) {
                 set_valid();
-                print_board();
-                print_valid();
+                //print_board();
+                //print_valid();
             }
             int nexclusions = find_exclusions();
             if (nexclusions > 0) {
                 set_valid();
-                print_board();
-                print_valid();
+                //print_board();
+                //print_valid();
             }
             int nfound = ngimmes + nexclusions;
             if (nfound == 0) {
@@ -692,6 +690,13 @@ public:
         }
     }
 
+    void copy_valid_to_search(
+        int idx
+    ) noexcept {
+        auto& cell = board_[idx];
+        cell.search_ = cell.valid_;
+    }
+
     void set_cell_to_first_valid_value(
         int idx
     ) noexcept {
@@ -744,20 +749,21 @@ public:
     }
 
     /** return true if we roll over. **/
-    bool advance_cell_value(
+    int advance_cell_value(
         int idx
     ) noexcept {
         auto& cell = board_[idx];
         int value = cell.value_ + 1;
-        int valid = cell.valid_;
+        int search = cell.search_;
         for (int i = value; i <= 9; ++i) {
             int bit = 1 << i;
-            if (valid & bit) {
+            if (search & bit) {
                 cell.value_ = i;
-                return false;
+                return i;
             }
         }
-        return true;
+        cell.value_ = 0;
+        return 0;
     }
 
     void clear_values_from(
@@ -774,7 +780,10 @@ public:
     ) noexcept {
         for (int i = start - 1; i >= 0; --i) {
             int known = board_[i].known_;
-            if (known > 0) {
+            if (known == 0) {
+                int row = i / 9;
+                int col = i % 9;
+                std::cout<<"Backtracked to cell["<<row<<","<<col<<"]"<<std::endl;
                 return i;
             }
         }
