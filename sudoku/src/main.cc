@@ -79,7 +79,8 @@ public:
         //init_intermediate_v1b1p1();
         //init_challenging_v1b1p1();
         //init_tough_v1b1p1();
-        init_super_tough_v1b1p1();
+        //init_super_tough_v1b1p1();
+        init_insane_v1b1p1();
 
         copy_board_to_known();
         init_regions();
@@ -169,6 +170,18 @@ public:
         init_board_row(6, {0, 7, 2,  5, 0, 0,  0, 0, 0});
         init_board_row(7, {6, 0, 0,  0, 8, 0,  0, 0, 1});
         init_board_row(8, {0, 0, 0,  0, 0, 0,  0, 0, 0});
+    }
+
+    void init_insane_v1b1p1() noexcept {
+        init_board_row(0, {0, 0, 0,  0, 0, 0,  0, 6, 0});
+        init_board_row(1, {2, 8, 0,  0, 0, 0,  0, 0, 4});
+        init_board_row(2, {0, 0, 7,  0, 0, 5,  8, 0, 0});
+        init_board_row(3, {5, 0, 0,  3, 4, 0,  0, 2, 0});
+        init_board_row(4, {4, 0, 0,  5, 0, 1,  0, 0, 8});
+        init_board_row(5, {0, 1, 0,  0, 7, 6,  0, 0, 3});
+        init_board_row(6, {0, 0, 5,  1, 0, 0,  2, 0, 0});
+        init_board_row(7, {3, 0, 0,  0, 0, 0,  0, 8, 1});
+        init_board_row(8, {0, 9, 0,  0, 0, 0,  0, 0, 0});
     }
 
     void init_template() noexcept {
