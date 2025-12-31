@@ -68,15 +68,16 @@ similar names (8): "Alexandria" and "Alexandra"
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
 
+constexpr int kLocationSize = 32;
 
 class Temperature {
 public:
-    double min_ = 1e6;
-    double max_ = 0.0;
-    double sum_ = 9.0;
-    size_t count_ = 0;
+    char location_[kLocationSize];
+    double min_;
+    double max_;
+    double sum_;
+    size_t count_;
 };
-typedef std::unordered_map<std::string, Temperature> Tree;
 
 class OneBillionRows {
 public:
@@ -92,7 +93,6 @@ public:
     int fd_ = -1;
     size_t length_ = 0;
     char *map_ = nullptr;
-    Tree tree_;
 
     /** this is large enough we don't want it on the stack. **/
     size_t table_[27];
@@ -105,7 +105,8 @@ public:
 
         //analyzeDistribution();
         //analyzeTree();
-        unorderedTree();
+        //unorderedTree();
+        unsortedArray();
     }
 
     bool init() noexcept {
@@ -140,34 +141,120 @@ public:
         }
     }
 
+    void unsortedArray() noexcept {
+        auto map = map_;
+        auto limit = map + length_;
+
+        constexpr size_t kMaxRecords = 500;
+
+        int nrecords = 0;
+        auto records = new(std::nothrow) Temperature[kMaxRecords];
+
+        size_t count = 0;
+        while (map < limit) {
+            auto store = records + nrecords;
+            map = copyLocation(map, store->location_);
+            double temp = popTemperature(map);
+            map = findChar(map, 0x0A);
+            ++map;
+
+            ++count;
+            if ((count % (1000*1000LL)) == 0) {
+                LOG("count="<<count<<" nrecords="<<nrecords);
+            }
+
+            bool found = false;
+            for (int i = 0; i < nrecords; ++i) {
+                auto test = records + i;
+                if (std::strcmp(test->location_, store->location_) == 0) {
+                    found = true;
+                    store->min_ = std::min(store->min_, temp);
+                    store->max_ = std::max(store->max_, temp);
+                    store->sum_ += temp;
+                    store->count_++;
+                    break;
+                }
+            }
+            if (found == false) {
+                ++nrecords;
+                store->min_ = temp;
+                store->max_ = temp;
+                store->sum_ = temp;
+                store->count_ = 1;
+            }
+        }
+
+        for (int i = 0; i < nrecords; ++i) {
+            auto &rec = records[i];
+            double avg = rec.sum_ / double(rec.count_);
+            LOG("tree["<<i<<"]=\""<<rec.location_<<"\";"<<rec.min_<<";"<<rec.max_<<";"<<avg);
+        }
+        LOG("tree.size="<<nrecords);
+
+        delete[] records;
+    }
+
+    char *copyLocation(
+        char *src,
+        char *dst
+    ) noexcept {
+        char *lim = dst + kLocationSize;
+        for(;;) {
+            int ch = *src++;
+            if (ch == ';') {
+                break;
+            }
+            *dst++ = ch;
+        }
+        while (dst < lim) {
+            *dst++ = 0;
+        }
+        return src;
+    }
+
+    double popTemperature(
+        char *src
+    ) noexcept {
+        auto lim = findChar(src, 0x0A);
+        auto len = lim - src;
+        std::string stemp(src, len);
+        double temp = std::stod(stemp);
+        return temp;
+    }
+
     void unorderedTree() noexcept {
         auto map = map_;
         auto limit = map + length_;
 
-        tree_.reserve(500);
+        std::unordered_map<std::string, Temperature> tree;
+        tree.reserve(1000);
 
         while (map < limit) {
+            /** find where. **/
             auto pos = findChar(map, ';');
             auto len = pos - map;
             std::string s(map, len);
-
             ++pos;
+
+            /** find the temperature. **/
             map = findChar(pos, 0x0A);
             len = map - pos;
             std::string stemp(pos, len);
             double temp = std::stod(stemp);
             ++map;
 
-            auto found = tree_.find(s);
-            if (found == tree_.end()) {
-                /** add it **/
+            /** update the tree. **/
+            auto found = tree.find(s);
+            if (found == tree.end()) {
+                /** add it. **/
                 Temperature rec;
                 rec.min_ = temp;
                 rec.max_ = temp;
                 rec.sum_ = temp;
                 rec.count_ = 1;
-                tree_.insert({s, rec});
+                tree.insert({s, rec});
             } else {
+                /** update it. **/
                 auto &rec = found->second;
                 rec.min_ = std::min(rec.min_, temp);
                 rec.max_ = std::max(rec.max_, temp);
@@ -177,14 +264,14 @@ public:
         }
 
         int idx = 0;
-        for (auto &&iter : tree_) {
+        for (auto &&iter : tree) {
             auto &loc = iter.first;
             auto &rec = iter.second;
             double avg = rec.sum_ / double(rec.count_);
             LOG("tree["<<idx<<"]=\""<<loc<<"\";"<<rec.min_<<";"<<rec.max_<<";"<<avg);
             ++idx;
         }
-        int sz = tree_.size();
+        int sz = tree.size();
         LOG("tree.size="<<sz);
     }
 
@@ -193,7 +280,7 @@ public:
         auto limit = map + length_;
 
         std::unordered_map<std::string, int> tree;
-        tree.reserve(500);
+        tree.reserve(1000);
 
         int longest = 0;
         while (map < limit) {
