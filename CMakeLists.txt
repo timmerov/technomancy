@@ -21,6 +21,7 @@ include("${THIS_CMAKE_DIR}/scripts/preamble.txt")
 
 # add the targets
 add_subdirectory(agm)
+add_subdirectory(challenge)
 add_subdirectory(clunc)
 add_subdirectory(common)
 add_subdirectory(helloworld)
