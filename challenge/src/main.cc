@@ -46,8 +46,9 @@ table['z']= 7_260_837 sum=987_893_734
 table[' ']= 4_845_429 sum=995_154_571
 
 from the dataset:
-min_name = 7
-max_name = 32
+min_line=7
+max_line=32
+max_precision=2
 **/
 
 #include <stdio.h>
@@ -134,8 +135,9 @@ public:
             table[i] = 0;
         }
 
-        int min_name = 1000;
-        int max_name = 0;
+        int min_line = 1000;
+        int max_line = 0;
+        int max_precision = 0;
         int nlines = 0;
         size_t idx = 0;
         while (idx < length) {
@@ -148,7 +150,8 @@ public:
             ++table[ch];
             ++idx;
 
-            int name = 1;
+            size_t precision = 0;
+            int line = 1;
             while (idx < length) {
                 ch = map[idx];
                 ++idx;
@@ -156,10 +159,17 @@ public:
                     ++nlines;
                     break;
                 }
-                ++name;
+                ++line;
+                if (ch == '.') {
+                    precision = idx;
+                }
             }
-            min_name = std::min(min_name, name);
-            max_name = std::max(max_name, name);
+            min_line = std::min(min_line, line);
+            max_line = std::max(max_line, line);
+            if (precision) {
+                int prec = idx - precision;
+                max_precision = std::max(max_precision, prec);
+            }
         }
 
         size_t sum = 0;
@@ -173,8 +183,9 @@ public:
             sum += count;
         }
         LOG("nlines="<<nlines);
-        LOG("min_name="<<min_name);
-        LOG("max_name="<<max_name);
+        LOG("min_line="<<min_line);
+        LOG("max_line="<<max_line);
+        LOG("max_precision="<<max_precision);
     }
 
     std::string underscoreFormat(
