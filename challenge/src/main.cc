@@ -49,6 +49,7 @@ from the dataset:
 min_line=7
 max_line=32
 max_precision=2
+similar names (8): "Alexandria" and "Alexandra"
 **/
 
 #include <stdio.h>
@@ -62,6 +63,7 @@ max_precision=2
 
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
@@ -81,6 +83,7 @@ public:
     int fd_ = -1;
     size_t length_ = 0;
     char *map_ = nullptr;
+    std::unordered_map<std::string, int> tree_;
 
     /** this is large enough we don't want it on the stack. **/
     size_t table_[27];
@@ -91,7 +94,8 @@ public:
             return;
         }
 
-        analyzeDistribution();
+        //analyzeDistribution();
+        analyzeTree();
     }
 
     bool init() noexcept {
@@ -117,12 +121,81 @@ public:
 
     void cleanup() noexcept {
         if (map_) {
-            munmap(map_, length_);
+            munmap((void *) map_, length_);
             map_ = nullptr;
         }
         if (fd_ >= 0) {
             close(fd_);
             fd_ = -1;
+        }
+    }
+
+    void analyzeTree() noexcept {
+        auto map = map_;
+        auto limit = map + length_;
+
+        tree_.reserve(500);
+
+        int longest = 0;
+        int count = 0;
+        while (map < limit) {
+            auto pos = findChar(map, ';');
+            auto len = pos - map;
+            std::string s(map, len);
+            auto found = tree_.find(s);
+            if (found == tree_.end()) {
+                /** how similar is it to an existing entry. **/
+                for (auto &&iter : tree_) {
+                    auto &loc = iter.first;
+                    int count = 0;
+                    int sz = std::min(s.size(), loc.size());
+                    for (int i = 0; i < sz; ++i) {
+                        if (s[i] != loc[i]) {
+                            break;
+                        }
+                        ++count;
+                    }
+                    if (longest < count) {
+                        longest = count;
+                        LOG("similar names ("<<longest<<"): \""<<s<<"\" and \""<<loc<<"\"");
+                    }
+                }
+
+                /** add it **/
+                tree_.insert({s, count});
+            }
+            map = findChar(pos+1, 0x0A);
+            ++map;
+        }
+
+        int min_len = 1000;
+        int max_len = 0;
+        int idx = 0;
+        for (auto &&iter : tree_) {
+            auto &loc = iter.first;
+            LOG("tree["<<idx<<"]=\""<<loc<<"\"");
+            ++idx;
+            int len = loc.size();
+            min_len = std::min(min_len, len);
+            max_len = std::max(max_len, len);
+        }
+        int sz = tree_.size();
+        LOG("tree.size="<<sz);
+        LOG("min_len="<<min_len);
+        LOG("max_len="<<max_len);
+        LOG("longest="<<longest);
+    }
+
+    char *findChar(
+        char *pos,
+        int what
+    ) noexcept {
+        for(;;) {
+            int ch = *pos;
+            if (ch == what) {
+                return pos;
+            }
+            ++pos;
         }
     }
 
