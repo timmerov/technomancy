@@ -4,14 +4,19 @@ Copyright (C) 2012-2026 tim cotter. All rights reserved.
 
 /**
 one billion lines challenge.
-
-to do:
-try memory mapped files: mmap.
 **/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 #include <fstream>
 #include <sstream>
-#include <stdio.h>
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
@@ -29,22 +34,21 @@ int main(
 
     agm::log::init(AGM_TARGET_NAME ".log");
 
-    std::ifstream file(kMeasurementsFile);
-    if (file.is_open() == false) {
-        LOG("Failed to open file: "<<kMeasurementsFile);
-        return -1;
-    }
+    /** open file file and map it to memory. **/
+    int fd = open(kMeasurementsFile, O_RDONLY);
+    struct stat info;
+    int result = fstat(fd, &info);
+    (void) result;
+    size_t length = info.st_size;
+    auto map = (char *) mmap(NULL, length, PROT_READ, MAP_SHARED, fd, 0);
 
-    /** 8 seconds **/
-    file.seekg(0, std::ios::end);
-    std::size_t sz = file.tellg();
-    auto buffer = new(std::nothrow) char[sz+1];
-    file.seekg(0);
-    file.read(buffer, sz);
-    buffer[sz] = 0;
+    /** get the first 20 characters. **/
+    std::string line(map, 20);
+    LOG(line);
 
-    delete[] buffer;
-    file.close();
+    /** clean up. **/
+    munmap(map, length);
+    close(fd);
 
     LOG("Done!");
 
