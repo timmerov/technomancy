@@ -69,6 +69,15 @@ similar names (8): "Alexandria" and "Alexandra"
 #include <aggiornamento/log.h>
 
 
+class Temperature {
+public:
+    double min_ = 1e6;
+    double max_ = 0.0;
+    double sum_ = 9.0;
+    size_t count_ = 0;
+};
+typedef std::unordered_map<std::string, Temperature> Tree;
+
 class OneBillionRows {
 public:
     OneBillionRows() = default;
@@ -83,7 +92,7 @@ public:
     int fd_ = -1;
     size_t length_ = 0;
     char *map_ = nullptr;
-    std::unordered_map<std::string, int> tree_;
+    Tree tree_;
 
     /** this is large enough we don't want it on the stack. **/
     size_t table_[27];
@@ -95,7 +104,8 @@ public:
         }
 
         //analyzeDistribution();
-        analyzeTree();
+        //analyzeTree();
+        unorderedTree();
     }
 
     bool init() noexcept {
@@ -130,22 +140,70 @@ public:
         }
     }
 
-    void analyzeTree() noexcept {
+    void unorderedTree() noexcept {
         auto map = map_;
         auto limit = map + length_;
 
         tree_.reserve(500);
 
-        int longest = 0;
-        int count = 0;
         while (map < limit) {
             auto pos = findChar(map, ';');
             auto len = pos - map;
             std::string s(map, len);
+
+            ++pos;
+            map = findChar(pos, 0x0A);
+            len = map - pos;
+            std::string stemp(pos, len);
+            double temp = std::stod(stemp);
+            ++map;
+
             auto found = tree_.find(s);
             if (found == tree_.end()) {
+                /** add it **/
+                Temperature rec;
+                rec.min_ = temp;
+                rec.max_ = temp;
+                rec.sum_ = temp;
+                rec.count_ = 1;
+                tree_.insert({s, rec});
+            } else {
+                auto &rec = found->second;
+                rec.min_ = std::min(rec.min_, temp);
+                rec.max_ = std::max(rec.max_, temp);
+                rec.sum_ += temp;
+                ++rec.count_;
+            }
+        }
+
+        int idx = 0;
+        for (auto &&iter : tree_) {
+            auto &loc = iter.first;
+            auto &rec = iter.second;
+            double avg = rec.sum_ / double(rec.count_);
+            LOG("tree["<<idx<<"]=\""<<loc<<"\";"<<rec.min_<<";"<<rec.max_<<";"<<avg);
+            ++idx;
+        }
+        int sz = tree_.size();
+        LOG("tree.size="<<sz);
+    }
+
+    void analyzeTree() noexcept {
+        auto map = map_;
+        auto limit = map + length_;
+
+        std::unordered_map<std::string, int> tree;
+        tree.reserve(500);
+
+        int longest = 0;
+        while (map < limit) {
+            auto pos = findChar(map, ';');
+            auto len = pos - map;
+            std::string s(map, len);
+            auto found = tree.find(s);
+            if (found == tree.end()) {
                 /** how similar is it to an existing entry. **/
-                for (auto &&iter : tree_) {
+                for (auto &&iter : tree) {
                     auto &loc = iter.first;
                     int count = 0;
                     int sz = std::min(s.size(), loc.size());
@@ -162,7 +220,7 @@ public:
                 }
 
                 /** add it **/
-                tree_.insert({s, count});
+                tree.insert({s, 0});
             }
             map = findChar(pos+1, 0x0A);
             ++map;
@@ -171,7 +229,7 @@ public:
         int min_len = 1000;
         int max_len = 0;
         int idx = 0;
-        for (auto &&iter : tree_) {
+        for (auto &&iter : tree) {
             auto &loc = iter.first;
             LOG("tree["<<idx<<"]=\""<<loc<<"\"");
             ++idx;
@@ -179,7 +237,7 @@ public:
             min_len = std::min(min_len, len);
             max_len = std::max(max_len, len);
         }
-        int sz = tree_.size();
+        int sz = tree.size();
         LOG("tree.size="<<sz);
         LOG("min_len="<<min_len);
         LOG("max_len="<<max_len);
