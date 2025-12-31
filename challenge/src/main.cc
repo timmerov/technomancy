@@ -5,6 +5,8 @@ Copyright (C) 2012-2026 tim cotter. All rights reserved.
 /**
 one billion lines challenge.
 
+dataset optimizations:
+
 divide the locations into 8 roughly equal size buckets.
 1_000_000_000 / 8 = 125_000_000
 
@@ -42,6 +44,10 @@ table['x']= 2_422_678 sum=970_938_998
 table['y']=14_532_058 sum=973_361_676
 table['z']= 7_260_837 sum=987_893_734
 table[' ']= 4_845_429 sum=995_154_571
+
+from the dataset:
+min_name = 7
+max_name = 32
 **/
 
 #include <stdio.h>
@@ -128,6 +134,8 @@ public:
             table[i] = 0;
         }
 
+        int min_name = 1000;
+        int max_name = 0;
         int nlines = 0;
         size_t idx = 0;
         while (idx < length) {
@@ -140,6 +148,7 @@ public:
             ++table[ch];
             ++idx;
 
+            int name = 1;
             while (idx < length) {
                 ch = map[idx];
                 ++idx;
@@ -147,7 +156,10 @@ public:
                     ++nlines;
                     break;
                 }
+                ++name;
             }
+            min_name = std::min(min_name, name);
+            max_name = std::max(max_name, name);
         }
 
         size_t sum = 0;
@@ -161,6 +173,8 @@ public:
             sum += count;
         }
         LOG("nlines="<<nlines);
+        LOG("min_name="<<min_name);
+        LOG("max_name="<<max_name);
     }
 
     std::string underscoreFormat(
