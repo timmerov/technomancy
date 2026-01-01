@@ -57,6 +57,8 @@ similar names (8): "Alexandria" and "Alexandra"
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <bit>
+#include <iomanip>
 #include <unordered_map>
 #include <vector>
 
@@ -257,6 +259,73 @@ public:
         return (unsigned int) hash;
     }
 
+    char *copyLocation(
+        char *src,
+        char *dst
+    ) noexcept {
+        auto src64 = (agm::uint64 *) src;
+        auto dst64 = (agm::uint64 *) dst;
+        dst64[0] = src64[0];
+        dst64[1] = src64[1];
+        dst64[2] = src64[2];
+        dst64[3] = src64[3];
+        char *lim = dst + kLocationSize;
+        for(;;) {
+            int ch = *src++;
+            if (ch == ';') {
+                break;
+            }
+            ++dst;
+        }
+        while (dst < lim) {
+            *dst++ = 0;
+        }
+        return src;
+    }
+
+    /**
+    value holds a string.
+    the first character of the string is in the low order byte.
+    **/
+    int findDelimiter(
+        agm::uint64 value
+    ) noexcept {
+        /** erase all semicolons. **/
+        auto x = value ^ 0x3B3B3B3B3B3B3B3BL;
+
+        /** find the byte offset to the first semicolon. **/
+        int pos = byteOffsetToFirstZero(x);
+        return pos;
+    }
+
+    /**
+    value holds a sequence of bytes.
+    some of which are zero.
+    find the number of trailing non-zero bytes.
+    **/
+    int byteOffsetToFirstZero(
+        agm::uint64 value
+    ) noexcept {
+        /**
+        magic formula to flip zero bytes to 0x80.
+        and non-zero bytes to something between 0x00 and 0x7f.
+        **/
+        value = (value - 0x0101010101010101L) & ~value;
+
+        /**
+        bytes that were originally zero are now 0x80.
+        bytes that were anything else are now 0x00.
+        **/
+        value &= 0x8080808080808080L;
+
+        /** builtin function returns number of trailing zero bits. **/
+        int zerobits = std::countr_zero(value);
+        int zerobytes = zerobits >> 3;
+
+        return zerobytes;
+    }
+
+
     void unsortedArray() noexcept {
         auto map = map_;
         auto limit = map + length_;
@@ -308,24 +377,6 @@ public:
         LOG("tree.size="<<nrecords);
 
         delete[] records;
-    }
-
-    char *copyLocation(
-        char *src,
-        char *dst
-    ) noexcept {
-        char *lim = dst + kLocationSize;
-        for(;;) {
-            int ch = *src++;
-            if (ch == ';') {
-                break;
-            }
-            *dst++ = ch;
-        }
-        while (dst < lim) {
-            *dst++ = 0;
-        }
-        return src;
     }
 
     double popTemperature(
