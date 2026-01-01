@@ -544,6 +544,8 @@ int main(
 
     agm::log::init(AGM_TARGET_NAME ".log");
 
+    LOG("One Billion Row Challenge...");
+
     /**
     this class can be kinda large.
     we don't want it on the stack.
