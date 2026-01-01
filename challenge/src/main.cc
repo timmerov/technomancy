@@ -269,6 +269,11 @@ public:
         char *src,
         char *dst
     ) noexcept {
+        /**
+        this mask zeroes chars after the delimiter.
+        the fist char of the string is in the least significant byte.
+        the string is reversed in the int64.
+        **/
         static constexpr agm::uint64 kMaskByPosition[] = {
             0x0000000000000000,
             0x00000000000000FF,
@@ -280,6 +285,7 @@ public:
             0x00FFFFFFFFFFFFFF,
             0xFFFFFFFFFFFFFFFF,
         };
+        /** this mask zeroes int64s after the delimiter. **/
         static constexpr agm::uint64 kMaskCarry[] = {
             0x0000000000000000,
             0x0000000000000000,
@@ -292,43 +298,41 @@ public:
             0xFFFFFFFFFFFFFFFF,
         };
 
+        /** load the location string into 4 int64s. **/
         auto src64 = (agm::uint64 *) src;
         auto dst64 = (agm::uint64 *) dst;
         auto x0 = src64[0];
         auto x1 = src64[1];
         auto x2 = src64[2];
         auto x3 = src64[3];
+
+        /** find the delimiter in each int64. **/
         int pos0 = findDelimiter(x0);
         int pos1 = findDelimiter(x1);
         int pos2 = findDelimiter(x2);
         int pos3 = findDelimiter(x3);
+
+        /** load the carry masks. **/
+        auto mask1 = kMaskCarry[pos0];
+        auto mask2 = kMaskCarry[pos1];
+        auto mask3 = kMaskCarry[pos2];
+        mask2 &= mask1;
+        mask3 &= mask2;
+
+        /** zero trailing bytes in the int64s. **/
         x0 &= kMaskByPosition[pos0];
-        auto offset = pos0;
-        auto mask = kMaskCarry[pos0];
-        x1 &= kMaskByPosition[pos1] & mask;
-        offset += pos1 & mask;
-        mask &= kMaskCarry[pos1];
-        x2 &= kMaskByPosition[pos2] & mask;
-        offset += pos2 & mask;
-        mask &= kMaskCarry[pos2];
-        x3 &= kMaskByPosition[pos3] & mask;
-        offset += pos3 & mask;
+        x1 &= kMaskByPosition[pos1] & mask1;
+        x2 &= kMaskByPosition[pos2] & mask2;
+        x3 &= kMaskByPosition[pos3] & mask3;
+
+        /** write the int64s. **/
         dst64[0] = x0;
         dst64[1] = x1;
         dst64[2] = x2;
         dst64[3] = x3;
 
-        /*for (int i = 0; i < kLocationSize; ++i) {
-            if (dst[i] == 0) {
-                dst[i] = '+';
-            }
-        }*/
-        /*std::string s(dst, kLocationSize);
-        LOG("loc=\""<<s<<"\"");
-        LOG("pos0="<<pos0<<" pos1="<<pos1<<" pos2="<<pos2<<" pos3="<<pos3);
-        LOG("offset="<<offset);*/
-
-        src += offset + 1;
+        /** advance the pointer past the location text and the delimiter. **/
+        src += pos0 + (pos1 & mask1) + (pos2 & mask2) + (pos3 & mask3) + 1;
 
         return src;
     }
