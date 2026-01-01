@@ -178,7 +178,6 @@ public:
             auto hash = computeHash(location);
 
             for (int i = 0; i < kMaxRecords; ++i) {
-                hash &= kMaxRecordsMask;
                 auto test = records + hash;
 
                 /** create new record. **/
@@ -203,7 +202,7 @@ public:
                     break;
                 }
 
-                ++hash;
+                hash = (hash + 1) & kMaxRecordsMask;
             }
         }
 
@@ -245,23 +244,6 @@ public:
         hash ^= hash >> 2*kMaxRecordsBits;
         hash ^= hash >> 3*kMaxRecordsBits;
         hash &= kMaxRecordsMask;
-
-        /*int ch0 = location[0];
-        int ch1 = location[1];
-        int ch2 = location[2];
-        int ch3 = location[3];
-        ch0 = std::tolower(ch0);
-        ch1 = std::tolower(ch1);
-        ch2 = std::tolower(ch2);
-        ch3 = std::tolower(ch3);
-        ch0 -= 'a';
-        ch1 -= 'a';
-        ch2 -= 'a';
-        ch3 -= 'a';
-        unsigned int hash = 26*26*26*ch3 + 26*26*ch2 + 26*ch1 + ch0;
-        hash ^= hash >> kMaxRecordsBits;
-        hash &= kMaxRecordsMask;*/
-
         return (unsigned int) hash;
     }
 
@@ -316,14 +298,18 @@ public:
         auto mask1 = kMaskCarry[pos0];
         auto mask2 = kMaskCarry[pos1];
         auto mask3 = kMaskCarry[pos2];
-        mask2 &= mask1;
-        mask3 &= mask2;
+
+        /** zero positions after the delimiter. **/
+        auto mask12 = mask1 & mask2;
+        pos1 &= mask1;
+        pos2 &= mask12;
+        pos3 &= mask12 & mask3;
 
         /** zero trailing bytes in the int64s. **/
         x0 &= kMaskByPosition[pos0];
-        x1 &= kMaskByPosition[pos1] & mask1;
-        x2 &= kMaskByPosition[pos2] & mask2;
-        x3 &= kMaskByPosition[pos3] & mask3;
+        x1 &= kMaskByPosition[pos1];
+        x2 &= kMaskByPosition[pos2];
+        x3 &= kMaskByPosition[pos3];
 
         /** write the int64s. **/
         dst64[0] = x0;
@@ -332,7 +318,7 @@ public:
         dst64[3] = x3;
 
         /** advance the pointer past the location text and the delimiter. **/
-        src += pos0 + (pos1 & mask1) + (pos2 & mask2) + (pos3 & mask3) + 1;
+        src += pos0 + pos1 + pos2 + pos3 + 1;
 
         return src;
     }
@@ -648,7 +634,6 @@ int main(
     (void) argv;
 
     agm::log::init(AGM_TARGET_NAME ".log");
-
     LOG("One Billion Row Challenge...");
 
     /**
@@ -664,3 +649,296 @@ int main(
 
     return 0;
 }
+
+/** experiments **/
+#if 0
+    //                         11111111112222222222333333333
+    //               012345678901234567890123456789012456789
+    std::string str("+++abcdefghiklmnopqrstuvwxyzabcdefghikl");
+    const char *src0 = str.c_str() + 3;
+    LOG("src0="<<(void *)src0);
+
+    static constexpr int kBuffSize = 32;
+    char buff[8*kBuffSize];
+    for (int i = 0; i < 8*kBuffSize; ++i) {
+        buff[i] = '*';
+    }
+    char *dst0 = (char *) (agm::uint64(&buff[kBuffSize]) & ~31LL);
+    LOG("dst0="<<(void *)dst0);
+    const char *lim = dst0 + kBuffSize;
+    for (agm::int64 i = 0; i < 1*1000*1000*1000LL; ++i) {
+        /**
+        must move the delimiter.
+        otherwise the compiler unrolls loops.
+        and branch prediction becomes perfect.
+        **/
+        char *poke = (i%28) + 4 + (char *) src0;
+        char save = *poke;
+        *poke = ';';
+
+        const char *src = src0;
+        char *dst = dst0;
+
+#if 0
+        /** 5.3s **/
+        auto src64 = (agm::int64 *) src;
+        auto dst64 = (agm::int64 *) dst;
+        dst64[0] = src64[0];
+        dst64[1] = src64[1];
+        dst64[2] = src64[2];
+        dst64[3] = src64[3];
+        for (; dst < lim; ++dst) {
+            if (*dst == ';') {
+                break;
+            }
+        }
+        while (dst < lim) {
+            *dst++ = 0;
+        }
+#elif 0
+        /** 5.3s **/
+        auto src64 = (agm::int64 *) src;
+        auto dst64 = (agm::int64 *) dst;
+        auto a = src64[0];
+        auto b = src64[1];
+        dst64[0] = a;
+        dst64[1] = b;
+        a = src64[2];
+        b = src64[3];
+        dst64[2] = a;
+        dst64[3] = b;
+        for (; dst < lim; ++dst) {
+            if (*dst == ';') {
+                break;
+            }
+        }
+        while (dst < lim) {
+            *dst++ = 0;
+        }
+#elif 0
+        /** 4.8s **/
+        auto src64 = (agm::int64 *) src;
+        auto dst64 = (agm::int64 *) dst;
+        auto x0 = src64[0];
+        auto x1 = src64[1];
+        auto x2 = src64[2];
+        auto x3 = src64[3];
+        dst64[0] = x0;
+        dst64[1] = x1;
+        dst64[2] = x2;
+        dst64[3] = x3;
+        for (; dst < lim; ++dst) {
+            if (*dst == ';') {
+                break;
+            }
+        }
+        while (dst < lim) {
+            *dst++ = 0;
+        }
+#elif 0
+        /** 25s **/
+        char mask = 0xFF;
+        while (dst < lim) {
+            char ch0 = src[0];
+            char ch1 = src[1];
+            src += 2;
+            /**
+            ^ makes semicolon 0.
+            -1 makes it negative.
+            >> makes it 00 or FF
+            ~ makes it FF or 00
+            **/
+            char x0 = ~(((ch0 ^ ';') - 1) >> 7);
+            char x1 = ~(((ch1 ^ ';') - 1) >> 7);
+            dst[0] = ch0 & mask & x0;
+            dst[1] = ch1 & mask & x0 & x1;
+            mask &= x0 & x1;
+            dst += 2;
+        }
+#elif 0
+        /** 4.6s **/
+        for(;;) {
+            int ch = *src++;
+            if (ch == ';') {
+                break;
+            }
+            *dst++ = ch;
+        }
+        while (dst < lim) {
+            *dst++ = 0;
+        }
+#elif 1
+        /** 5.3s **/
+        auto src64 = (agm::int64 *) src;
+        auto dst64 = (agm::int64 *) dst;
+        dst64[0] = src64[0];
+        dst64[1] = src64[1];
+        dst64[2] = src64[2];
+        dst64[3] = src64[3];
+        for (; dst < lim; ++dst) {
+            if (*dst == ';') {
+                break;
+            }
+        }
+        int nzeros = lim - dst;
+        int rem = nzeros & 7;
+        switch (rem) {
+            case 7: dst[6] = 0; [[fallthrough]];
+            case 6: dst[5] = 0; [[fallthrough]];
+            case 5: dst[4] = 0; [[fallthrough]];
+            case 4: dst[3] = 0; [[fallthrough]];
+            case 3: dst[2] = 0; [[fallthrough]];
+            case 2: dst[1] = 0; [[fallthrough]];
+            case 1: dst[0] = 0; [[fallthrough]];
+            default: ;
+        }
+        dst += rem;
+        while (nzeros >= 8) {
+            * (agm::int64 *) dst = 0;
+            dst += 8;
+            nzeros -= 8;
+        }
+        /*while (dst < lim) {
+            *dst++ = 0;
+        }*/
+#elif 0
+        /** 4.6s **/
+        for(;;) {
+            int ch = *src++;
+            if (ch == ';') {
+                break;
+            }
+            *dst++ = ch;
+        }
+        switch (lim - dst) {
+            case 32: dst[31] = 0; [[fallthrough]];
+            case 31: dst[30] = 0; [[fallthrough]];
+            case 30: dst[29] = 0; [[fallthrough]];
+            case 29: dst[28] = 0; [[fallthrough]];
+            case 28: dst[27] = 0; [[fallthrough]];
+            case 27: dst[26] = 0; [[fallthrough]];
+            case 26: dst[25] = 0; [[fallthrough]];
+            case 25: dst[24] = 0; [[fallthrough]];
+            case 24: dst[23] = 0; [[fallthrough]];
+            case 23: dst[22] = 0; [[fallthrough]];
+            case 22: dst[21] = 0; [[fallthrough]];
+            case 21: dst[20] = 0; [[fallthrough]];
+            case 20: dst[19] = 0; [[fallthrough]];
+            case 19: dst[18] = 0; [[fallthrough]];
+            case 18: dst[17] = 0; [[fallthrough]];
+            case 17: dst[16] = 0; [[fallthrough]];
+            case 16: dst[15] = 0; [[fallthrough]];
+            case 15: dst[14] = 0; [[fallthrough]];
+            case 14: dst[13] = 0; [[fallthrough]];
+            case 13: dst[12] = 0; [[fallthrough]];
+            case 12: dst[11] = 0; [[fallthrough]];
+            case 11: dst[10] = 0; [[fallthrough]];
+            case 10: dst[9] = 0; [[fallthrough]];
+            case 9: dst[8] = 0; [[fallthrough]];
+            case 8: dst[7] = 0; [[fallthrough]];
+            case 7: dst[6] = 0; [[fallthrough]];
+            case 6: dst[5] = 0; [[fallthrough]];
+            case 5: dst[4] = 0; [[fallthrough]];
+            case 4: dst[3] = 0; [[fallthrough]];
+            case 3: dst[2] = 0; [[fallthrough]];
+            case 2: dst[1] = 0; [[fallthrough]];
+            case 1: dst[0] = 0; [[fallthrough]];
+            default: ;
+        }
+#elif 1
+        /** 4.6s **/
+        for(;;) {
+            int ch = *src++;
+            if (ch == ';') {
+                break;
+            }
+            *dst++ = ch;
+        }
+        int nzeros = lim - dst;
+        /*switch (nzeros >> 3) {
+        case 3:
+            ((agm::int64 *) dst)[0] = 0;
+            ((agm::int64 *) dst)[1] = 0;
+            ((agm::int64 *) dst)[2] = 0;
+            break;
+        case 2:
+            ((agm::int64 *) dst)[0] = 0;
+            ((agm::int64 *) dst)[1] = 0;
+            break;
+        case 1:
+            ((agm::int64 *) dst)[0] = 0;
+            break;
+        default: ;
+        }*/
+        while (nzeros >= 8) {
+            * (agm::int64 *) dst = 0;
+            dst += 8;
+            nzeros -= 8;
+        }
+        switch (nzeros & 7) {
+            case 7: dst[6] = 0; [[fallthrough]];
+            case 6: dst[5] = 0; [[fallthrough]];
+            case 5: dst[4] = 0; [[fallthrough]];
+            case 4: dst[3] = 0; [[fallthrough]];
+            case 3: dst[2] = 0; [[fallthrough]];
+            case 2: dst[1] = 0; [[fallthrough]];
+            case 1: dst[0] = 0; [[fallthrough]];
+            default: ;
+        }
+#else
+        /** 4.6s **/
+        for(;;) {
+            int ch = *src++;
+            if (ch == ';') {
+                break;
+            }
+            *dst++ = ch;
+        }
+        int nzeros = lim - dst;
+        switch (nzeros) {
+            case 32: dst[31] = 0; [[fallthrough]];
+            case 31: dst[30] = 0; [[fallthrough]];
+            case 30: dst[29] = 0; [[fallthrough]];
+            case 29: dst[28] = 0; [[fallthrough]];
+            case 28: dst[27] = 0; [[fallthrough]];
+            case 27: dst[26] = 0; [[fallthrough]];
+            case 26: dst[25] = 0; [[fallthrough]];
+            case 25: dst[24] = 0; [[fallthrough]];
+            case 24: dst[23] = 0; [[fallthrough]];
+            case 23: dst[22] = 0; [[fallthrough]];
+            case 22: dst[21] = 0; [[fallthrough]];
+            case 21: dst[20] = 0; [[fallthrough]];
+            case 20: dst[19] = 0; [[fallthrough]];
+            case 19: dst[18] = 0; [[fallthrough]];
+            case 18: dst[17] = 0; [[fallthrough]];
+            case 17: dst[16] = 0; [[fallthrough]];
+            case 16: dst[15] = 0; [[fallthrough]];
+            case 15: dst[14] = 0; [[fallthrough]];
+            case 14: dst[13] = 0; [[fallthrough]];
+            case 13: dst[12] = 0; [[fallthrough]];
+            case 12: dst[11] = 0; [[fallthrough]];
+            case 11: dst[10] = 0; [[fallthrough]];
+            case 10: dst[9] = 0; [[fallthrough]];
+            case 9: dst[8] = 0; [[fallthrough]];
+            case 8: dst[7] = 0; [[fallthrough]];
+            case 7: dst[6] = 0; [[fallthrough]];
+            case 6: dst[5] = 0; [[fallthrough]];
+            case 5: dst[4] = 0; [[fallthrough]];
+            case 4: dst[3] = 0; [[fallthrough]];
+            case 3: dst[2] = 0; [[fallthrough]];
+            case 2: dst[1] = 0; [[fallthrough]];
+            case 1: dst[0] = 0; [[fallthrough]];
+            default: ;
+        }
+#endif
+        *poke = save;
+    }
+    for (int i = 0; i < 8*kBuffSize; ++i) {
+        if (buff[i] == 0) {
+            buff[i] = '.';
+        }
+    }
+    std::string result(dst0, kBuffSize);
+    LOG("result=\""<<result<<"\"");
+    return 0;
+#endif
