@@ -2517,7 +2517,7 @@ private:
 #if defined(PEGLIB_NO_UNICODE_CHARS)
         g["LEFTARROW"]  <= seq(lit("<-"), g["Spacing"]);
 #else
-        g["LEFTARROW"]  <= seq(cho(lit("<-"), lit(u8"←")), g["Spacing"]);
+        g["LEFTARROW"]  <= seq(cho(lit("<-"), lit((char *)u8"←")), g["Spacing"]);
 #endif
         ~g["SLASH"]     <= seq(chr('/'), g["Spacing"]);
         g["AND"]        <= seq(chr('&'), g["Spacing"]);

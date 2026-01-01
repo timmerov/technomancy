@@ -52,18 +52,13 @@ max_precision=2
 similar names (8): "Alexandria" and "Alexandra"
 **/
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <errno.h>
+#include <unistd.h>
 
-#include <fstream>
-#include <sstream>
 #include <unordered_map>
+#include <vector>
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
@@ -90,6 +85,10 @@ public:
     //static constexpr auto kMeasurementsFile = "/home/timmer/Documents/code/1brc/measurements.txt";
     //static constexpr auto kMeasurementsFile = "/home/timmer/Documents/code/1brc/measurements-1b.txt";
 
+    static constexpr int kMaxRecordsBits = 17;
+    static constexpr int kMaxRecords = 1 << kMaxRecordsBits;
+    static constexpr int kMaxRecordsMask = kMaxRecords - 1;
+
     int fd_ = -1;
     size_t length_ = 0;
     char *map_ = nullptr;
@@ -106,7 +105,8 @@ public:
         //analyzeDistribution();
         //analyzeTree();
         //unorderedTree();
-        unsortedArray();
+        //unsortedArray();
+        hashTable();
     }
 
     bool init() noexcept {
@@ -139,6 +139,122 @@ public:
             close(fd_);
             fd_ = -1;
         }
+    }
+
+    void hashTable() noexcept {
+        auto map = map_;
+        auto limit = map + length_;
+
+        auto records = new(std::nothrow) Temperature[kMaxRecords];
+        for (int i = 0; i < kMaxRecords; ++i) {
+            records[i].location_[0] = 0;
+        }
+
+        std::vector<int> where;
+        where.reserve(kMaxRecords);
+
+        int nrecords = 0;
+        //size_t count = 0;
+        while (map < limit) {
+            char location[kLocationSize];
+            map = copyLocation(map, location);
+            double temp = popTemperature(map);
+            map = findChar(map, 0x0A);
+            ++map;
+
+            /*++count;
+            if ((count % (1000*1000LL)) == 0) {
+                LOG("count="<<count<<" nrecords="<<nrecords);
+            }*/
+
+            auto hash = computeHash(location);
+
+            for (int i = 0; i < kMaxRecords; ++i) {
+                hash &= kMaxRecordsMask;
+                auto test = records + hash;
+
+                /** create new record. **/
+                if (test->location_[0] == 0) {
+                    ++nrecords;
+                    where.push_back(hash);
+                    std::memcpy(test->location_, location, kLocationSize);
+                    test->min_ = temp;
+                    test->max_ = temp;
+                    test->sum_ = temp;
+                    test->count_ = 1;
+                    break;
+                }
+
+                /** update old record. **/
+                if (locationsDiffer(test->location_, location) == 0) {
+                //if (std::memcmp(test->location_, location, kLocationSize) == 0) {
+                    test->min_ = std::min(test->min_, temp);
+                    test->max_ = std::max(test->max_, temp);
+                    test->sum_ += temp;
+                    test->count_++;
+                    break;
+                }
+
+                ++hash;
+            }
+        }
+
+        int ncollisions = 0;
+        for (auto i : where) {
+            auto &rec = records[i];
+            double avg = rec.sum_ / double(rec.count_);
+            LOG("tree["<<i<<"]=\""<<rec.location_<<"\";"<<rec.min_<<";"<<rec.max_<<";"<<avg);
+
+            int hash = computeHash(rec.location_);
+            if (hash != i) {
+                ++ncollisions;
+            }
+        }
+        LOG("tree.size="<<nrecords);
+        LOG("ncollisions="<<ncollisions);
+
+        delete[] records;
+    }
+
+    agm::uint64 locationsDiffer(
+        char *a8,
+        char *b8
+    ) noexcept {
+        auto a64 = (agm::uint64 *) a8;
+        auto b64 = (agm::uint64 *) b8;
+        agm::uint64 x = a64[0] ^ b64[0];
+        x |= a64[1] ^ b64[1];
+        x |= a64[2] ^ b64[2];
+        x |= a64[3] ^ b64[3];
+        return x;
+    }
+
+    unsigned int computeHash(
+        char *location
+    ) noexcept {
+        auto hash = * (agm::uint64 *) location;
+        hash ^= hash >> kMaxRecordsBits;
+        hash ^= hash >> 2*kMaxRecordsBits;
+        hash ^= hash >> 3*kMaxRecordsBits;
+        hash &= kMaxRecordsMask;
+
+        /*int ch0 = location[0];
+        int ch1 = location[1];
+        int ch2 = location[2];
+        int ch3 = location[3];
+        ch0 = std::tolower(ch0);
+        ch1 = std::tolower(ch1);
+        ch2 = std::tolower(ch2);
+        ch3 = std::tolower(ch3);
+        ch0 -= 'a';
+        ch1 -= 'a';
+        ch2 -= 'a';
+        ch3 -= 'a';
+        unsigned int hash = 26*26*26*ch3 + 26*26*ch2 + 26*ch1 + ch0;
+        hash ^= hash >> kMaxRecordsBits;
+        hash &= kMaxRecordsMask;*/
+
+        return (unsigned int) hash;
     }
 
     void unsortedArray() noexcept {
