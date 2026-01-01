@@ -129,6 +129,8 @@ public:
             return false;
         }
 
+        //length_ /= 30;
+
         return true;
     }
 
@@ -164,8 +166,12 @@ public:
             map = findChar(map, 0x0A);
             ++map;
 
-            /*++count;
-            if ((count % (1000*1000LL)) == 0) {
+            /*LOG("location="<<location<<" temp="<<temp);
+            ++count;
+            if (count >= 1000LL) {
+                break;
+            }*/
+            /*if ((count % (1000*1000LL)) == 0) {
                 LOG("count="<<count<<" nrecords="<<nrecords);
             }*/
 
@@ -263,23 +269,67 @@ public:
         char *src,
         char *dst
     ) noexcept {
+        static constexpr agm::uint64 kMaskByPosition[] = {
+            0x0000000000000000,
+            0x00000000000000FF,
+            0x000000000000FFFF,
+            0x0000000000FFFFFF,
+            0x00000000FFFFFFFF,
+            0x000000FFFFFFFFFF,
+            0x0000FFFFFFFFFFFF,
+            0x00FFFFFFFFFFFFFF,
+            0xFFFFFFFFFFFFFFFF,
+        };
+        static constexpr agm::uint64 kMaskCarry[] = {
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0x0000000000000000,
+            0xFFFFFFFFFFFFFFFF,
+        };
+
         auto src64 = (agm::uint64 *) src;
         auto dst64 = (agm::uint64 *) dst;
-        dst64[0] = src64[0];
-        dst64[1] = src64[1];
-        dst64[2] = src64[2];
-        dst64[3] = src64[3];
-        char *lim = dst + kLocationSize;
-        for(;;) {
-            int ch = *src++;
-            if (ch == ';') {
-                break;
+        auto x0 = src64[0];
+        auto x1 = src64[1];
+        auto x2 = src64[2];
+        auto x3 = src64[3];
+        int pos0 = findDelimiter(x0);
+        int pos1 = findDelimiter(x1);
+        int pos2 = findDelimiter(x2);
+        int pos3 = findDelimiter(x3);
+        x0 &= kMaskByPosition[pos0];
+        auto offset = pos0;
+        auto mask = kMaskCarry[pos0];
+        x1 &= kMaskByPosition[pos1] & mask;
+        offset += pos1 & mask;
+        mask &= kMaskCarry[pos1];
+        x2 &= kMaskByPosition[pos2] & mask;
+        offset += pos2 & mask;
+        mask &= kMaskCarry[pos2];
+        x3 &= kMaskByPosition[pos3] & mask;
+        offset += pos3 & mask;
+        dst64[0] = x0;
+        dst64[1] = x1;
+        dst64[2] = x2;
+        dst64[3] = x3;
+
+        /*for (int i = 0; i < kLocationSize; ++i) {
+            if (dst[i] == 0) {
+                dst[i] = '+';
             }
-            ++dst;
-        }
-        while (dst < lim) {
-            *dst++ = 0;
-        }
+        }*/
+        /*std::string s(dst, kLocationSize);
+        LOG("loc=\""<<s<<"\"");
+        LOG("pos0="<<pos0<<" pos1="<<pos1<<" pos2="<<pos2<<" pos3="<<pos3);
+        LOG("offset="<<offset);*/
+
+        src += offset + 1;
+
         return src;
     }
 
