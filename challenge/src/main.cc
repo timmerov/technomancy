@@ -158,10 +158,11 @@ public:
         agm::int64 count = 0;
         while (src < limit) {
             {
+                /** copy the location using the trailing zeros method. **/
                 auto dst64 = (agm::int64 *) location;
                 agm::uint64 t0 = * (agm::uint64 *) src;
                 auto t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
-                t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
                 int zerobits = std::countr_zero(t1) & ~7;
                 dst64[0] = t0 & ((1LL << zerobits) - 1);
                 src = src + (zerobits >> 3);
@@ -173,7 +174,7 @@ public:
                 } else {
                     t0 = * (agm::uint64 *) src;
                     t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
-                    t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                    t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
                     zerobits = std::countr_zero(t1) & ~7;
                     dst64[1] = t0 & ((1LL << zerobits) - 1);
                     src = src + (zerobits >> 3);
@@ -184,7 +185,7 @@ public:
                     } else {
                         t0 = * (agm::uint64 *) src;
                         t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
-                        t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                        t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
                         zerobits = std::countr_zero(t1) & ~7;
                         dst64[2] = t0 & ((1LL << zerobits) - 1);
                         src = src + (zerobits >> 3);
@@ -195,7 +196,7 @@ public:
                         } else {
                             t0 = * (agm::uint64 *) src;
                             t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
-                            t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                            t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
                             zerobits = std::countr_zero(t1) & ~7;
                             dst64[3] = t0 & ((1LL << zerobits) - 1);
                             src = src + (zerobits >> 3) + 1;
@@ -205,10 +206,10 @@ public:
             }
 
             {
-                /** copy the temperature. **/
+                /** copy the temperature using the trailing zeros method. **/
                 agm::uint64 t0 = * (agm::uint64 *) src;
                 auto t1 = t0 ^ 0x0A0A0A0A0A0A0A0ALL;
-                t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
                 int zerobits = std::countr_zero(t1) & ~7;
                 * (agm::uint64 *) temperature = t0 & ((1LL << zerobits) - 1);
                 src = src + (zerobits >> 3) + 1;
