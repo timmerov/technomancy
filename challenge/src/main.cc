@@ -160,49 +160,41 @@ public:
 
         agm::int64 count = 0;
         while (src < limit) {
-            auto dst64 = (agm::int64 *) location;
-            dst64[0] = 0LL;
-            dst64[1] = 0LL;
-            dst64[2] = 0LL;
-            dst64[3] = 0LL;
-            char *dst = location;
-            for(;;) {
-                char ch0 = src[0];
-                char ch1 = src[1];
-                if (ch0 == ';') {
-                    src += 1;
-                    break;
-                }
-                if (ch1 == ';') {
+            {
+                /** copy the location. **/
+                auto dst64 = (agm::int64 *) location;
+                dst64[0] = 0LL;
+                dst64[1] = 0LL;
+                dst64[2] = 0LL;
+                dst64[3] = 0LL;
+                char *dst = location;
+                for(;;) {
+                    char ch0 = src[0];
+                    char ch1 = src[1];
+                    if (ch0 == ';') {
+                        src += 1;
+                        break;
+                    }
+                    if (ch1 == ';') {
+                        src += 2;
+                        dst[0] = ch0;
+                        break;
+                    }
                     src += 2;
                     dst[0] = ch0;
-                    break;
+                    dst[1] = ch1;
+                    dst += 2;
                 }
-                src += 2;
-                dst[0] = ch0;
-                dst[1] = ch1;
-                dst += 2;
             }
 
-            dst64 = (agm::int64 *) temperature;
-            dst64[0] = 0;
-            dst = temperature;
-            for(;;) {
-                char ch0 = src[0];
-                char ch1 = src[1];
-                if (ch0 == 0x0A) {
-                    src += 1;
-                    break;
-                }
-                if (ch1 == 0x0A) {
-                    src += 2;
-                    dst[0] = ch0;
-                    break;
-                }
-                src += 2;
-                dst[0] = ch0;
-                dst[1] = ch1;
-                dst += 2;
+            {
+                /** copy the temperature. **/
+                agm::uint64 t0 = * (agm::uint64 *) src;
+                auto t1 = t0 ^ 0x0A0A0A0A0A0A0A0ALL;
+                t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                int zerobits = std::countr_zero(t1) & ~7;
+                * (agm::uint64 *) temperature = t0 & ((1 << zerobits) - 1);
+                src = src + (zerobits >> 3) + 1;
             }
 
             ++count;
