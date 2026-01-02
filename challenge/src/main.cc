@@ -160,10 +160,22 @@ public:
             {
                 /** copy the location using the trailing zeros method. **/
                 auto dst64 = (agm::int64 *) location;
-                agm::uint64 s0 = ((agm::uint64 *) src)[0];
+                auto s0 = ((agm::uint64 *) src)[0];
+                auto s1 = ((agm::uint64 *) src)[1];
+                //auto s2 = ((agm::uint64 *) src)[2];
+                //auto s3 = ((agm::uint64 *) src)[3];
                 auto t0 = s0 ^ 0x3B3B3B3B3B3B3B3BLL;
+                auto t1 = s1 ^ 0x3B3B3B3B3B3B3B3BLL;
+                //auto t2 = s2 ^ 0x3B3B3B3B3B3B3B3BLL;
+                //auto t3 = s3 ^ 0x3B3B3B3B3B3B3B3BLL;
                 auto u0 = 0x8080808080808080LL & ~t0 & (t0 - 0x0101010101010101L);
+                auto u1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
+                //auto u2 = 0x8080808080808080LL & ~t2 & (t2 - 0x0101010101010101L);
+                //auto u3 = 0x8080808080808080LL & ~t3 & (t3 - 0x0101010101010101L);
                 int zerobits0 = std::countr_zero(u0) & ~7;
+                int zerobits1 = std::countr_zero(u1) & ~7;
+                //int zerobits2 = std::countr_zero(u2) & ~7;
+                //int zerobits3 = std::countr_zero(u3) & ~7;
                 dst64[0] = s0 & ((1LL << zerobits0) - 1);
                 src = src + (zerobits0 >> 3);
                 if (zerobits0 < 64) {
@@ -172,10 +184,10 @@ public:
                     dst64[3] = 0LL;
                     ++src;
                 } else {
-                    agm::uint64 s1 = ((agm::uint64 *) src)[0];
-                    auto t1 = s1 ^ 0x3B3B3B3B3B3B3B3BLL;
-                    auto u1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
-                    int zerobits1 = std::countr_zero(u1) & ~7;
+                    //auto s1 = ((agm::uint64 *) src)[0];
+                    //auto t1 = s1 ^ 0x3B3B3B3B3B3B3B3BLL;
+                    //auto u1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
+                    //int zerobits1 = std::countr_zero(u1) & ~7;
                     dst64[1] = s1 & ((1LL << zerobits1) - 1);
                     src = src + (zerobits1 >> 3);
                     if (zerobits1 < 64) {
@@ -183,20 +195,24 @@ public:
                         dst64[3] = 0LL;
                         ++src;
                     } else {
-                        agm::uint64 s2 = ((agm::uint64 *) src)[0];
+                        auto s2 = ((agm::uint64 *) src)[0];
+                        auto s3 = ((agm::uint64 *) src)[1];
                         auto t2 = s2 ^ 0x3B3B3B3B3B3B3B3BLL;
+                        auto t3 = s3 ^ 0x3B3B3B3B3B3B3B3BLL;
                         auto u2 = 0x8080808080808080LL & ~t2 & (t2 - 0x0101010101010101L);
+                        auto u3 = 0x8080808080808080LL & ~t3 & (t3 - 0x0101010101010101L);
                         int zerobits2 = std::countr_zero(u2) & ~7;
+                        int zerobits3 = std::countr_zero(u3) & ~7;
                         dst64[2] = s2 & ((1LL << zerobits2) - 1);
                         src = src + (zerobits2 >> 3);
                         if (zerobits2 < 64) {
                             dst64[3] = 0LL;
                             ++src;
                         } else {
-                            agm::uint64 s3 = ((agm::uint64 *) src)[0];
-                            auto t3 = s3 ^ 0x3B3B3B3B3B3B3B3BLL;
-                            auto u3 = 0x8080808080808080LL & ~t3 & (t3 - 0x0101010101010101L);
-                            int zerobits3 = std::countr_zero(u3) & ~7;
+                            //auto s3 = ((agm::uint64 *) src)[0];
+                            //auto t3 = s3 ^ 0x3B3B3B3B3B3B3B3BLL;
+                            //auto u3 = 0x8080808080808080LL & ~t3 & (t3 - 0x0101010101010101L);
+                            //int zerobits3 = std::countr_zero(u3) & ~7;
                             dst64[3] = s3 & ((1LL << zerobits3) - 1);
                             src = src + (zerobits3 >> 3) + 1;
                         }
