@@ -108,7 +108,8 @@ public:
         //analyzeTree();
         //unorderedTree();
         //unsortedArray();
-        hashTable();
+        //hashTable();
+        speedRun();
     }
 
     bool init() noexcept {
@@ -142,6 +143,71 @@ public:
         if (fd_ >= 0) {
             close(fd_);
             fd_ = -1;
+        }
+    }
+
+    void speedRun() noexcept {
+        auto src = map_;
+        auto limit = src + length_;
+
+        static constexpr int kTemperatureSize = 8;
+
+        char location[kLocationSize];
+        char temperature[kTemperatureSize];
+
+        //char *loc_limit = &location[kLocationSize];
+        //char *temp_limit = &temperature[kTemperatureSize];
+
+        agm::int64 count = 0;
+        while (src < limit) {
+            auto dst64 = (agm::int64 *) location;
+            dst64[0] = 0LL;
+            dst64[1] = 0LL;
+            dst64[2] = 0LL;
+            dst64[3] = 0LL;
+
+            char *dst = location;
+            for(;;) {
+                char ch = *src++;
+                if (ch == ';') {
+                    break;
+                }
+                *dst++ = ch;
+            }
+            /*while (dst < loc_limit) {
+                *dst++ = 0;
+            }*/
+
+            dst64 = (agm::int64 *) temperature;
+            dst64[0] = 0;
+            dst = temperature;
+            for(;;) {
+                char ch = *src++;
+                if (ch == 0x0A) {
+                    break;
+                }
+                *dst++ = ch;
+            }
+            /*while (dst < temp_limit) {
+                *dst++ = 0;
+            }*/
+
+            ++count;
+            if ((count % (100*1000*1000LL)) == 0) {
+                for (int i = 0; i < kLocationSize; ++i) {
+                    if (location[i] == 0) {
+                        location[i] = '.';
+                    }
+                }
+                for (int i = 0; i < kTemperatureSize; ++i) {
+                    if (temperature[i] == 0) {
+                        temperature[i] = '.';
+                    }
+                }
+                std::string loc(location, kLocationSize);
+                std::string temp(temperature, kTemperatureSize);
+                LOG("row["<<count<<"]: loc=\""<<loc<<"\" temp=\""<<temp<<"\"");
+            }
         }
     }
 
