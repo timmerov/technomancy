@@ -147,8 +147,8 @@ public:
     }
 
     void speedRun() noexcept {
-        auto src = map_;
-        auto limit = src + length_;
+        const char *src = map_;
+        const char *limit = src + length_;
 
         static constexpr int kTemperatureSize = 8;
 
@@ -165,32 +165,45 @@ public:
             dst64[1] = 0LL;
             dst64[2] = 0LL;
             dst64[3] = 0LL;
-
             char *dst = location;
             for(;;) {
-                char ch = *src++;
-                if (ch == ';') {
+                char ch0 = src[0];
+                char ch1 = src[1];
+                if (ch0 == ';') {
+                    src += 1;
                     break;
                 }
-                *dst++ = ch;
+                if (ch1 == ';') {
+                    src += 2;
+                    dst[0] = ch0;
+                    break;
+                }
+                src += 2;
+                dst[0] = ch0;
+                dst[1] = ch1;
+                dst += 2;
             }
-            /*while (dst < loc_limit) {
-                *dst++ = 0;
-            }*/
 
             dst64 = (agm::int64 *) temperature;
             dst64[0] = 0;
             dst = temperature;
             for(;;) {
-                char ch = *src++;
-                if (ch == 0x0A) {
+                char ch0 = src[0];
+                char ch1 = src[1];
+                if (ch0 == 0x0A) {
+                    src += 1;
                     break;
                 }
-                *dst++ = ch;
+                if (ch1 == 0x0A) {
+                    src += 2;
+                    dst[0] = ch0;
+                    break;
+                }
+                src += 2;
+                dst[0] = ch0;
+                dst[1] = ch1;
+                dst += 2;
             }
-            /*while (dst < temp_limit) {
-                *dst++ = 0;
-            }*/
 
             ++count;
             if ((count % (100*1000*1000LL)) == 0) {
