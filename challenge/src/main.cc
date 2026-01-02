@@ -155,35 +155,52 @@ public:
         char location[kLocationSize];
         char temperature[kTemperatureSize];
 
-        //char *loc_limit = &location[kLocationSize];
-        //char *temp_limit = &temperature[kTemperatureSize];
-
         agm::int64 count = 0;
         while (src < limit) {
             {
-                /** copy the location. **/
                 auto dst64 = (agm::int64 *) location;
-                dst64[0] = 0LL;
-                dst64[1] = 0LL;
-                dst64[2] = 0LL;
-                dst64[3] = 0LL;
-                char *dst = location;
-                for(;;) {
-                    char ch0 = src[0];
-                    char ch1 = src[1];
-                    if (ch0 == ';') {
-                        src += 1;
-                        break;
+                agm::uint64 t0 = * (agm::uint64 *) src;
+                auto t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
+                t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                int zerobits = std::countr_zero(t1) & ~7;
+                dst64[0] = t0 & ((1LL << zerobits) - 1);
+                src = src + (zerobits >> 3);
+                if (zerobits < 64) {
+                    dst64[1] = 0LL;
+                    dst64[2] = 0LL;
+                    dst64[3] = 0LL;
+                    ++src;
+                } else {
+                    t0 = * (agm::uint64 *) src;
+                    t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
+                    t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                    zerobits = std::countr_zero(t1) & ~7;
+                    dst64[1] = t0 & ((1LL << zerobits) - 1);
+                    src = src + (zerobits >> 3);
+                    if (zerobits < 64) {
+                        dst64[2] = 0LL;
+                        dst64[3] = 0LL;
+                        ++src;
+                    } else {
+                        t0 = * (agm::uint64 *) src;
+                        t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
+                        t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                        zerobits = std::countr_zero(t1) & ~7;
+                        dst64[2] = t0 & ((1LL << zerobits) - 1);
+                        src = src + (zerobits >> 3);
+                        if (zerobits < 64) {
+                            auto dst64 = (agm::int64 *) location;
+                            dst64[3] = 0LL;
+                            ++src;
+                        } else {
+                            t0 = * (agm::uint64 *) src;
+                            t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
+                            t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
+                            zerobits = std::countr_zero(t1) & ~7;
+                            dst64[3] = t0 & ((1LL << zerobits) - 1);
+                            src = src + (zerobits >> 3) + 1;
+                        }
                     }
-                    if (ch1 == ';') {
-                        src += 2;
-                        dst[0] = ch0;
-                        break;
-                    }
-                    src += 2;
-                    dst[0] = ch0;
-                    dst[1] = ch1;
-                    dst += 2;
                 }
             }
 
@@ -193,7 +210,7 @@ public:
                 auto t1 = t0 ^ 0x0A0A0A0A0A0A0A0ALL;
                 t1 = ~t0 & 0x8080808080808080LL & (t1 - 0x0101010101010101L);
                 int zerobits = std::countr_zero(t1) & ~7;
-                * (agm::uint64 *) temperature = t0 & ((1 << zerobits) - 1);
+                * (agm::uint64 *) temperature = t0 & ((1LL << zerobits) - 1);
                 src = src + (zerobits >> 3) + 1;
             }
 
@@ -213,6 +230,9 @@ public:
                 std::string temp(temperature, kTemperatureSize);
                 LOG("row["<<count<<"]: loc=\""<<loc<<"\" temp=\""<<temp<<"\"");
             }
+            /*if (count > 10) {
+                break;
+            }*/
         }
     }
 
