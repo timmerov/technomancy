@@ -160,46 +160,45 @@ public:
             {
                 /** copy the location using the trailing zeros method. **/
                 auto dst64 = (agm::int64 *) location;
-                agm::uint64 t0 = * (agm::uint64 *) src;
-                auto t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
-                t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
-                int zerobits = std::countr_zero(t1) & ~7;
-                dst64[0] = t0 & ((1LL << zerobits) - 1);
-                src = src + (zerobits >> 3);
-                if (zerobits < 64) {
+                agm::uint64 s0 = ((agm::uint64 *) src)[0];
+                auto t0 = s0 ^ 0x3B3B3B3B3B3B3B3BLL;
+                auto u0 = 0x8080808080808080LL & ~t0 & (t0 - 0x0101010101010101L);
+                int zerobits0 = std::countr_zero(u0) & ~7;
+                dst64[0] = s0 & ((1LL << zerobits0) - 1);
+                src = src + (zerobits0 >> 3);
+                if (zerobits0 < 64) {
                     dst64[1] = 0LL;
                     dst64[2] = 0LL;
                     dst64[3] = 0LL;
                     ++src;
                 } else {
-                    t0 = * (agm::uint64 *) src;
-                    t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
-                    t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
-                    zerobits = std::countr_zero(t1) & ~7;
-                    dst64[1] = t0 & ((1LL << zerobits) - 1);
-                    src = src + (zerobits >> 3);
-                    if (zerobits < 64) {
+                    agm::uint64 s1 = ((agm::uint64 *) src)[0];
+                    auto t1 = s1 ^ 0x3B3B3B3B3B3B3B3BLL;
+                    auto u1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
+                    int zerobits1 = std::countr_zero(u1) & ~7;
+                    dst64[1] = s1 & ((1LL << zerobits1) - 1);
+                    src = src + (zerobits1 >> 3);
+                    if (zerobits1 < 64) {
                         dst64[2] = 0LL;
                         dst64[3] = 0LL;
                         ++src;
                     } else {
-                        t0 = * (agm::uint64 *) src;
-                        t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
-                        t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
-                        zerobits = std::countr_zero(t1) & ~7;
-                        dst64[2] = t0 & ((1LL << zerobits) - 1);
-                        src = src + (zerobits >> 3);
-                        if (zerobits < 64) {
-                            auto dst64 = (agm::int64 *) location;
+                        agm::uint64 s2 = ((agm::uint64 *) src)[0];
+                        auto t2 = s2 ^ 0x3B3B3B3B3B3B3B3BLL;
+                        auto u2 = 0x8080808080808080LL & ~t2 & (t2 - 0x0101010101010101L);
+                        int zerobits2 = std::countr_zero(u2) & ~7;
+                        dst64[2] = s2 & ((1LL << zerobits2) - 1);
+                        src = src + (zerobits2 >> 3);
+                        if (zerobits2 < 64) {
                             dst64[3] = 0LL;
                             ++src;
                         } else {
-                            t0 = * (agm::uint64 *) src;
-                            t1 = t0 ^ 0x3B3B3B3B3B3B3B3B;
-                            t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
-                            zerobits = std::countr_zero(t1) & ~7;
-                            dst64[3] = t0 & ((1LL << zerobits) - 1);
-                            src = src + (zerobits >> 3) + 1;
+                            agm::uint64 s3 = ((agm::uint64 *) src)[0];
+                            auto t3 = s3 ^ 0x3B3B3B3B3B3B3B3BLL;
+                            auto u3 = 0x8080808080808080LL & ~t3 & (t3 - 0x0101010101010101L);
+                            int zerobits3 = std::countr_zero(u3) & ~7;
+                            dst64[3] = s3 & ((1LL << zerobits3) - 1);
+                            src = src + (zerobits3 >> 3) + 1;
                         }
                     }
                 }
@@ -207,12 +206,12 @@ public:
 
             {
                 /** copy the temperature using the trailing zeros method. **/
-                agm::uint64 t0 = * (agm::uint64 *) src;
-                auto t1 = t0 ^ 0x0A0A0A0A0A0A0A0ALL;
-                t1 = 0x8080808080808080LL & ~t1 & (t1 - 0x0101010101010101L);
-                int zerobits = std::countr_zero(t1) & ~7;
-                * (agm::uint64 *) temperature = t0 & ((1LL << zerobits) - 1);
-                src = src + (zerobits >> 3) + 1;
+                agm::uint64 s0 = ((agm::uint64 *) src)[0];
+                auto t0 = s0 ^ 0x0A0A0A0A0A0A0A0ALL;
+                auto u0 = 0x8080808080808080LL & ~t0 & (t0 - 0x0101010101010101L);
+                int zerobits0 = std::countr_zero(u0) & ~7;
+                ((agm::uint64 *) temperature)[0] = s0 & ((1LL << zerobits0) - 1);
+                src = src + (zerobits0 >> 3) + 1;
             }
 
             ++count;
